@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QApplication
 from ADB_module import ADB_Mainwindow
 import qdarkstyle
 
-
+"""功能完整，已测试"""
 
 def main():
     app = QApplication(sys.argv)
