@@ -195,26 +195,6 @@ def simulate_click(x, y, device_id):
 		print(f"点击失败: {e}")
 
 
-# def adb_push_file(local_file_path, target_path_on_device, device_id):
-#     try:
-#         # 执行 adb disable-verity
-#         command_disable_verity = f"adb -s {device_id} disable-verity"
-#         subprocess.run(command_disable_verity, shell=True, check=True)
-#         print("disable-verity 命令执行成功！")
-#
-#         # 执行 adb remount
-#         command_remount = f"adb -s {device_id} remount"
-#         subprocess.run(command_remount, shell=True, check=True)
-#         print("remount 命令执行成功！")
-#
-#         # 执行文件推送
-#         command_push = f"adb -s {device_id} push {local_file_path} {target_path_on_device}"
-#         subprocess.run(command_push, shell=True, check=True)
-#         print("文件推送成功！")
-#
-#     except subprocess.CalledProcessError as e:
-#         print(f"操作失败: {e}")
-
 def adb_push_file(local_file_path, target_path_on_device, device_id):
 	command = f"adb -s {device_id} push {local_file_path} {target_path_on_device}"
 	try:
