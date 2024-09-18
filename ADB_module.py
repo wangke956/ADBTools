@@ -46,7 +46,7 @@ def connect_device():
 		result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, text=True)
 		devices = result.stdout.strip().split('\n')[1:]
 		if not devices:
-			print("未连接设备", end="")
+			# print("未连接设备", end="")
 			return None
 		return devices[0].split('\t')[0]
 	except subprocess.CalledProcessError as e:
@@ -257,8 +257,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 	def start_app_action(self):
 		"""启动应用"""
-		device_id = self.device_id
-		if device_id:
+		device_id_lst = self.refresh_devices()
+		device_id = self.get_selected_device()
+		if device_id in device_id_lst:
 			try:
 				# 弹出对话框，请用户输入应用包名和活动名，格式为：包名: com.android.settings, 活动名:.MainSettings
 				input_text, ok = QInputDialog.getText(self, '输入应用信息',
@@ -281,6 +282,10 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 				# print(package_name)
 				# print(activity_name)
 				print(f"启动应用失败: {e}")
+		else:
+			# print("未连接设备！")
+			pass
+
 
 	def get_running_app_info(self):
 		# 获取当前前景应用的包名
@@ -342,8 +347,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 				self.textBrowser.append(f"设备列表已刷新：\n{device_ids_str}")
 				return device_ids  # 返回设备ID列表
 			else:
-				print("未找到设备", end="")
-				# self.textBrowser.append("append:未找到设备")
+				print("未连接设备！", end="")
+				# self.textBrowser.append("append:未连接设备！")
 				return device_ids  # 返回设备ID列表
 
 
@@ -358,7 +363,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 			self.textBrowser.append(adb_root(device_id))
 			# adb_root(device_id)
 		else:
-			print("未选择设备", end="")
+			print("未连接设备！", end="")
 
 	def reboot_device(self):
 		device_id = self.get_selected_device()
@@ -374,26 +379,37 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 	def show_screenshot_dialog(self):
 		device_id = self.get_selected_device()
-		if device_id:
+		devices_id_lst = self.refresh_devices()
+		if device_id in devices_id_lst:
 			file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
 			if file_path:
 				get_screenshot(file_path, device_id)
+		else:
+			# print("")
+			pass
 
 	def show_uninstall_dialog(self):
 		device_id = self.get_selected_device()
-		if device_id:
+		devices_id_lst = self.refresh_devices()
+		if device_id in devices_id_lst:
 			package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要卸载的应用包名：")
 			if ok and package_name:
 				adb_uninstall(package_name, device_id)
+		else:
+			# print("未连接设备！")
+			pass
 
 	def show_pull_file_dialog(self):
 		device_id = self.get_selected_device()
-		if device_id:
+		device_id_lst = self.refresh_devices()
+		if device_id in device_id_lst:
 			file_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径", "请输入车机上的文件路径:")
 			if ok and file_path_on_device:
 				local_path, _ = QFileDialog.getSaveFileName(self, "保存文件", "", "All Files (*)")
 				if local_path:
 					adb_pull_file(file_path_on_device, local_path, device_id)
+		else:
+			pass
 
 	def show_install_file_dialog(self):
 		device_id = self.get_selected_device()
@@ -419,26 +435,33 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 	def show_push_file_dialog(self):
 		device_id = self.get_selected_device()
-		if device_id:
+		device_id_lst = self.refresh_devices()
+		if device_id in device_id_lst:
 			local_file_path, _ = QFileDialog.getOpenFileName(self, "选择本地文件", "", "All Files (*)")
 			if local_file_path:
 				target_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径",
 																 "请输入车机上的目标路径:")
 				if ok and target_path_on_device:
 					adb_push_file(local_file_path, target_path_on_device, device_id)
+		else:
+			print("未连接设备！")
 
 	def show_simulate_click_dialog(self):
 		device_id = self.get_selected_device()
-		if device_id:
+		device_id_lst = self.refresh_devices()
+		if device_id in device_id_lst:
 			x, ok = QInputDialog.getInt(self, "输入 X 坐标", "请输入点击的 X 坐标:")
 			if ok:
 				y, ok = QInputDialog.getInt(self, "输入 Y 坐标", "请输入点击的 Y 坐标:")
 				if ok:
 					simulate_click(x, y, device_id)
+		else:
+			print("未连接设备！")
 
 	def show_simulate_swipe_dialog(self):
 		device_id = self.get_selected_device()
-		if device_id:
+		device_id_lst = self.refresh_devices()
+		if device_id in device_id_lst:
 			start_x, ok = QInputDialog.getInt(self, "输入起始 X 坐标", "请输入滑动起始的 X 坐标:")
 			if ok:
 				start_y, ok = QInputDialog.getInt(self, "输入起始 Y 坐标", "请输入滑动起始的 Y 坐标:")
@@ -451,10 +474,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 															   "请输入滑动的持续时间（毫秒，默认为 200 毫秒）:")
 							if ok:
 								simulate_swipe(start_x, start_y, end_x, end_y, duration, device_id)
+		else:
+			print("未连接设备！")
 
 	def show_simulate_long_press_dialog(self):
 		device_id = self.get_selected_device()
-		if device_id:
+		device_id_lst = self.refresh_devices()
+		if device_id in device_id_lst:
 			x, ok = QInputDialog.getInt(self, "输入 X 坐标", "请输入长按的 X 坐标:")
 			if ok:
 				y, ok = QInputDialog.getInt(self, "输入 Y 坐标", "请输入长按的 Y 坐标:")
@@ -463,6 +489,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 													   "请输入长按的持续时间（毫秒，默认为 2000 毫秒）:")
 					if ok:
 						simulate_long_press(x, y, duration, device_id)
+		else:
+			# print("未连接设备！")
+			pass
 
 	def show_input_text_dialog(self):
 		device_id = self.get_selected_device()
@@ -575,10 +604,11 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 		s_lst = self.refresh_devices()
 
 		if not s_lst:  # 如果刷新后设备列表为空
-			print("未连接任何设备")
+			# print("未连接任何设备")
+			pass
 			return None
 
-		print(f"选择的设备: {device_id}")
+		# print(f"选择的设备: {device_id}")
 
 		if device_id in s_lst:  # 检查选择的设备是否在设备列表中
 			try:
@@ -600,7 +630,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 				print(f"获取前台正在运行的应用包名失败: {e}")
 				return None
 		else:
-			print("选择的设备不在设备列表中，请刷新设备列表或选择其他设备")
+			# print("选择的设备不在设备列表中，请刷新设备列表或选择其他设备")
 			return None
 
 	def stop_program(self):
