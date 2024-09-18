@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'new_6_1.ui'
+# Form implementation generated from reading ui file 'backup0.bak.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.9
 #
@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(561, 790)
+        MainWindow.resize(561, 833)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -186,6 +186,14 @@ class Ui_MainWindow(object):
         self.app_package_and_activity.setFont(font)
         self.app_package_and_activity.setObjectName("app_package_and_activity")
         self.verticalLayout_4.addWidget(self.app_package_and_activity)
+        self.get_running_app_info_button = QtWidgets.QPushButton(self.ADB)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(1)
+        sizePolicy.setHeightForWidth(self.get_running_app_info_button.sizePolicy().hasHeightForWidth())
+        self.get_running_app_info_button.setSizePolicy(sizePolicy)
+        self.get_running_app_info_button.setObjectName("get_running_app_info_button")
+        self.verticalLayout_4.addWidget(self.get_running_app_info_button)
         self.clear_app_cache = QtWidgets.QPushButton(self.ADB)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -374,6 +382,7 @@ class Ui_MainWindow(object):
         self.pull_log_without_clear.setText(_translate("MainWindow", "Pull all log"))
         self.pull_log_with_clear.setText(_translate("MainWindow", "Clear-Pull log"))
         self.app_package_and_activity.setText(_translate("MainWindow", "Package name/Activity"))
+        self.get_running_app_info_button.setText(_translate("MainWindow", "获取应用版本号"))
         self.clear_app_cache.setText(_translate("MainWindow", "Clear App 缓存"))
         self.force_stop_app.setText(_translate("MainWindow", "Close App"))
         self.adbbutton.setText(_translate("MainWindow", "执行adb"))

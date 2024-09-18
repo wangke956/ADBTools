@@ -253,6 +253,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 		self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
 		self.adb_root.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
 		self.start_app.clicked.connect(self.start_app_action)  # 启动应用
+		self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
 
 	def start_app_action(self):
 		"""启动应用"""
@@ -280,6 +281,30 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 				# print(package_name)
 				# print(activity_name)
 				print(f"启动应用失败: {e}")
+
+	def get_running_app_info(self):
+		# 获取当前前景应用的包名
+		device_id = self.get_selected_device()  # 获取当前选定的设备ID
+		package_name = self.get_foreground_package(device_id)  # 传入 device_id 获取包名
+
+		if package_name:
+			try:
+				# 连接到设备
+				d = u2.connect(device_id)  # 使用获取的设备ID
+
+				# 获取应用信息
+				app_info = d.app_info(package_name)
+
+				if app_info:
+					version_name = app_info.get('versionName', '未知版本')
+					# print(f"当前运行的应用包名: {package_name}")
+					print(f"当前运行的应用版本号: {version_name}")
+				else:
+					print("无法获取应用信息")
+			except Exception as e:
+				print(f"获取应用信息失败: {e}")
+		else:
+			print("未获取到当前前景应用的包名")
 
 	def get_selected_device(self):
 		return self.ComboxButton.currentText()
