@@ -577,69 +577,70 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     """install_system_action()函数"""
     def install_system_action(self):
-        device_id = self.get_selected_device()
-
-        def get_package_name_from_apk(apk_path):
-            aapt_path = "aapt"  # 假设 aapt 在 PATH 中，如果没有，请指定完整路径
-            if not shutil.which(aapt_path):
-                print(f"错误: 找不到 aapt 工具，请检查 Android SDK 是否正确安装")
-                return None
-
-            try:
-                # 使用 aapt 获取 APK 的包名
-                result = subprocess.run([aapt_path, 'dump', 'badging', apk_path], capture_output=True, text=True,
-                                        check=True)
-                for line in result.stdout.splitlines():
-                    if line.startswith('package: name='):
-                        # 提取包名
-                        package_name = line.split("'")[1]
-                        return package_name
-            except subprocess.CalledProcessError as e:
-                print(f"获取包名失败: {e}")
-                return None
-            except FileNotFoundError:
-                print(f"错误: 未找到 aapt 工具")
-                return None
-
-        if device_id:
-            try:
-                # 弹出文件选择对话框，选择APK文件
-                apk_path, _ = QFileDialog.getOpenFileName(self, "Select APK", "", "APK Files (*.apk)")
-
-                if apk_path:
-                    # 获取APK文件的包名
-                    package_name = get_package_name_from_apk(apk_path)
-                    if not package_name:
-                        print("无法获取APK的包名")
-                        return
-
-                    # 连接设备
-                    device = u2.connect(device_id)
-
-                    # 运行adb disable-verity命令
-                    subprocess.run(['adb', '-s', device_id, 'disable-verity'], check=True)
-                    print(f"已禁用verity")
-
-                    # 运行adb remount命令
-                    subprocess.run(['adb', '-s', device_id, 'remount'], check=True)
-                    print(f"已重新挂载")
-
-                    # 获取应用包路径
-                    result = subprocess.run(['adb', '-s', device_id, 'shell', 'pm', 'path', package_name],
-                                            capture_output=True, text=True, check=True)
-                    print(f"获取到应用包路径: {result.stdout.strip()}")
-                    path = result.stdout.strip().split(':')[-1]
-
-                    # 向设备推送apk文件
-                    subprocess.run(['adb', '-s', device_id, 'push', apk_path, path], check=True)
-
-                    # 安装apk
-                    subprocess.run(['adb', '-s', device_id, 'install', apk_path], check=True)
-
-            except subprocess.CalledProcessError as e:
-                print(f"操作失败: {e}")
-            except Exception as e:
-                print(f"发生错误: {e}")
+        print("功能待定")
+        # device_id = self.get_selected_device()
+        #
+        # def get_package_name_from_apk(apk_path):
+        #     aapt_path = "aapt"  # 假设 aapt 在 PATH 中，如果没有，请指定完整路径
+        #     if not shutil.which(aapt_path):
+        #         print(f"错误: 找不到 aapt 工具，请检查 Android SDK 是否正确安装")
+        #         return None
+        #
+        #     try:
+        #         # 使用 aapt 获取 APK 的包名
+        #         result = subprocess.run([aapt_path, 'dump', 'badging', apk_path], capture_output=True, text=True,
+        #                                 check=True)
+        #         for line in result.stdout.splitlines():
+        #             if line.startswith('package: name='):
+        #                 # 提取包名
+        #                 package_name = line.split("'")[1]
+        #                 return package_name
+        #     except subprocess.CalledProcessError as e:
+        #         print(f"获取包名失败: {e}")
+        #         return None
+        #     except FileNotFoundError:
+        #         print(f"错误: 未找到 aapt 工具")
+        #         return None
+        #
+        # if device_id:
+        #     try:
+        #         # 弹出文件选择对话框，选择APK文件
+        #         apk_path, _ = QFileDialog.getOpenFileName(self, "Select APK", "", "APK Files (*.apk)")
+        #
+        #         if apk_path:
+        #             # 获取APK文件的包名
+        #             package_name = get_package_name_from_apk(apk_path)
+        #             if not package_name:
+        #                 print("无法获取APK的包名")
+        #                 return
+        #
+        #             # 连接设备
+        #             device = u2.connect(device_id)
+        #
+        #             # 运行adb disable-verity命令
+        #             subprocess.run(['adb', '-s', device_id, 'disable-verity'], check=True)
+        #             print(f"已禁用verity")
+        #
+        #             # 运行adb remount命令
+        #             subprocess.run(['adb', '-s', device_id, 'remount'], check=True)
+        #             print(f"已重新挂载")
+        #
+        #             # 获取应用包路径
+        #             result = subprocess.run(['adb', '-s', device_id, 'shell', 'pm', 'path', package_name],
+        #                                     capture_output=True, text=True, check=True)
+        #             print(f"获取到应用包路径: {result.stdout.strip()}")
+        #             path = result.stdout.strip().split(':')[-1]
+        #
+        #             # 向设备推送apk文件
+        #             subprocess.run(['adb', '-s', device_id, 'push', apk_path, path], check=True)
+        #
+        #             # 安装apk
+        #             subprocess.run(['adb', '-s', device_id, 'install', apk_path], check=True)
+        #
+        #     except subprocess.CalledProcessError as e:
+        #         print(f"操作失败: {e}")
+        #     except Exception as e:
+        #         print(f"发生错误: {e}")
 
     def get_foreground_package(self, device_id):
         # 刷新设备列表
