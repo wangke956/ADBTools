@@ -254,7 +254,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 		self.install_system.clicked.connect(self.install_system_action)  # 安装系统应用
 		self.close.clicked.connect(self.stop_program)  # 关闭程序
 		self.adbbutton.clicked.connect(ADB_Mainwindow.run_cmd)  # 执行 adb 命令
-		# self.adbbutton.clicked.connect(ADB_Mainwindow.run_cmd())  # 执行 adb 命令
 		self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
 		self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
 		self.adb_root.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
