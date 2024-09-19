@@ -376,7 +376,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 		device_id = self.get_selected_device()
 		if device_id:
 			self.textBrowser.append(adb_root(device_id))
-			# adb_root(device_id)
+			print("获取Root成功！")
 		else:
 			print("未连接设备！", end="")
 
