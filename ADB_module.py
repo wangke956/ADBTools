@@ -147,12 +147,17 @@ def simulate_long_press(x, y, duration, device_id):
 
 
 def adb_install(package_path, device_id):
-	command = f"adb -s {device_id} install {package_path}"
-	try:
-		subprocess.run(command, shell=True, check=True)
-		print("应用安装成功！")
-	except subprocess.CalledProcessError as e:
-		print(f"应用安装失败: {e}")
+	devices_id_lst = ADB_Mainwindow.refresh_devices(ADB_Mainwindow())
+	devices_id = ADB_Mainwindow.get_selected_device(ADB_Mainwindow())
+	if devices_id in devices_id_lst:
+		command = f"adb -s {device_id} install {package_path}"
+		try:
+			subprocess.run(command, shell=True, check=True)
+			print("应用安装成功！")
+		except subprocess.CalledProcessError as e:
+			print(f"应用安装失败: {e}")
+	else:
+		print("设备已断开！")
 
 def clear_app_cache(device, package_name):
 	if device is not None:
@@ -366,8 +371,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 			print("未连接设备！", end="")
 
 	def reboot_device(self):
+
 		device_id = self.get_selected_device()
-		if device_id:
+		result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, text=True)  # 执行 adb devices 命令
+		devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
+		device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+
+		if device_id in device_ids:
 			try:
 				# 执行 adb reboot 命令
 				subprocess.run(f"adb -s {device_id} reboot", shell=True, check=True)
@@ -375,7 +385,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 			except subprocess.CalledProcessError as e:
 				print(f"重启设备失败: {e}")
 		else:
-			print("未连接设备！", end="")
+			print("设备已断开！", end="")
 
 	def show_screenshot_dialog(self):
 		device_id = self.get_selected_device()
