@@ -1,4 +1,3 @@
-import shutil
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog)
 import sys
 import io
@@ -97,9 +96,9 @@ def simulate_swipe(start_x, start_y, end_x, end_y, duration, device_id):
         print(f"滑动失败: {e}")
 
 
-def adb_operation(device_id):
-    result = subprocess.run(f'adb -s {device_id} devices', capture_output=True, text=True)
-    print(result.stdout)
+# def adb_operation(device_id):
+#     result = subprocess.run(f'adb -s {device_id} devices', capture_output=True, text=True)
+#     print(result.stdout)
 
 
 def input_text_via_adb(text_to_input, device_id):
@@ -237,7 +236,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.refresh_devices()  # 刷新设备列表
         self.adb_cpu_info.clicked.connect(self.adb_cpu_info_wrapper)  # 显示CPU信息
         self.simulate_swipe.clicked.connect(self.show_simulate_swipe_dialog)  # 模拟滑动
-        self.adb_operation.clicked.connect(self.adb_operation_wrapper)  # 执行 ADB 操作
+        # self.adb_operation.clicked.connect(self.adb_operation_wrapper)  # 显示设备号
+        self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb.clicked.connect(self.show_input_text_dialog)  # 输入文本
         self.get_screenshot.clicked.connect(self.show_screenshot_dialog)  # 截图
         self.force_stop_app.clicked.connect(self.show_force_stop_app_dialog)  # 强制停止应用
@@ -261,8 +261,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
 
 
-
-    def get_new_device_lst(self):
+    @staticmethod
+    def get_new_device_lst():  # 静态方法，返回设备ID列表
         # device_id = self.get_selected_device()
         result = subprocess.run("adb devices", shell=True, check=True, capture_output=True,
                                 text=True)  # 执行 adb devices 命令
@@ -307,7 +307,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         # 获取当前前景应用的包名
         device_id = self.get_selected_device()  # 获取当前选定的设备ID
         devices_id_lst = self.get_new_device_lst()
-        package_name = self.get_foreground_package(device_id)  # 传入 device_id 获取包名
+        package_name = self.get_foreground_package()  # 传入 device_id 获取包名
         if device_id in devices_id_lst:
             if package_name:
                 try:
@@ -341,10 +341,20 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         else:
             print("设备已断开！", end="")
 
-    def adb_operation_wrapper(self):
+    def view_apk_path_wrapper(self):
         device_id = self.get_selected_device()
-        if device_id:
-            adb_operation(device_id)
+        devices_id_lst = self.get_new_device_lst()
+        if device_id in devices_id_lst:
+            # 获取当前应用包名
+            package_name = self.get_foreground_package()
+            cmd = f'adb -s {device_id} shell pm path {package_name}'
+            result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+            # 输出安装目录
+            apk_path = result.stdout.strip()
+            parts = apk_path.split(":")
+            print(f"应用安装路径: {parts[1]}")
+        else:
+            print("设备已断开！", end="")
 
     @staticmethod
     def run_cmd():
@@ -550,7 +560,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         #     print(f"选择的设备ID: {device_id}")
 
         if device_id != "":
-            package_name = self.get_foreground_package(device_id)
+            package_name = self.get_foreground_package()
             print(f"当前前台应用包名: {package_name}")
             if package_name:
                 # 使用ADB命令强制停止应用
@@ -567,7 +577,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def show_clear_app_cache_dialog(self):
         device_id = self.get_selected_device()  # 获取用户选择的设备ID
         if device_id:
-            package_name = self.get_foreground_package(device_id)
+            package_name = self.get_foreground_package()
             if package_name:
                 clear_app_cache(u2.connect(device_id), package_name)  # 清除应用缓存
             else:
@@ -576,7 +586,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             print("未选择设备", end="")
 
     """install_system_action()函数"""
-    def install_system_action(self):
+    @staticmethod
+    def install_system_action():
         print("功能待定")
         # device_id = self.get_selected_device()
         #
@@ -642,7 +653,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         #     except Exception as e:
         #         print(f"发生错误: {e}")
 
-    def get_foreground_package(self, device_id):
+    def get_foreground_package(self):
         # 刷新设备列表
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
@@ -669,5 +680,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             print("设备已断开！")
             # return None
 
-    def stop_program(self):
+    @staticmethod
+    def stop_program():
         sys.exit()
