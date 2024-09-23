@@ -216,23 +216,19 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         super(ADB_Mainwindow, self).__init__(parent)
         self.setupUi(self)
         """print重定向到textEdit、textBrowser"""
-        # self.text_edit_output_stream = TextEditOutputStream(self.textEdit)
-        # self.device_id = None
+
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
-        # sys.stderr = self.text_edit_output_stream
+        sys.stderr = self.text_edit_output_stream
 
         self.device_id = connect_device()
-        # device_id类型为：str
 
         if self.device_id:
             self.device = u2.connect(self.device_id)
-            # print(type(self.device))
         else:
             self.device = None
 
-        # self.adb_root_wrapper()
-        # print('ADB Tools 已启动')
+
         self.refresh_devices()  # 刷新设备列表
         self.adb_cpu_info.clicked.connect(self.adb_cpu_info_wrapper)  # 显示CPU信息
         self.simulate_swipe.clicked.connect(self.show_simulate_swipe_dialog)  # 模拟滑动
