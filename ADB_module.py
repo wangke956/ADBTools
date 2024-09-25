@@ -54,26 +54,33 @@ def connect_device():
 
 
 def adb_root(device_id):
-    try:
-        result = subprocess.run(f"adb -s {device_id} root", shell=True, check=True, capture_output=True, text=True)
-        # print(result.stdout)
-        if "adbd is already running as root" in result.stdout:
-            # print("ADB 已成功以 root 权限运行")
-            return "ADB 已成功以 root 权限运行"
-        elif 'adbd cannot run as root in production builds'in result.stdout:
-            # print("设备不支持 ADB root，无法以 root 权限运行。")
-            return "设备不支持 ADB root，无法以 root 权限运行。"
+    device_ids = ADB_Mainwindow.refresh_devices(self=ADB_Mainwindow())
+    if device_id in device_ids:
+        try:
+            result = subprocess.run(f"adb -s {device_id} root", shell=True, check=True, capture_output=True, text=True)
+            # print(result.stdout)
+            if "adbd is already running as root" in result.stdout:
+                # print("ADB 已成功以 root 权限运行")
+                return "ADB 已成功以 root 权限运行"
+            elif 'adbd cannot run as root in production builds'in result.stdout:
+                # print("设备不支持 ADB root，无法以 root 权限运行。")
+                return "设备不支持 ADB root，无法以 root 权限运行。"
 
-    except subprocess.CalledProcessError as e:
-        if "not found" in str(e):
-            print("ADB 命令未找到，请确保 ADB 工具已正确安装并添加到系统路径中。")
-        elif "permission denied" in str(e):
-            print("权限被拒绝，请确保你有足够的权限执行 ADB root 命令。")
-        elif "adbd cannot run as root" in str(e):
-            print("设备不支持 ADB root，无法以 root 权限运行。")
-        else:
-            print(f"ADB root 失败: {e}")
-
+        except subprocess.CalledProcessError as e:
+            if "not found" in str(e):
+                return "ADB 命令未找到，请确保 ADB 工具已正确安装并添加到系统路径中。"
+                # print("ADB 命令未找到，请确保 ADB 工具已正确安装并添加到系统路径中。")
+            elif "permission denied" in str(e):
+                return "权限被拒绝，请确保你有足够的权限执行 ADB root 命令。"
+                # print("权限被拒绝，请确保你有足够的权限执行 ADB root 命令。")
+            elif "adbd cannot run as root" in str(e):
+                return "设备不支持 ADB root，无法以 root 权限运行。"
+                # print("设备不支持 ADB root，无法以 root 权限运行。")
+            else:
+                print(f"ADB root 失败: {e}")
+    else:
+        # print("设备未连接！")
+        return "设备未连接！"
 
 def adb_cpu_info(device_id):
     try:
@@ -381,7 +388,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         device_id = self.get_selected_device()
         if device_id:
             self.textBrowser.append(adb_root(device_id))
-            print("获取Root成功！")
+            # print("获取Root成功！")
         else:
             print("未连接设备！", end="")
 
