@@ -46,16 +46,12 @@ def connect_device():
         result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, text=True)
         devices = result.stdout.strip().split('\n')[1:]
         if not devices:
-            # print("未连接设备", end="")
             return None
         return devices[0].split('\t')[0]
     except subprocess.CalledProcessError as e:
         print(f"设备连接失败: {e}")
         return None
 
-# def run_cmd():
-# 	user_directory = os.path.expanduser("~")
-# 	subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
 
 def adb_root(device_id):
     try:
@@ -94,11 +90,6 @@ def simulate_swipe(start_x, start_y, end_x, end_y, duration, device_id):
         print("滑动成功！")
     except subprocess.CalledProcessError as e:
         print(f"滑动失败: {e}")
-
-
-# def adb_operation(device_id):
-#     result = subprocess.run(f'adb -s {device_id} devices', capture_output=True, text=True)
-#     print(result.stdout)
 
 
 def input_text_via_adb(text_to_input, device_id):
@@ -226,7 +217,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if self.device_id:
             self.device = u2.connect(self.device_id)
         else:
-            self.device = None
+            self.device = None  # 类型为 u2.Device 或 None
 
 
         self.refresh_devices()  # 刷新设备列表
@@ -285,6 +276,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     print(package_name)
                     print(activity_name)
                     if len(parts) >= 2:
+                        self.device = u2.connect(device_id)
                         self.device.app_start(package_name, activity_name)
                         print(f"应用 {package_name} 已启动")
                     else:
