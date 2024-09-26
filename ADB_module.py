@@ -206,6 +206,18 @@ def adb_push_file(local_file_path, target_path_on_device, device_id):
     except subprocess.CalledProcessError as e:
         print(f"文件推送失败: {e}")
 
+def aapt_get_packagen_name(apk_path):
+    """
+    通过aapt命令获取apk包名
+    """
+    command = f"aapt dump badging {apk_path} | findstr name"
+    try:
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        package_name = result.stdout.strip().split('\'')[1]
+        return package_name
+    except subprocess.CalledProcessError as e:
+        print(f"获取包名失败: {e}")
+        return None
 
 # noinspection PyShadowingNames
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
@@ -215,6 +227,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         """print重定向到textEdit、textBrowser"""
 
+        # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
         sys.stderr = self.text_edit_output_stream
@@ -253,7 +266,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.adb_root.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
         self.start_app.clicked.connect(self.start_app_action)  # 启动应用
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
-
+        self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
 
     @staticmethod
     def get_new_device_lst():  # 静态方法，返回设备ID列表
@@ -674,6 +687,26 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         else:
             print("设备已断开！")
             # return None
+
+
+    def aapt_getpackage_name_dilog(self):
+        """弹出文件选择框让用户选择apk文件，获取到的apk_path传入到aapt_get_package_name()函数中获取包名"""
+        apk_path, _ = QFileDialog.getOpenFileName(self, "选择APK文件", "", "APK Files (*.apk)")
+        if apk_path:
+            package_name = aapt_get_packagen_name(apk_path)
+            # 从apk_path中提取出文件名
+            apk_name = os.path.basename(apk_path)
+            if package_name:
+                print(f"{apk_name}文件的包名: {package_name}")
+            else:
+                print(f"无法获取{apk_name}文件的包名")
+        else:
+            print("未选择apk文件!", end="")
+
+            # if package_name:
+            #     QMessageBox.information(self, "提示", f"包名: {package_name}")
+            # else:
+            #     QMessageBox.warning(self, "警告", "无法获取APK的包名")
 
     @staticmethod
     def stop_program():
