@@ -1,3 +1,6 @@
+import time
+
+
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog)
 import sys
 import io
@@ -65,6 +68,10 @@ def adb_root(device_id):
             elif 'adbd cannot run as root in production builds'in result.stdout:
                 # print("设备不支持 ADB root，无法以 root 权限运行。")
                 return "设备不支持 ADB root，无法以 root 权限运行。"
+            # 如果root成功则没有任何返回值，如果失败则会抛出异常
+            elif result.returncode == 0:
+                return "ADB root 成功"
+
 
         except subprocess.CalledProcessError as e:
             if "not found" in str(e):
@@ -406,17 +413,23 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             print("未连接设备！", end="")
 
     def reboot_device(self):
-
         device_id = self.get_selected_device()
         device_ids = self.get_new_device_lst()
-
         if device_id in device_ids:
-            try:
-                # 执行 adb reboot 命令
-                subprocess.run(f"adb -s {device_id} reboot", shell=True, check=True)
-                print("设备正在重启...")
-            except subprocess.CalledProcessError as e:
-                print(f"重启设备失败: {e}")
+            # 执行 adb reboot 命令
+            result = subprocess.run(
+                f"adb -s {device_id} reboot",
+                shell = False,
+                check = True,
+                stdout = subprocess.PIPE,  # 捕获输出
+                stderr = subprocess.PIPE  # 捕获错误
+            )
+
+            # print(result.stdout.decode())
+            if "not found" in result.stdout.decode():
+                print("请先root设备！", end="")
+
+
         else:
             print("设备已断开！", end="")
 
