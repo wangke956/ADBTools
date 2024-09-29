@@ -1,6 +1,3 @@
-import time
-
-from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog)
 import sys
 import io
@@ -226,21 +223,6 @@ def aapt_get_packagen_name(apk_path):
         print(f"获取包名失败: {e}")
         return None
 
-class Worker(QThread):
-    update_ui = pyqtSignal(str)  # 定义一个信号用于更新UI，传递字符串消息
-
-    def __init__(self, func, *args):
-        super().__init__()
-        self.func = func  # 将要在新线程中运行的函数
-        self.args = args  # 传递给函数的参数
-
-    def run(self):
-        """在新线程中执行"""
-        try:
-            result = self.func(*self.args)  # 调用指定的函数并传递参数
-            self.update_ui.emit(str(result))  # 将结果发送到主线程以更新UI
-        except Exception as e:
-            self.update_ui.emit(f"执行命令失败: {e}")  # 捕获异常并通知主线程
 
 # noinspection PyShadowingNames
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
@@ -266,7 +248,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.refresh_devices()  # 刷新设备列表
         self.adb_cpu_info.clicked.connect(self.adb_cpu_info_wrapper)  # 显示CPU信息
         self.simulate_swipe.clicked.connect(self.show_simulate_swipe_dialog)  # 模拟滑动
-        # self.adb_operation.clicked.connect(self.adb_operation_wrapper)  # 显示设备号
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb.clicked.connect(self.show_input_text_dialog)  # 输入文本
         self.get_screenshot.clicked.connect(self.show_screenshot_dialog)  # 截图
@@ -281,7 +262,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.pull_log_with_clear.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
         self.simulate_click.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
         self.adb_push_file.clicked.connect(self.show_push_file_dialog)  # 推送文件
-        self.install_system.clicked.connect(self.install_system_action)  # 安装系统应用
         self.close.clicked.connect(self.stop_program)  # 关闭程序
         self.adbbutton.clicked.connect(ADB_Mainwindow.run_cmd)  # 执行 adb 命令
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
@@ -304,7 +284,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """启动应用"""
         # device_id_lst = self.refresh_devices()
         device_ids = self.get_new_device_lst()
-
         device_id = self.get_selected_device()
         if device_id in device_ids:
             try:
@@ -327,8 +306,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 else:
                     print("用户取消输入或输入为空")
             except Exception as e:
-                # print(package_name)
-                # print(activity_name)
                 print(f"启动应用失败: {e}")
         else:
             print("未连接设备！", end="")
@@ -435,7 +412,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             if device_id in device_ids:
                 # 执行 adb reboot 命令
                 result = subprocess.run(
-                    f"adb -s {device_id} reboot",
+                    f"start /b adb -s {device_id} reboot",
                     shell = True,  # 执行命令
                     check = True,  # 检查命令是否成功
                     stdout = subprocess.PIPE,  # 捕获输出
@@ -550,7 +527,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def show_simulate_swipe_dialog(self):
         device_id = self.get_selected_device()
-        # device_id_lst = self.refresh_devices()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
             start_x, ok = QInputDialog.getInt(self, "输入起始 X 坐标", "请输入滑动起始的 X 坐标:")
@@ -626,73 +602,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         else:
             print("未选择设备", end="")
 
-    """install_system_action()函数"""
-    @staticmethod
-    def install_system_action():
-        print("功能待定")
-        # device_id = self.get_selected_device()
-        #
-        # def get_package_name_from_apk(apk_path):
-        #     aapt_path = "aapt"  # 假设 aapt 在 PATH 中，如果没有，请指定完整路径
-        #     if not shutil.which(aapt_path):
-        #         print(f"错误: 找不到 aapt 工具，请检查 Android SDK 是否正确安装")
-        #         return None
-        #
-        #     try:
-        #         # 使用 aapt 获取 APK 的包名
-        #         result = subprocess.run([aapt_path, 'dump', 'badging', apk_path], capture_output=True, text=True,
-        #                                 check=True)
-        #         for line in result.stdout.splitlines():
-        #             if line.startswith('package: name='):
-        #                 # 提取包名
-        #                 package_name = line.split("'")[1]
-        #                 return package_name
-        #     except subprocess.CalledProcessError as e:
-        #         print(f"获取包名失败: {e}")
-        #         return None
-        #     except FileNotFoundError:
-        #         print(f"错误: 未找到 aapt 工具")
-        #         return None
-        #
-        # if device_id:
-        #     try:
-        #         # 弹出文件选择对话框，选择APK文件
-        #         apk_path, _ = QFileDialog.getOpenFileName(self, "Select APK", "", "APK Files (*.apk)")
-        #
-        #         if apk_path:
-        #             # 获取APK文件的包名
-        #             package_name = get_package_name_from_apk(apk_path)
-        #             if not package_name:
-        #                 print("无法获取APK的包名")
-        #                 return
-        #
-        #             # 连接设备
-        #             device = u2.connect(device_id)
-        #
-        #             # 运行adb disable-verity命令
-        #             subprocess.run(['adb', '-s', device_id, 'disable-verity'], check=True)
-        #             print(f"已禁用verity")
-        #
-        #             # 运行adb remount命令
-        #             subprocess.run(['adb', '-s', device_id, 'remount'], check=True)
-        #             print(f"已重新挂载")
-        #
-        #             # 获取应用包路径
-        #             result = subprocess.run(['adb', '-s', device_id, 'shell', 'pm', 'path', package_name],
-        #                                     capture_output=True, text=True, check=True)
-        #             print(f"获取到应用包路径: {result.stdout.strip()}")
-        #             path = result.stdout.strip().split(':')[-1]
-        #
-        #             # 向设备推送apk文件
-        #             subprocess.run(['adb', '-s', device_id, 'push', apk_path, path], check=True)
-        #
-        #             # 安装apk
-        #             subprocess.run(['adb', '-s', device_id, 'install', apk_path], check=True)
-        #
-        #     except subprocess.CalledProcessError as e:
-        #         print(f"操作失败: {e}")
-        #     except Exception as e:
-        #         print(f"发生错误: {e}")
 
     def get_foreground_package(self):
         # 刷新设备列表
