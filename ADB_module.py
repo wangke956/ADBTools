@@ -1,6 +1,6 @@
 import time
 
-
+from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog)
 import sys
 import io
@@ -226,6 +226,22 @@ def aapt_get_packagen_name(apk_path):
         print(f"获取包名失败: {e}")
         return None
 
+class Worker(QThread):
+    update_ui = pyqtSignal(str)  # 定义一个信号用于更新UI，传递字符串消息
+
+    def __init__(self, func, *args):
+        super().__init__()
+        self.func = func  # 将要在新线程中运行的函数
+        self.args = args  # 传递给函数的参数
+
+    def run(self):
+        """在新线程中执行"""
+        try:
+            result = self.func(*self.args)  # 调用指定的函数并传递参数
+            self.update_ui.emit(str(result))  # 将结果发送到主线程以更新UI
+        except Exception as e:
+            self.update_ui.emit(f"执行命令失败: {e}")  # 捕获异常并通知主线程
+
 # noinspection PyShadowingNames
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
@@ -413,25 +429,29 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             print("未连接设备！", end="")
 
     def reboot_device(self):
-        device_id = self.get_selected_device()
-        device_ids = self.get_new_device_lst()
-        if device_id in device_ids:
-            # 执行 adb reboot 命令
-            result = subprocess.run(
-                f"adb -s {device_id} reboot",
-                shell = False,
-                check = True,
-                stdout = subprocess.PIPE,  # 捕获输出
-                stderr = subprocess.PIPE  # 捕获错误
-            )
-
-            # print(result.stdout.decode())
-            if "not found" in result.stdout.decode():
-                print("请先root设备！", end="")
-
-
-        else:
-            print("设备已断开！", end="")
+        try:
+            device_id = self.get_selected_device()
+            device_ids = self.get_new_device_lst()
+            if device_id in device_ids:
+                # 执行 adb reboot 命令
+                result = subprocess.run(
+                    f"adb -s {device_id} reboot",
+                    shell = True,  # 执行命令
+                    check = True,  # 检查命令是否成功
+                    stdout = subprocess.PIPE,  # 捕获输出
+                    stderr = subprocess.PIPE  # 捕获错误
+                )
+                # 不要用print，会导致UI卡死，用textBrowser.append
+                if result.returncode == 0:
+                    # self.textBrowser.append(str(result))
+                    self.textBrowser.append(f"设备 {device_id} 已重启！")
+                else:
+                    self.textBrowser.append(f"设备 {device_id} 已重启！")
+                    self.textBrowser.append(f"错误信息：", str(result))
+            else:
+                self.textBrowser.append(f"设备已断开！")
+        except Exception as e:
+            self.textBrowser.append(f"重启设备失败: {e}")
 
     def show_screenshot_dialog(self):
         device_id = self.get_selected_device()
