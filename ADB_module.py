@@ -1,5 +1,4 @@
 import time
-
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog)
 import sys
 import io
@@ -52,7 +51,6 @@ def connect_device():
         return devices[0].split('\t')[0]
     except subprocess.CalledProcessError as e:
         ADB_Mainwindow.textBrowser.append(f"连接设备失败: {e}")
-        print(f"设备连接失败: {e}")
         return None
 
 
@@ -178,14 +176,13 @@ def adb_install(package_path, device_id):
 
 def clear_app_cache(device, package_name):
     if device is not None:
-        # print(device)
         try:
             device.app_clear(package_name)
-            print(f"应用 {package_name} 的缓存已清除")
+            return f"应用 {package_name} 的缓存已清除"
         except Exception as e:
-            print(f"清除应用缓存失败: {e}")
+            return f"清除应用缓存失败: {e}"
     else:
-        print("设备未连接")
+        return "设备未连接！"
 
 
 def pull_log_without_clear(file_path, device_id):
@@ -200,7 +197,6 @@ def pull_log_with_clear(file_path, device_id):
     subprocess.run(f'adb -s {device_id} logcat -c', shell=True)
     command = f'cmd /k "adb -s {device_id} shell logcat > {file_path}"'
     process = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
-    print("已开始拉取 log，如需停止，请手动关闭此窗口。")
     while True:
         if process.poll() is not None:
             break
@@ -211,18 +207,18 @@ def simulate_click(x, y, device_id):
     command = f"adb -s {device_id} shell input tap {x} {y}"
     try:
         subprocess.run(command, shell=True, check=True)
-        print("点击成功！")
+        return "点击成功！"
     except subprocess.CalledProcessError as e:
-        print(f"点击失败: {e}")
+        return f"点击失败: {e}"
 
 
 def adb_push_file(local_file_path, target_path_on_device, device_id):
     command = f"adb -s {device_id} push {local_file_path} {target_path_on_device}"
     try:
         subprocess.run(command, shell=True, check=True)
-        print("文件推送成功！")
+        return "文件推送成功！"
     except subprocess.CalledProcessError as e:
-        print(f"文件推送失败: {e}")
+        return f"文件推送失败: {e}"
 
 def aapt_get_packagen_name(apk_path):
     """
@@ -234,8 +230,7 @@ def aapt_get_packagen_name(apk_path):
         package_name = result.stdout.strip().split('\'')[1]
         return package_name
     except subprocess.CalledProcessError as e:
-        print(f"获取包名失败: {e}")
-        return None
+        return f"获取包名失败: {e}"
 
 
 # noinspection PyShadowingNames
@@ -257,6 +252,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.device = u2.connect(self.device_id)
         else:
             self.device = None  # 类型为 u2.Device 或 None
+            self.textBrowser.append("设备未连接！")
 
 
         self.refresh_devices()  # 刷新设备列表
@@ -287,7 +283,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     @staticmethod
     def get_new_device_lst():  # 静态方法，返回设备ID列表
-        # device_id = self.get_selected_device()
         result = subprocess.run("adb devices", shell=True, check=True, capture_output=True,
                                 text=True)  # 执行 adb devices 命令
         devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
@@ -296,7 +291,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def start_app_action(self):
         """启动应用"""
-        # device_id_lst = self.refresh_devices()
         device_ids = self.get_new_device_lst()
         device_id = self.get_selected_device()
         if device_id in device_ids:
@@ -309,8 +303,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     parts = input_text.split(', ')
                     package_name = parts[0].split('包名: ')[1]
                     activity_name = parts[1].split('活动名: ')[1]
-                    # print(package_name)
-                    # print(activity_name)
                     if len(parts) >= 2:
                         self.device = u2.connect(device_id)
                         self.device.app_start(package_name, activity_name)
@@ -341,17 +333,12 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                         version_name = app_info.get('versionName', '未知版本')
                         self.textBrowser.append(f"应用 {package_name} 版本号: {version_name}")
                     else:
-                        # print("无法获取应用信息")
                         self.textBrowser.append("无法获取应用信息")
                 except Exception as e:
                     self.textBrowser.append(f"获取应用信息失败: {e}")
-                    # print(f"获取应用信息失败: {e}")
             else:
-                # print("未获取到当前前景应用的包名")
                 self.textBrowser.append("未获取到当前前景应用的包名")
         else:
-            # print("设备已断开！")
-            # self.textBrowser.append("设备已断开！")
             pass
 
 
@@ -366,7 +353,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append(res)
         else:
             self.textBrowser.append("设备已断开！")
-            # print("设备已断开！", end="")
 
     def view_apk_path_wrapper(self):
         device_id = self.get_selected_device()
@@ -379,10 +365,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             # 输出安装目录
             apk_path = result.stdout.strip()
             parts = apk_path.split(":")
-            # print(f"应用安装路径: {parts[1]}")
             self.textBrowser.append(f"应用安装路径: {parts[1]}")
         else:
-            # print("设备已断开！", end="")
             self.textBrowser.append("设备已断开！")
 
     @staticmethod
@@ -409,8 +393,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 return device_ids  # 返回设备ID列表
             else:
                 self.textBrowser.append(f"未连接设备！")
-                # print("未连接设备！", end="")
-                # self.textBrowser.append("append:未连接设备！")
                 return device_ids  # 返回设备ID列表
 
 
@@ -424,10 +406,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if device_id:
             res = adb_root(device_id)
             self.textBrowser.append(res)
-            # print("获取Root成功！")
         else:
             self.textBrowser.append("未连接设备！")
-            # print("未连接设备！", end="")
 
     def reboot_device(self):
         try:
@@ -444,7 +424,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 )
                 # 不要用print，会导致UI卡死，用textBrowser.append
                 if result.returncode == 0:
-                    # self.textBrowser.append(str(result))
                     self.textBrowser.append(f"设备 {device_id} 已重启！")
                 else:
                     self.textBrowser.append(f"设备 {device_id} 已重启！")
@@ -468,7 +447,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def show_uninstall_dialog(self):
         device_id = self.get_selected_device()
-        # devices_id_lst = self.refresh_devices()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
             package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要卸载的应用包名：")
@@ -480,7 +458,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def show_pull_file_dialog(self):
         device_id = self.get_selected_device()
-        # device_id_lst = self.refresh_devices()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
             file_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径", "请输入车机上的文件路径:")
@@ -521,14 +498,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if device_id in devices_id_lst:
             file_path, _ = QFileDialog.getSaveFileName(self, "保存 log", "", "txt Files (*.txt);;All Files (*)")
             if file_path:
-                pull_log_with_clear(file_path, device_id)
+                res = pull_log_with_clear(file_path, device_id)
+                self.textBrowser.append(res)
         else:
             self.textBrowser.append("未连接设备！")
-            # print("未连接设备！")
 
     def show_push_file_dialog(self):
         device_id = self.get_selected_device()
-        # device_id_lst = self.refresh_devices()
         devices_id_lst = self.get_new_device_lst()
 
         if device_id in devices_id_lst:
@@ -537,24 +513,23 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 target_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径",
                                                                  "请输入车机上的目标路径:")
                 if ok and target_path_on_device:
-                    adb_push_file(local_file_path, target_path_on_device, device_id)
+                    res = adb_push_file(local_file_path, target_path_on_device, device_id)
+                    self.textBrowser.append(res)
         else:
             self.textBrowser.append("未连接设备！")
-            # print("未连接设备！")
 
     def show_simulate_click_dialog(self):
         device_id = self.get_selected_device()
-        # device_id_lst = self.refresh_devices()
         device_id_lst = self.get_new_device_lst()
         if device_id in device_id_lst:
             x, ok = QInputDialog.getInt(self, "输入 X 坐标", "请输入点击的 X 坐标:")
             if ok:
                 y, ok = QInputDialog.getInt(self, "输入 Y 坐标", "请输入点击的 Y 坐标:")
                 if ok:
-                    simulate_click(x, y, device_id)
+                    res = simulate_click(x, y, device_id)
+                    self.textBrowser.append(res)
         else:
             self.textBrowser.append("未连接设备！")
-            # print("未连接设备！")
 
     def show_simulate_swipe_dialog(self):
         device_id = self.get_selected_device()
@@ -599,12 +574,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             text_to_input, ok = QInputDialog.getText(self, "输入文本", "请输入要通过 ADB 输入的文本:")
             if ok and text_to_input:
                 lst = input_text_via_adb(text_to_input, device_id)
-                # 把lst转换成字符串并输出到textBrowser
-                # lst_str = " | ".join(lst)
                 self.textBrowser.append(lst)
         else:
             self.textBrowser.append("未连接设备！")
-            # print("未连接设备！", end="")
 
     def show_force_stop_app_dialog(self):
         device_id = self.get_selected_device()
@@ -629,7 +601,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if device_id:
             package_name = self.get_foreground_package()
             if package_name:
-                clear_app_cache(u2.connect(device_id), package_name)  # 清除应用缓存
+                res = clear_app_cache(u2.connect(device_id), package_name)  # 清除应用缓存
+                self.textBrowser.append(res)
             else:
                 self.textBrowser.append("未找到正在运行的应用包名")
         else:
@@ -649,10 +622,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                         package_name = current_app['package']
                         activity_name = current_app['activity']
                         self.textBrowser.append(f"包名: {package_name}, 活动名: {activity_name}")
-                        print(f"包名: {package_name}, 活动名: {activity_name}")
                         return package_name
                     else:
-                        # print("未找到正在运行的应用包名")
                         self.textBrowser.append("未找到正在运行的应用包名")
                         return None
                 else:
@@ -676,13 +647,10 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             apk_name = os.path.basename(apk_path)
             if package_name:
                 self.textBrowser.append(f"{apk_name}文件的包名: {package_name}")
-                # print(f"{apk_name}文件的包名: {package_name}")
             else:
                 self.textBrowser.append(f"无法获取{apk_name}文件的包名")
-                # print(f"无法获取{apk_name}文件的包名")
         else:
             self.textBrowser.append("未选择apk文件!")
-            # print("未选择apk文件!", end="")
 
     @staticmethod
     def stop_program():
