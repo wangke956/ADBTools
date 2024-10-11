@@ -358,14 +358,21 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            # 获取当前应用包名
-            package_name = self.get_foreground_package()
-            cmd = f'adb -s {device_id} shell pm path {package_name}'
-            result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
-            # 输出安装目录
-            apk_path = result.stdout.strip()
-            parts = apk_path.split(":")
-            self.textBrowser.append(f"应用安装路径: {parts[1]}")
+            # 弹窗获取用户输入包名,
+            package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要查看安装路径的应用包名：")
+            if not ok:
+                # 点击取消，输出提示信息
+                self.textBrowser.append("已取消！")
+            else:
+                # 点击确认，执行 adb shell pm path 命令获取安装路径
+                cmd = f'adb -s {device_id} shell pm path {package_name}'
+                # cmd = f'adb -s {device_id} shell pm path {package_name}'
+                result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+                # 输出安装目录
+                apk_path = result.stdout.strip()
+                parts = apk_path.split(":")
+                self.textBrowser.append(f"应用安装路径: {parts[1]}")
+                return parts[1]
         else:
             self.textBrowser.append("设备已断开！")
 
