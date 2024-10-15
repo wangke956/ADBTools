@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog)
 import sys
 import io
 import subprocess
+import threading
 
 if hasattr(sys.stdout, 'buffer'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -273,24 +274,26 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         adb shell setprop bmi.service.adb.root 1
         adb pull log
         """
-        device_ids = self.get_new_device_lst()
-        device_id = self.get_selected_device()
-        if device_id in device_ids:
-            # 弹出对话框请用户选择文件夹
-            file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", os.getcwd())
-            if file_path:
-                # 运行上述三条命令
-                try:
-                    # 创建一个命令行窗口，执行命令
-                    command = f'adb -s {device_id} root && adb -s {device_id} shell "setprop bmi.service.adb.root 1" && adb -s {device_id} pull log {file_path}'
-                    subprocess.run(command, shell= True, check=True)
-                    self.textBrowser.append(f"日志文件已保存到 {file_path}")
-                except subprocess.CalledProcessError as e:
-                    self.textBrowser.append(f"日志文件拉取失败: {e}")
+        def inner():
+            device_ids = self.get_new_device_lst()
+            device_id = self.get_selected_device()
+            if device_id in device_ids:
+                # 弹出对话框请用户选择文件夹
+                file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", os.getcwd())
+                if file_path:
+                    # 运行上述三条命令
+                    try:
+                        # 创建一个命令行窗口，执行命令
+                        command = f'adb -s {device_id} root && adb -s {device_id} shell "setprop bmi.service.adb.root 1" && adb -s {device_id} pull log {file_path}'
+                        subprocess.run(command, shell= True, check=True)
+                        self.textBrowser.append(f"日志文件已保存到 {file_path}")
+                    except subprocess.CalledProcessError as e:
+                        self.textBrowser.append(f"日志文件拉取失败: {e}")
+                else:
+                    self.textBrowser.append("已取消！")
             else:
-                self.textBrowser.append("已取消！")
-        else:
-            self.textBrowser.append("设备未连接！")
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target = inner).start()
 
 
 
