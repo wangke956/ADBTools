@@ -438,11 +438,12 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     stderr = subprocess.PIPE  # 捕获错误
                 )
                 # 不要用print，会导致UI卡死，用textBrowser.append
-                if result.returncode == 0:
+                if "not found" not in str(result.stdout.decode('utf-8')):
                     self.textBrowser.append(f"设备 {device_id} 已重启！")
-                else:
-                    self.textBrowser.append(f"设备 {device_id} 已重启！")
-                    self.textBrowser.append(f"错误信息：", str(result))
+                    # self.textBrowser.append(result.stdout.decode('utf-8'))
+                elif "not found" in result.stdout.decode('utf-8'):
+                    self.adb_root_wrapper()
+                    self.reboot_device()
             else:
                 self.textBrowser.append(f"设备已断开！")
         except Exception as e:

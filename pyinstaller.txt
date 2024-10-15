@@ -1,0 +1,1 @@
+pyinstaller --onefile --noconsole --add-data "C:\Users\wkwk3\AppData\Local\Programs\Python\Python38\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" main.py
