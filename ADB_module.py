@@ -22,17 +22,17 @@ from ADB_module_UI import Ui_MainWindow
 
 class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 
-    def __init__(self, text_edit):
+    def __init__(self, textBrowser):
         super().__init__()  # 调用父类构造函数
-        self.text_edit = text_edit  # 绑定 textEdit
+        self.textBrowser = textBrowser  # 绑定 textEdit
         self.buffer = io.StringIO()  # 创建一个缓存区
         self.clear_before_write = False  # 添加一个标志来控制是否清空内容
     def write(self, s):
         if self.clear_before_write:
-            self.text_edit.clear()  # 如果标志为 True，则清空 textEdit 的内容
+            self.textBrowser.clear()  # 如果标志为 True，则清空 textEdit 的内容
             self.clear_before_write = False  # 重置标志
         self.buffer.write(s)
-        self.text_edit.append(s)
+        self.textBrowser.append(s)
         return len(s)
 
     def flush(self):
@@ -70,7 +70,7 @@ def adb_root(device_id):
 
 def adb_cpu_info(device_id):
     try:
-        cpu_info = subprocess.run(f'adb -s {device_id} shell cat /proc/cpuinfo', capture_output=True, text=True)
+        cpu_info = subprocess.run(f'adb -s {device_id} shell cat /proc/cpuinfo', capture_output=True, text=True)  #
         return cpu_info.stdout
     except subprocess.CalledProcessError as e:
         return f"获取 CPU 信息失败: {e}"
@@ -259,7 +259,12 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.start_app.clicked.connect(self.start_app_action)  # 启动应用
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
+        self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
         # self.d_list()  # 设备列表初始化
+
+    def scroll_to_bottom(self):
+        scrollbar = self.textBrowser.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     @staticmethod
     def get_new_device_lst():  # 静态方法，返回设备ID列表
