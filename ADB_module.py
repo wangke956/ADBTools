@@ -1,5 +1,4 @@
 import time
-
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
 import sys
 import io
@@ -260,6 +259,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.start_app.clicked.connect(self.start_app_action)  # 启动应用
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
+        # self.d_list()  # 设备列表初始化
 
     @staticmethod
     def get_new_device_lst():  # 静态方法，返回设备ID列表
@@ -625,20 +625,23 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def show_force_stop_app_dialog(self):
         def inner():
-            device_id = self.get_selected_device()
-            devices_id_lst = self.get_new_device_lst()
-            if device_id in devices_id_lst:
-                package_name = self.get_foreground_package()
-                self.textBrowser.append(f"当前前台应用包名: {package_name}")
-                if package_name:
-                    adb_command = f"adb -s {device_id} shell am force-stop {package_name}"
-                    try:
-                        subprocess.run(adb_command, shell=True, check=True)
-                        self.textBrowser.append(f"成功强制停止 {package_name} 应用在设备 {device_id} 上")
-                    except subprocess.CalledProcessError as e:
-                        self.textBrowser.append(f"强制停止 {package_name} 应用在设备 {device_id} 上失败: {e}")
-            else:
-                self.textBrowser.append("设备已断开！")
+            try:
+                device_id = self.get_selected_device()
+                devices_id_lst = self.get_new_device_lst()
+                if device_id in devices_id_lst:
+                    package_name = self.get_foreground_package(is_direct_call=False)
+                    # self.textBrowser.append(f"当前前台应用包名: {package_name}")
+                    if package_name:
+                        adb_command = f"adb -s {device_id} shell am force-stop {package_name}"
+                        try:
+                            subprocess.run(adb_command, shell=True, check=True)
+                            self.textBrowser.append(f"成功强制停止 {package_name} 应用在设备 {device_id} 上")
+                        except subprocess.CalledProcessError as e:
+                            self.textBrowser.append(f"强制停止 {package_name} 应用在设备 {device_id} 上失败: {e}")
+                else:
+                    self.textBrowser.append("设备已断开！")
+            except Exception as e:
+                self.textBrowser.append(f"强制停止应用失败: {e}")
         threading.Thread(target=inner).start()  # 异步执行
 
     def show_clear_app_cache_dialog(self):
@@ -704,6 +707,30 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.textBrowser.append("未选择apk文件!")
         threading.Thread(target=inner).start()  # 异步执行
 
+    # @staticmethod
+    def d_list(self):
+        def inner():
+            while True:
+                try:
+                    device_list = ADB_Mainwindow.get_new_device_lst()  # 获取设备列表
+                    if device_list is None or not device_list:
+                        print("未连接设备", end='')
+                    else:
+                        # print("已连接设备：", device_list)
+                        pass
+
+                    time.sleep(1.5)  # 等待 1.5 秒后再次检查
+                    # 删除textBrowser中刚添加的内容，防止重复显示
+                    self.textBrowser.clear()
+                except Exception as e:
+                    print("发生异常:", e, end='')
+                    time.sleep(2)  # 如果发生异常，也等待一段时间后再次检查
+
+
+        threading.Thread(target = inner, daemon = True).start()  # 启动线程，设置为守护线程
+
+
     @staticmethod
     def stop_program():
         sys.exit()
+
