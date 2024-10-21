@@ -189,7 +189,6 @@ def pull_log_with_clear(file_path, device_id):
             break
 
 
-
 def simulate_click(x, y, device_id):
     command = f"adb -s {device_id} shell input tap {x} {y}"
     try:
@@ -206,6 +205,7 @@ def adb_push_file(local_file_path, target_path_on_device, device_id):
         return "文件推送成功！"
     except subprocess.CalledProcessError as e:
         return f"文件推送失败: {e}"
+
 
 def aapt_get_packagen_name(apk_path):
     """
@@ -304,30 +304,32 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def start_app_action(self):
         """启动应用"""
-        device_ids = self.get_new_device_lst()
-        device_id = self.get_selected_device()
-        device = u2.connect(device_id)
-        if device_id in device_ids:
-            try:
-                # 弹出对话框，请用户输入应用包名和活动名，格式为：包名: com.android.settings, 活动名:.MainSettings
-                input_text, ok = QInputDialog.getText(self, '输入应用信息',
-                                                      '请输入应用包名和活动名，格式为：包名: com.xxx.xxx, 活动名:.xxx')
-                if ok and input_text:
-                    # 解析输入的文本，获取包名和活动名
-                    parts = input_text.split(', ')
-                    package_name = parts[0].split('包名: ')[1]
-                    activity_name = parts[1].split('活动名: ')[1]
-                    if len(parts) >= 2:
-                        device.app_start(package_name, activity_name)
-                        self.textBrowser.append(f"应用 {package_name} 已启动")
+        def inner():
+            device_ids = self.get_new_device_lst()
+            device_id = self.get_selected_device()
+            device = u2.connect(device_id)
+            if device_id in device_ids:
+                try:
+                    # 弹出对话框，请用户输入应用包名和活动名，格式为：包名: com.android.settings, 活动名:.MainSettings
+                    input_text, ok = QInputDialog.getText(self, '输入应用信息',
+                                                          '请输入应用包名和活动名，格式为：包名: com.xxx.xxx, 活动名:.xxx')
+                    if ok and input_text:
+                        # 解析输入的文本，获取包名和活动名
+                        parts = input_text.split(', ')
+                        package_name = parts[0].split('包名: ')[1]
+                        activity_name = parts[1].split('活动名: ')[1]
+                        if len(parts) >= 2:
+                            device.app_start(package_name, activity_name)
+                            self.textBrowser.append(f"应用 {package_name} 已启动")
+                        else:
+                            self.textBrowser.append("输入的格式不正确，请按照格式输入：包名: com.xxx.xxx, 活动名:.xxx")
                     else:
-                        self.textBrowser.append("输入的格式不正确，请按照格式输入：包名: com.xxx.xxx, 活动名:.xxx")
-                else:
-                    self.textBrowser.append("用户取消输入或输入为空")
-            except Exception as e:
-                self.textBrowser.append(f"启动应用失败: {e}")
-        else:
-            self.textBrowser.append("未连接设备！")
+                        self.textBrowser.append("用户取消输入或输入为空")
+                except Exception as e:
+                    self.textBrowser.append(f"启动应用失败: {e}")
+            else:
+                self.textBrowser.append("未连接设备！")
+        threading.Thread(target=inner).start()  # 异步执行
 
 
     def get_running_app_info(self):
@@ -512,9 +514,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def show_install_file_dialog(self):
-        # def inner():
         device_id = self.get_selected_device()
-        if device_id:
+        devices_id_lst = self.get_new_device_lst()
+        if device_id in devices_id_lst:
             package_path, _ = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
                                                           "APK Files (*.apk);;All Files (*)")
             if package_path:
@@ -523,7 +525,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     res = adb_install(package_path, device_id)
                     self.textBrowser.append(res)
                 threading.Thread(target=inner).start()  # 异步执行
-        self.textBrowser.append("即将开始安装应用，请耐心等待...")
+            self.textBrowser.append("即将开始安装应用，请耐心等待...")
+        elif not device_id:
+            self.textBrowser.append("未连接设备！")
 
     def show_pull_log_without_clear_dialog(self):
 
@@ -692,7 +696,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.textBrowser.append("设备已断开！")
                 result_queue.put(None)  # 将结果放入队列，表示设备断开
 
-        threading.Thread(target = inner).start()
+        threading.Thread(target = inner).start()  # 异步执行
         return result_queue.get()  # 在主线程中获取队列中的结果
 
 
