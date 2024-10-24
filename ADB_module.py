@@ -42,7 +42,10 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
         self.clear_before_write = clear
 
 def adb_root(device_id):
-    # 传入下拉框选择的设备 ID
+    """
+    传入下拉框选择的设备 ID, 尝试以 root 权限运行 ADB 命令
+    :param device_id: 设备 ID
+    """
     device_ids = ADB_Mainwindow.get_new_device_lst()
     if device_id in device_ids:
         try:
@@ -69,6 +72,11 @@ def adb_root(device_id):
         return "设备未连接！"
 
 def adb_cpu_info(device_id):
+    """
+    传入下拉框选择的设备 ID, 获取设备 CPU 信息
+    :param device_id: 设备 ID
+    :return: CPU 信息
+    """
     try:
         cpu_info = subprocess.run(f'adb -s {device_id} shell cat /proc/cpuinfo', capture_output=True, text=True)  #
         return cpu_info.stdout
@@ -76,6 +84,16 @@ def adb_cpu_info(device_id):
         return f"获取 CPU 信息失败: {e}"
 
 def simulate_swipe(start_x, start_y, end_x, end_y, duration, device_id):
+    """
+    模拟滑动
+    :param start_x: 起始 x 坐标
+    :param start_y: 起始 y 坐标
+    :param end_x: 终点 x 坐标
+    :param end_y: 终点 y 坐标
+    :param duration: 滑动持续时间
+    :param device_id: 设备 ID
+    :return: 滑动成功提示
+    """
     command = f"adb -s {device_id} shell input swipe {start_x} {start_y} {end_x} {end_y} {duration}"
     try:
         subprocess.run(command, shell=True, check=True)
@@ -85,6 +103,12 @@ def simulate_swipe(start_x, start_y, end_x, end_y, duration, device_id):
 
 
 def input_text_via_adb(text_to_input, device_id):
+    """
+    传入文本内容，模拟输入
+    :param text_to_input: 要输入的文本内容
+    :param device_id: 设备 ID
+    :return: 输入成功提示
+    """
     command = f"adb -s {device_id} shell input text '{text_to_input}'"
     try:
         res = subprocess.run(command,
@@ -100,6 +124,12 @@ def input_text_via_adb(text_to_input, device_id):
 
 
 def get_screenshot(file_path, device_id):
+    """
+    传入文件路径，获取设备截图并保存到本地
+    :param file_path: 保存截图的本地路径
+    :param device_id: 设备 ID
+    :return: 截图保存成功提示
+    """
     command = f"adb -s {device_id} shell screencap -p /sdcard/screenshot.png && adb -s {device_id} pull /sdcard/screenshot.png {file_path} && adb -s {device_id} shell rm /sdcard/screenshot.png"
     try:
         subprocess.run(command, shell=True, check=True)
@@ -109,6 +139,12 @@ def get_screenshot(file_path, device_id):
 
 
 def adb_uninstall(package_name, device_id):
+    """
+    传入包名，卸载应用
+    :param package_name: 应用包名
+    :param device_id: 设备 ID
+    :return: 卸载成功提示
+    """
     command = f"adb -s {device_id} uninstall {package_name}"
     try:
         subprocess.run(command, shell=True, check=True)
@@ -118,6 +154,13 @@ def adb_uninstall(package_name, device_id):
 
 
 def adb_pull_file(file_path_on_device, local_path, device_id):
+    """
+    传入设备上的文件路径和本地保存路径，拉取文件
+    :param file_path_on_device: 设备上的文件路径
+    :param local_path: 本地保存路径
+    :param device_id: 设备 ID
+    :return: 成功提示
+    """
     command = f"adb -s {device_id} pull {file_path_on_device} {local_path}"
     try:
         res = subprocess.run(command,
@@ -133,6 +176,14 @@ def adb_pull_file(file_path_on_device, local_path, device_id):
 
 
 def simulate_long_press(x, y, duration, device_id):
+    """
+    模拟长按
+    :param x: 按压点的 x 坐标
+    :param y: 按压点的 y 坐标
+    :param duration: 按压持续时间
+    :param device_id: 设备 ID
+    :return: 长按模拟成功提示
+    """
     command = f"adb -s {device_id} shell input swipe {x} {y} {x} {y} {duration}"
     try:
         subprocess.run(command, shell=True, check=True)
@@ -142,6 +193,12 @@ def simulate_long_press(x, y, duration, device_id):
 
 
 def adb_install(package_path, device_id):
+    """
+    传入安装包路径，安装应用
+    :param package_path: 安装包路径
+    :param device_id: 设备 ID
+    :return: 安装成功提示
+    """
     devices_id_lst = ADB_Mainwindow.get_new_device_lst()
     # 传入下拉框选择的设备 ID：device_id
     if device_id in devices_id_lst:
@@ -162,6 +219,12 @@ def adb_install(package_path, device_id):
 
 
 def clear_app_cache(device, package_name):
+    """
+    清除应用缓存
+    :param device: 设备对象
+    :param package_name: 应用包名
+    :return: 清除成功提示
+    """
     if device is not None:
         try:
             device.app_clear(package_name)
@@ -173,6 +236,12 @@ def clear_app_cache(device, package_name):
 
 
 def pull_log_without_clear(file_path, device_id):
+    """
+    拉取日志（不清除）
+    :param file_path: 日志保存路径
+    :param device_id: 设备 ID
+    :return: 日志拉取成功提示
+    """
     command = f'cmd /k "adb -s {device_id} shell logcat > {file_path}"'
     process = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
     while True:
@@ -181,6 +250,12 @@ def pull_log_without_clear(file_path, device_id):
 
 
 def pull_log_with_clear(file_path, device_id):
+    """
+    拉取日志（清除）
+    :param file_path: 日志保存路径
+    :param device_id: 设备 ID
+    :return: 日志拉取成功提示
+    """
     subprocess.run(f'adb -s {device_id} logcat -c', shell=True)
     command = f'cmd /k "adb -s {device_id} shell logcat > {file_path}"'
     process = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
@@ -190,6 +265,13 @@ def pull_log_with_clear(file_path, device_id):
 
 
 def simulate_click(x, y, device_id):
+    """
+    模拟点击
+    :param x: 点击点的 x 坐标
+    :param y: 点击点的 y 坐标
+    :param device_id: 设备 ID
+    :return:
+    """
     command = f"adb -s {device_id} shell input tap {x} {y}"
     try:
         subprocess.run(command, shell=True, check=True)
@@ -199,6 +281,13 @@ def simulate_click(x, y, device_id):
 
 
 def adb_push_file(local_file_path, target_path_on_device, device_id):
+    """
+    传入本地文件路径和设备上的目标路径，推送文件
+    :param local_file_path: 本地文件路径
+    :param target_path_on_device: 设备上的目标路径
+    :param device_id: 设备 ID
+    :return: 成功提示
+    """
     command = f"adb -s {device_id} push {local_file_path} {target_path_on_device}"
     try:
         subprocess.run(command, shell=True, check=True)
@@ -209,7 +298,9 @@ def adb_push_file(local_file_path, target_path_on_device, device_id):
 
 def aapt_get_packagen_name(apk_path):
     """
-    通过aapt命令获取apk包名
+    传入apk路径，获取包名
+    :param apk_path: apk路径
+    :return: 包名
     """
     command = f"aapt dump badging {apk_path} | findstr name"
     try:
@@ -229,10 +320,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """print重定向到textEdit、textBrowser"""
         # self.device = u2.connect(device_id)
 
-        # 重定向输出流为textBrowser
-        self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
-        sys.stdout = self.text_edit_output_stream
-        sys.stderr = self.text_edit_output_stream
+        self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)  # 创建一个 TextEditOutputStream 对象
+        sys.stdout = self.text_edit_output_stream  # 绑定到 sys.stdout
+        sys.stderr = self.text_edit_output_stream  # 绑定到 sys.stderr
         self.refresh_devices()  # 刷新设备列表
         self.adb_cpu_info.clicked.connect(self.adb_cpu_info_wrapper)  # 显示CPU信息
         self.simulate_swipe.clicked.connect(self.show_simulate_swipe_dialog)  # 模拟滑动
@@ -260,7 +350,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
-        # self.d_list()  # 设备列表初始化
 
     def scroll_to_bottom(self):
         scrollbar = self.textBrowser.verticalScrollBar()
@@ -303,7 +392,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def start_app_action(self):
-        """启动应用"""
+        """
+        启动应用
+        """
         def inner():
             device_ids = self.get_new_device_lst()
             device_id = self.get_selected_device()
@@ -333,7 +424,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def get_running_app_info(self):
-        # 获取当前前景应用的版本号
+        """
+        获取当前前景应用的版本号
+        """
         def inner():
             device_id = self.get_selected_device()  # 获取当前选定的设备ID
             devices_id_lst = self.get_new_device_lst()
@@ -363,12 +456,14 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         return self.ComboxButton.currentText()  # 返回的类型为str
 
     def adb_cpu_info_wrapper(self):
+        """
+        显示CPU信息
+        """
         def inner():
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
-                # device_id:下拉框选择的设备ID
-                res = adb_cpu_info(device_id)
+                res = adb_cpu_info(device_id)  # 传入下拉框选择的设备ID, 并返回cpu_info.stdout
                 self.textBrowser.append(res)
             else:
                 self.textBrowser.append("设备已断开！")
@@ -376,7 +471,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def view_apk_path_wrapper(self):
-
+        """
+        显示应用安装路径
+        """
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
@@ -403,7 +500,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
 
     def refresh_devices(self):
-        # 刷新设备列表并添加到下拉框
+        """
+        刷新设备列表
+        """
         def inner():
             try:
                 # 执行 adb devices 命令
@@ -430,6 +529,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def adb_root_wrapper(self):
+        """
+        以 root 权限运行 ADB
+        """
         def inner():
             device_id = self.get_selected_device()
             if device_id:
@@ -440,36 +542,46 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def reboot_device(self):
-        # 弹出对话框询问是否要重启设备
-        dig = QMessageBox.question(self, "重启设备", "是否要重启设备？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        """
+        重启设备
+        """
+        dig = QMessageBox.question(self, "重启设备", "是否要重启设备？", QMessageBox.Yes | QMessageBox.No,
+                                   QMessageBox.No)
         if dig == QMessageBox.Yes:
             def inner():
                 try:
                     device_id = self.get_selected_device()
                     device_ids = self.get_new_device_lst()
-                    if device_id in device_ids:
-                        # 执行 adb reboot 命令
-                        result = subprocess.run(
-                            f"start /b adb -s {device_id} reboot",
-                            shell = True,  # 执行命令
-                            check = True,  # 检查命令是否成功
-                            stdout = subprocess.PIPE,  # 捕获输出
-                            stderr = subprocess.PIPE  # 捕获错误
-                        )
-                        # 不要用print，会导致UI卡死，用textBrowser.append
-                        if "not found" not in str(result.stdout.decode('utf-8')):
-                            self.textBrowser.append(f"设备 {device_id} 已重启！")
-                            # self.textBrowser.append(result.stdout.decode('utf-8'))
-                        elif "not found" in result.stdout.decode('utf-8'):
-                            self.adb_root_wrapper()
-                            self.reboot_device()
-                    else:
-                        self.textBrowser.append(f"设备已断开！")
+
+                    # 重新检查设备的连接状态
+                    if device_id not in device_ids:
+                        self.textBrowser.append("设备已断开！")
+                        return  # 直接返回，避免后续执行无效的命令
+
+                    # 执行 adb reboot 命令
+                    result = subprocess.run(
+                        f"start /b adb -s {device_id} reboot",
+                        shell = True,  # 执行命令
+                        check = True,  # 检查命令是否成功
+                        stdout = subprocess.PIPE,  # 捕获输出
+                        stderr = subprocess.PIPE  # 捕获错误
+                    )
+
+                    # 不要用print，会导致UI卡死，用textBrowser.append
+                    if "not found" not in str(result.stdout.decode('utf-8')):
+                        self.textBrowser.append(f"设备 {device_id} 已重启！")
+                    elif "not found" in result.stdout.decode('utf-8'):
+                        self.adb_root_wrapper()
+                        self.reboot_device()
                 except Exception as e:
                     self.textBrowser.append(f"重启设备失败: {e}")
-            threading.Thread(target=inner).start()  # 异步执行
+
+            threading.Thread(target = inner).start()  # 异步执行
 
     def show_screenshot_dialog(self):
+        """
+        截图
+        """
         def inner():
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
@@ -485,6 +597,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def show_uninstall_dialog(self):
+        """
+        卸载应用
+        """
         def inner():
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
@@ -498,6 +613,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def show_pull_file_dialog(self):
+        """
+        拉取文件
+        """
         def inner():
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
@@ -514,6 +632,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def show_install_file_dialog(self):
+        """
+        安装应用
+        """
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
@@ -530,7 +651,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append("未连接设备！")
 
     def show_pull_log_without_clear_dialog(self):
-
+        """
+        拉取 log 但不清空
+        """
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
@@ -542,6 +665,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append("未连接设备！")
 
     def show_pull_log_with_clear_dialog(self):
+        """
+        拉取 log 并清空
+        """
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
@@ -553,6 +679,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append("未连接设备！")
 
     def show_push_file_dialog(self):
+        """
+        推送文件
+        """
         def inner():
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
@@ -570,6 +699,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def show_simulate_click_dialog(self):  # 模拟点击
+        """
+        弹出输入框让用户输入 X 坐标和 Y 坐标，模拟点击
+        """
         def inner():
             device_id = self.get_selected_device()
             device_id_lst = self.get_new_device_lst()
@@ -585,6 +717,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def show_simulate_swipe_dialog(self):  # 模拟滑动
+        """
+        弹出输入框让用户输入起始坐标和终止坐标，模拟滑动
+        """
         def inner():
             try:
                 device_id = self.get_selected_device()
@@ -596,7 +731,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                         parts = input_text.split(',')
                         if len(parts) == 4:
                             x1, y1, x2, y2 = [int(part) for part in parts]
-                            res = simulate_swipe(x1, y1, x2, y2, 500, device_id)
+                            res = simulate_swipe(x1, y1, x2, y2, 500, device_id)  # 传入滑动起始坐标和终止坐标，滑动时间为500ms，并传入设备ID，并返回结果
                             self.textBrowser.append(res)
                 else:
                     self.textBrowser.append("未连接设备！")
@@ -605,6 +740,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def show_simulate_long_press_dialog(self):
+        """
+        弹出输入框让用户输入坐标和长按时间，模拟长按
+        """
         def inner():
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
@@ -622,17 +760,23 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def show_input_text_dialog(self):
+        """
+        弹出输入框让用户输入文本，通过 ADB 输入到设备上
+        """
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
             text_to_input, ok = QInputDialog.getText(self, "输入文本", "请输入要通过 ADB 输入的文本:")
             if ok and text_to_input:
-                lst = input_text_via_adb(text_to_input, device_id)
+                lst = input_text_via_adb(text_to_input, device_id)  # 传入要输入的文本和设备ID，并返回结果列表
                 self.textBrowser.append(lst)
         else:
             self.textBrowser.append("未连接设备！")
 
     def show_force_stop_app_dialog(self):
+        """
+        弹出输入框让用户输入应用包名，强制停止应用
+        """
         def inner():
             try:
                 device_id = self.get_selected_device()
@@ -654,6 +798,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def show_clear_app_cache_dialog(self):
+        """
+        清除应用缓存
+        """
         def inner():
             device_id = self.get_selected_device()  # 获取用户选择的设备ID
             if device_id:
@@ -668,6 +815,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
     def get_foreground_package(self, is_direct_call = True):
+        """
+        获取当前正在运行的应用包名
+        """
         result_queue = queue.Queue()  # 创建一个队列用于存储结果
         def inner():
             device_id = self.get_selected_device()
@@ -701,7 +851,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def aapt_getpackage_name_dilog(self):
-        """弹出文件选择框让用户选择apk文件，获取到的apk_path传入到aapt_get_package_name()函数中获取包名"""
+        """
+        弹出文件选择框让用户选择apk文件，获取到的apk_path传入到aapt_get_package_name()函数中获取包名
+        """
         def inner():
             apk_path, _ = QFileDialog.getOpenFileName(self, "选择APK文件", "", "APK Files (*.apk)")
             if apk_path:
@@ -716,30 +868,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.textBrowser.append("未选择apk文件!")
         threading.Thread(target=inner).start()  # 异步执行
 
-    # @staticmethod
-    def d_list(self):
-        def inner():
-            while True:
-                try:
-                    device_list = ADB_Mainwindow.get_new_device_lst()  # 获取设备列表
-                    if device_list is None or not device_list:
-                        print("未连接设备", end='')
-                    else:
-                        # print("已连接设备：", device_list)
-                        pass
-
-                    time.sleep(1.5)  # 等待 1.5 秒后再次检查
-                    # 删除textBrowser中刚添加的内容，防止重复显示
-                    self.textBrowser.clear()
-                except Exception as e:
-                    print("发生异常:", e, end='')
-                    time.sleep(2)  # 如果发生异常，也等待一段时间后再次检查
-
-
-        threading.Thread(target = inner, daemon = True).start()  # 启动线程，设置为守护线程
-
 
     @staticmethod
     def stop_program():
         sys.exit()
-
