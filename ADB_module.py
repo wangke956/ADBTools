@@ -1,4 +1,5 @@
 import time
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
 import sys
 import io
@@ -313,7 +314,7 @@ def aapt_get_packagen_name(apk_path):
 
 # noinspection PyShadowingNames
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
-
+    # device_check_timer = QTimer()  # 设备连接状态检查定时器
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
         self.setupUi(self)
@@ -350,18 +351,28 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
+        # self.check_device_status()
+
+    # def check_device_status(self):
+    #     def inner():
+    #         while True:
+    #             """检查设备连接状态，如果没有设备连接则输出提示信息"""
+    #             result = subprocess.run("adb devices", shell = True, capture_output = True, text = True)
+    #             devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
+    #             device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+    #
+    #             if not device_ids:
+    #                 self.textBrowser.append("未连接设备！")  # 输出未连接设备的提示信息
+    #             else:
+    #                 break
+    #             time.sleep(0.5)
+    #
+    #     threading.Thread(target=inner).start()  # 异步执行
+
 
     def scroll_to_bottom(self):
         scrollbar = self.textBrowser.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-
-    @staticmethod
-    def get_new_device_lst():  # 静态方法，返回设备ID列表
-        result = subprocess.run("adb devices", shell=True, check=True, capture_output=True,
-                                text=True)  # 执行 adb devices 命令
-        devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-        device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
-        return device_ids
 
     def show_pull_hulog_dialog(self):
         def run_commands_and_update(device_id, file_path):
@@ -494,10 +505,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         else:
             self.textBrowser.append("设备已断开！")
 
-    @staticmethod
-    def run_cmd():
-        user_directory = os.path.expanduser("~")
-        subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
 
     def refresh_devices(self):
         """
@@ -872,3 +879,19 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     @staticmethod
     def stop_program():
         sys.exit()
+
+
+    @staticmethod
+    def get_new_device_lst():  # 静态方法，返回设备ID列表
+        result = subprocess.run("adb devices", shell=True, check=True, capture_output=True,
+                                text=True)  # 执行 adb devices 命令
+        devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
+        device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+        return device_ids
+
+
+    @staticmethod
+    def run_cmd():
+        user_directory = os.path.expanduser("~")
+        subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell = True)
+
