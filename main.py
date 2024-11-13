@@ -14,7 +14,7 @@ def main():
         app = QApplication(sys.argv)
         # app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
         # app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt5'))
-        apply_stylesheet(app, theme = 'dark_teal.xml')
+        # apply_stylesheet(app, theme = 'dark_teal.xml')
         window = ADB_Mainwindow()  # 创建窗口
         window.show()  # 显示窗口
         # ADB_Mainwindow.d_list(ADB_Mainwindow())
