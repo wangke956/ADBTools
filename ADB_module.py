@@ -317,6 +317,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
         self.setupUi(self)
+
         """print重定向到textEdit、textBrowser"""
         # self.device = u2.connect(device_id)
 
@@ -350,24 +351,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
-        # self.check_device_status()
-
-    # def check_device_status(self):
-    #     def inner():
-    #         while True:
-    #             """检查设备连接状态，如果没有设备连接则输出提示信息"""
-    #             result = subprocess.run("adb devices", shell = True, capture_output = True, text = True)
-    #             devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-    #             device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
-    #
-    #             if not device_ids:
-    #                 self.textBrowser.append("未连接设备！")  # 输出未连接设备的提示信息
-    #             else:
-    #                 break
-    #             time.sleep(0.5)
-    #
-    #     threading.Thread(target=inner).start()  # 异步执行
-
+        self.unlock_8015.clicked.connect(self.unlock_8015_wrapper)  # 解锁 8015 设备
+        self.unlock_desai.clicked.connect(self.unlock_desai_wrapper)  # 解锁 Desai 设备
+        self.scrcpy.clicked.connect(self.scrcpy_wrapper)  # 投屏
 
     def scroll_to_bottom(self):
         scrollbar = self.textBrowser.verticalScrollBar()
@@ -546,14 +532,18 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """
         以 root 权限运行 ADB
         """
+        result_queue = queue.Queue()  # 创建一个队列用于存储结果
         def inner():
             device_id = self.get_selected_device()
             if device_id:
                 res = adb_root(device_id)  # 传入下拉框选择的设备ID
                 self.textBrowser.append(res)
+                result_queue.put(res)  # 将结果放入队列
             else:
                 self.textBrowser.append("未连接设备！")
+                result_queue.put(None)  # 将结果放入队列
         threading.Thread(target=inner).start()  # 异步执行
+        return result_queue.get()  # 从队列中获取结果
 
     def reboot_device(self):
         """
@@ -911,6 +901,93 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.textBrowser.append(f"无法获取{apk_name}文件的包名")
         else:
             self.textBrowser.append("未选择apk文件!")
+
+    def unlock_8015_wrapper(self):
+        """
+        解锁8015设备
+        执行：adb root和adb shell "setprop bmi.service.adb.root 1"
+        """
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    res = self.adb_root_wrapper()
+                    if "成功" in res:
+                        try:
+                            subprocess.run(f"adb -s {device_id} shell setprop bmi.service.adb.root 1", shell=True, check=True)
+                        except subprocess.CalledProcessError as e:
+                            self.textBrowser.append(f"设置bmi.service.adb.root属性失败: {e}")
+                    self.textBrowser.append("设备解锁成功")
+                except subprocess.CalledProcessError as e:
+                    self.textBrowser.append(f"设备解锁失败: {e}")
+            else:
+                self.textBrowser.append("未连接设备！")
+        threading.Thread(target=inner).start()  # 异步执行
+
+    def unlock_desai_wrapper(self):
+        """
+        解锁德赛系统权限：
+        1.运行adb root
+        2.运行adb remount remount
+        """
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    res = self.adb_root_wrapper()  # 运行adb root
+                    if "成功" in res:
+                        res = subprocess.run(f"adb -s {device_id} remount remount",
+                                             shell=True,
+                                             check=True,
+                                             capture_output=True,
+                                             text=True
+                                             )
+                        if res.stdout == "remount succeeded\n":
+                            self.textBrowser.append("设备解锁成功")
+                except subprocess.CalledProcessError as e:
+                    self.textBrowser.append(f"设备解锁失败: {e}")
+            else:
+                self.textBrowser.append("未连接设备！")
+        threading.Thread(target=inner).start()  # 异步执行
+
+    def scrcpy_wrapper(self):
+        """
+        码率：Data_Rate.text()
+        控制设备：Remote_Control.isChecked()
+        保持唤醒：camod.isChecked()
+        最大尺寸：Resolution.currentText()
+        """
+        # Data_Rate_value = 2
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        Data_Rate_value = self.Data_Rate.text()  # 获取码率
+        Remote_Control_value = self.Remote_Control.isChecked()  # 获取是否远程控制
+        camod_value = self.camod.isChecked()  # 获取是否保持唤醒
+        Resolution_value = self.Resolution.currentText()  # 获取最大尺寸
+        # print(type(Resolution_value))
+        def inner():
+            if device_id in devices_id_lst:
+                cmd = f"scrcpy -s {device_id}"
+                print(cmd)
+                if not Remote_Control_value:
+                    cmd += " -n"
+                if camod_value:
+                    cmd += " -w"
+                if not Data_Rate_value:
+                    cmd += " -b 2M"
+                else:
+                    cmd += f" -b {Data_Rate_value}M"
+                cmd += f" --max-size={Resolution_value}"
+                print(cmd)
+                res = subprocess.run(cmd,
+                                     shell=True,
+                                     capture_output=True,
+                                     text=True)
+                self.textBrowser.append(res.stdout)
+
+        threading.Thread(target=inner).start()  # 异步执行
 
 
     @staticmethod
