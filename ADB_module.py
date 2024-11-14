@@ -1,5 +1,4 @@
 import time
-from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
 import sys
 import io
@@ -481,27 +480,35 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         threading.Thread(target=inner).start()  # 异步执行
 
 
-    def view_apk_path_wrapper(self):
+    def view_apk_path_wrapper(self, package_name):
         """
         显示应用安装路径
         """
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            # 弹窗获取用户输入包名,
-            package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要查看安装路径的应用包名：")
-            if not ok:
-                # 点击取消，输出提示信息
-                self.textBrowser.append("已取消！")
-            else:
-                # 点击确认，执行 adb shell pm path 命令获取安装路径
+            if package_name:
                 cmd = f'adb -s {device_id} shell pm path {package_name}'
-                # cmd = f'adb -s {device_id} shell pm path {package_name}'
-                result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
-                # 输出安装目录
+                result = subprocess.run(cmd, shell = True, check = True, capture_output = True, text = True)
                 apk_path = result.stdout.strip()
                 parts = apk_path.split(":")[1]
-                self.textBrowser.append(f"应用安装路径: {parts}")
+                return parts  # 返回安装路径
+            else:
+                # 弹窗获取用户输入包名,
+                package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要查看安装路径的应用包名：")
+                if not ok:
+                    # 点击取消，输出提示信息
+                    self.textBrowser.append("已取消！")
+                else:
+                    # 点击确认，执行 adb shell pm path 命令获取安装路径
+                    cmd = f'adb -s {device_id} shell pm path {package_name}'
+                    # cmd = f'adb -s {device_id} shell pm path {package_name}'
+                    result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+                    # 输出安装目录
+                    apk_path = result.stdout.strip()
+                    parts = apk_path.split(":")[1]
+                    self.textBrowser.append(f"应用安装路径: {parts}")
+                    return parts  # 返回安装路径
         else:
             self.textBrowser.append("设备已断开！")
 
@@ -861,19 +868,49 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """
         弹出文件选择框让用户选择apk文件，获取到的apk_path传入到aapt_get_package_name()函数中获取包名
         """
-        def inner():
-            apk_path, _ = QFileDialog.getOpenFileName(self, "选择APK文件", "", "APK Files (*.apk)")
-            if apk_path:
-                package_name = aapt_get_packagen_name(apk_path)
-                # 从apk_path中提取出文件名
-                apk_name = os.path.basename(apk_path)
-                if package_name:
-                    self.textBrowser.append(f"{apk_name}文件的包名: {package_name}")
-                else:
-                    self.textBrowser.append(f"无法获取{apk_name}文件的包名")
+
+        # 弹窗获取apk文件
+        apk_path, _ = QFileDialog.getOpenFileName(self,
+                                                  "选择APK文件",
+                                                  "",
+                                                  "apk Files (*.apk)",
+                                                  options=QFileDialog.DontUseNativeDialog
+                                                  )
+        if apk_path:
+            package_name = aapt_get_packagen_name(apk_path)
+            # 从apk_path中提取出文件名
+            apk_name = os.path.basename(apk_path)
+            if package_name:
+                self.textBrowser.append(f"{apk_name}文件的包名: {package_name}")
+
+                # 弹框询问用户是否查看该应用的安装位置，也就是是否执行adb pm path 命令
+                if QMessageBox.question(self, "查看安装位置", f"是否查看{apk_name}文件的安装位置?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes) == QMessageBox.Yes:
+                    try:
+
+                        apk_device_path = self.view_apk_path_wrapper(package_name)
+                        self.textBrowser.append(f"{apk_name}文件的安装位置: {apk_device_path}")
+                        # 弹框询问用户是否执行adb push 该apk文件到刚获得的安装位置
+                        if QMessageBox.question(self, "推送到设备", f"是否推送{apk_name}文件到设备的{apk_device_path}位置?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes) == QMessageBox.Yes:
+                            try:
+                                subprocess.run(f"adb push {apk_path} {apk_device_path}", shell=True, check=True)
+                                self.textBrowser.append(f"成功推送{apk_name}文件到设备的{apk_device_path}位置")
+
+                                # 弹框询问用户是否重启设备，重启设备或不重启
+                                if QMessageBox.question(self, "重启设备", "是否重启设备?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes) == QMessageBox.Yes:
+                                    try:
+                                        # 调用reboot方法
+                                        self.reboot_device()
+                                        self.textBrowser.append("设备重启成功")
+                                    except Exception as e:
+                                        self.textBrowser.append(f"重启设备失败: {e}")
+                            except subprocess.CalledProcessError as e:
+                                self.textBrowser.append(f"推送{apk_name}文件到设备的{apk_device_path}位置失败: {e}")
+                    except subprocess.CalledProcessError as e:
+                        self.textBrowser.append(f"获取{apk_name}文件的安装位置失败: {e}")
             else:
-                self.textBrowser.append("未选择apk文件!")
-        threading.Thread(target=inner).start()  # 异步执行
+                self.textBrowser.append(f"无法获取{apk_name}文件的包名")
+        else:
+            self.textBrowser.append("未选择apk文件!")
 
 
     @staticmethod
