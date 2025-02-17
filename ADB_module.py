@@ -1,3 +1,4 @@
+# coding=utf-8
 import time
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
 import sys
@@ -306,7 +307,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """启动应用"""
         device_ids = self.get_new_device_lst()
         device_id = self.get_selected_device()
-        device = u2.connect(device_id)
+        device = u2.connecstopt(device_id)
         if device_id in device_ids:
             try:
                 # 弹出对话框，请用户输入应用包名和活动名，格式为：包名: com.android.settings, 活动名:.MainSettings
@@ -665,9 +666,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def get_foreground_package(self, is_direct_call = True):
         result_queue = queue.Queue()  # 创建一个队列用于存储结果
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
         def inner():
-            device_id = self.get_selected_device()
-            devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:  # 检查选择的设备是否在设备列表中
                 try:
                     device = u2.connect(device_id)
@@ -692,7 +693,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.textBrowser.append("设备已断开！")
                 result_queue.put(None)  # 将结果放入队列，表示设备断开
 
-        threading.Thread(target = inner).start()
+        threading.Thread(target=inner).start()
         return result_queue.get()  # 在主线程中获取队列中的结果
 
 
