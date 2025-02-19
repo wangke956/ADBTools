@@ -6,6 +6,8 @@ import subprocess
 import threading
 import queue
 
+
+
 if hasattr(sys.stdout, 'buffer'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 else:
@@ -260,7 +262,125 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
+        self.switch_vr_env_button.clicked.connect(self.switch_vr_env)  # 切换VR环境
+        self.VR_nework_check_button.clicked.connect(self.check_vr_network)  # 检查VR网络
+        self.upgrade_page_button.clicked.connect(self.as33_upgrade_page)  # 升级页面
+        self.activate_VR_button.clicked.connect(self.activate_vr)  # 激活VR
+        self.list_package_button.clicked.connect(self.list_package)
+        self.skipping_powerlimit_button.clicked.connect(self.skip_power_limit)  # 跳过电源挡位限制
         # self.d_list()  # 设备列表初始化
+
+    def skip_power_limit(self):
+        """跳过电源挡位限制"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    result = d.shell('adb root')
+                    print(result)
+                    d.shell('setprop persist.update.enable 1')
+                except Exception as e:
+                    self.textBrowser.append(f"跳过电源挡位限制失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
+
+
+
+    def list_package(self):
+        """获取设备上安装的应用列表"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    app_list = d.app_list()
+                    output_lines = [f"设备 {device_id} 上的应用列表："]
+
+                    for app in app_list:
+                        app_info = d.app_info(app)
+                        version_name = app_info.get('versionName')
+                        output_lines.append(f"{app}, 版本号: {version_name}")
+
+                    # 批量更新
+                    self.textBrowser.append('\n'.join(output_lines))
+
+                except Exception as e:
+                    self.textBrowser.append(f"获取应用列表失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
+
+    def activate_vr(self):
+        """激活VR"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    d.shell('input keyevent 287')
+                except Exception as e:
+                    self.textBrowser.append(f"激活VR失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
+
+    def as33_upgrade_page(self):
+        """升级页面"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    d.shell('am start com.yfve.usbupdate/.MainActivity')
+                except Exception as e:
+                    self.textBrowser.append(f"升级页面失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
+
+    def check_vr_network(self):
+        """检查VR网络"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    result = d.shell('am start -n com.microsoft.assistant.client/com.microsoft.assistant.client.MainActivity')
+                    if result:
+                        self.textBrowser.append("页面打开成功！")
+                    else:
+                        self.textBrowser.append("页面打开失败！")
+                except Exception as e:
+                    self.textBrowser.append(f"检查VR网络失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
+
+
+
+    def switch_vr_env(self):
+        """切换VR环境"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    d.shell('am start com.saicmotor.voiceservice/com.saicmotor.voiceagent.VREngineModeActivity')
+                except Exception as e:
+                    self.textBrowser.append(f"切换VR环境失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
+
 
     def scroll_to_bottom(self):
         scrollbar = self.textBrowser.verticalScrollBar()
@@ -377,23 +497,24 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            # 弹窗获取用户输入包名,
-            package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要查看安装路径的应用包名：")
-            if not ok:
-                # 点击取消，输出提示信息
-                self.textBrowser.append("已取消！")
+        try:
+            if device_id in devices_id_lst:
+                # 弹窗获取用户输入包名,
+                package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要查看安装路径的应用包名：")
+                if not ok:
+                    # 点击取消，输出提示信息
+                    self.textBrowser.append("已取消！")
+                else:
+                    # 点击确认，执行 adb shell pm path 命令获取安装路径
+                    cmd = f'pm path {package_name}'
+                    d = u2.connect(device_id)
+                    result = d.shell(cmd)
+                    # result缓缓为bytes类型，需要转换为str类型
+                    self.textBrowser.append(f"应用安装路径: {result.output.split('package:')[1].strip()}")
             else:
-                # 点击确认，执行 adb shell pm path 命令获取安装路径
-                cmd = f'adb -s {device_id} shell pm path {package_name}'
-                # cmd = f'adb -s {device_id} shell pm path {package_name}'
-                result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
-                # 输出安装目录
-                apk_path = result.stdout.strip()
-                parts = apk_path.split(":")[1]
-                self.textBrowser.append(f"应用安装路径: {parts}")
-        else:
-            self.textBrowser.append("设备已断开！")
+                self.textBrowser.append("设备已断开！")
+        except Exception as e:
+            self.textBrowser.append(f"获取应用安装路径失败: {e}")
 
     @staticmethod
     def run_cmd():
@@ -472,10 +593,15 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
+                d = u2.connect(device_id)
                 file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
                 if file_path:
                     # 传入下拉框选择的设备ID
                     res = get_screenshot(file_path, device_id)
+                    # screen = d.shell("screencap -p /sdcard/screenshot.png")
+                    # pull_res = d.shell(f"/sdcard/screenshot.png {file_path}")
+                    # self.textBrowser.append(screen)
+                    # self.textBrowser.append(pull_res)
                     self.textBrowser.append(res)
             else:
                 self.textBrowser.append("未连接设备！")
