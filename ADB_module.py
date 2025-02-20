@@ -70,12 +70,12 @@ def adb_root(device_id):
     else:
         return "设备未连接！"
 
-def adb_cpu_info(device_id):
-    try:
-        cpu_info = subprocess.run(f'adb -s {device_id} shell cat /proc/cpuinfo', capture_output=True, text=True)  #
-        return cpu_info.stdout
-    except subprocess.CalledProcessError as e:
-        return f"获取 CPU 信息失败: {e}"
+# def adb_cpu_info(device_id):
+#     try:
+#         cpu_info = subprocess.run(f'adb -s {device_id} shell cat /proc/cpuinfo', capture_output=True, text=True)  #
+#         return cpu_info.stdout
+#     except subprocess.CalledProcessError as e:
+#         return f"获取 CPU 信息失败: {e}"
 
 def simulate_swipe(start_x, start_y, end_x, end_y, duration, device_id):
     command = f"adb -s {device_id} shell input swipe {start_x} {start_y} {end_x} {end_y} {duration}"
@@ -236,7 +236,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         sys.stdout = self.text_edit_output_stream
         sys.stderr = self.text_edit_output_stream
         self.refresh_devices()  # 刷新设备列表
-        self.adb_cpu_info.clicked.connect(self.adb_cpu_info_wrapper)  # 显示CPU信息
+        # self.adb_cpu_info.clicked.connect(self.adb_cpu_info_wrapper)  # 显示CPU信息
         self.simulate_swipe.clicked.connect(self.show_simulate_swipe_dialog)  # 模拟滑动
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb.clicked.connect(self.show_input_text_dialog)  # 输入文本
@@ -248,12 +248,12 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.adb_install.clicked.connect(self.show_install_file_dialog)  # 安装应用
         self.clear_app_cache.clicked.connect(self.show_clear_app_cache_dialog)  # 清除应用缓存
         self.app_package_and_activity.clicked.connect(lambda: self.get_foreground_package(is_direct_call = True))
-        self.pull_hulog.clicked.connect(self.show_pull_hulog_dialog)  # 拉取hulog
+        # self.pull_hulog.clicked.connect(self.show_pull_hulog_dialog)  # 拉取hulog
         self.pull_log_without_clear.clicked.connect(self.show_pull_log_without_clear_dialog)  # 拉取日志（不清除）
         self.pull_log_with_clear.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
         self.simulate_click.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
         self.adb_push_file.clicked.connect(self.show_push_file_dialog)  # 推送文件
-        self.close.clicked.connect(self.stop_program)  # 关闭程序
+        # self.close.clicked.connect(self.stop_program)  # 关闭程序
         self.adbbutton.clicked.connect(ADB_Mainwindow.run_cmd)  # 执行 adb 命令
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
         self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
@@ -264,11 +264,29 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
         self.switch_vr_env_button.clicked.connect(self.switch_vr_env)  # 切换VR环境
         self.VR_nework_check_button.clicked.connect(self.check_vr_network)  # 检查VR网络
-        self.upgrade_page_button.clicked.connect(self.as33_upgrade_page)  # 升级页面
+        self.upgrade_page_button.clicked.connect(self.as33_upgrade_page)  # 打开延峰升级页面
         self.activate_VR_button.clicked.connect(self.activate_vr)  # 激活VR
         self.list_package_button.clicked.connect(self.list_package)
         self.skipping_powerlimit_button.clicked.connect(self.skip_power_limit)  # 跳过电源挡位限制
+        self.enter_engineering_mode_button.clicked.connect(self.enter_engineering_mode)  # 进入工程模式
+        self.upgrade_page_button_2.clicked.connect(self.as33_upgrade_page) # 打开延峰升级页面
         # self.d_list()  # 设备列表初始化
+
+    def enter_engineering_mode(self):
+        """进入工程模式"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    result = d.app_start("com.saicmotor.hmi.engmode", "com.saicmotor.hmi.engmode.home.ui.EngineeringModeActivity")
+                    return result
+                except Exception as e:
+                    self.textBrowser.append(f"进入工程模式失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
 
     def skip_power_limit(self):
         """跳过电源挡位限制"""
@@ -394,32 +412,32 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
         return device_ids
 
-    def show_pull_hulog_dialog(self):
-        def run_commands_and_update(device_id, file_path):
-            if device_id:
-                command = f'adb -s {device_id} root && adb -s {device_id} shell "setprop bmi.service.adb.root 1" && adb -s {device_id} pull log {file_path}'
-                process = subprocess.Popen(command, shell = True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
-                for line in iter(process.stdout.readline, b''):  # 逐行读取输出
-                    if line:
-                        self.textBrowser.append(line.decode())
-                return_code = process.wait()
-                if return_code != 0:
-                    self.textBrowser.append("日志文件拉取失败.")
-                else:
-                    self.textBrowser.append(f"日志文件已保存到 {file_path}")
-            else:
-                self.textBrowser.append("设备未连接！")
-
-        device_ids = self.get_new_device_lst()
-        device_id = self.get_selected_device()
-        if device_id in device_ids:
-            file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", os.getcwd())
-            if file_path:
-                threading.Thread(target = run_commands_and_update, args = (device_id, file_path)).start()
-            else:
-                self.textBrowser.append("已取消！")
-        else:
-            self.textBrowser.append("设备未连接！")
+    # def show_pull_hulog_dialog(self):
+    #     def run_commands_and_update(device_id, file_path):
+    #         if device_id:
+    #             command = f'adb -s {device_id} root && adb -s {device_id} shell "setprop bmi.service.adb.root 1" && adb -s {device_id} pull log {file_path}'
+    #             process = subprocess.Popen(command, shell = True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+    #             for line in iter(process.stdout.readline, b''):  # 逐行读取输出
+    #                 if line:
+    #                     self.textBrowser.append(line.decode())
+    #             return_code = process.wait()
+    #             if return_code != 0:
+    #                 self.textBrowser.append("日志文件拉取失败.")
+    #             else:
+    #                 self.textBrowser.append(f"日志文件已保存到 {file_path}")
+    #         else:
+    #             self.textBrowser.append("设备未连接！")
+    #
+    #     device_ids = self.get_new_device_lst()
+    #     device_id = self.get_selected_device()
+    #     if device_id in device_ids:
+    #         file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", os.getcwd())
+    #         if file_path:
+    #             threading.Thread(target = run_commands_and_update, args = (device_id, file_path)).start()
+    #         else:
+    #             self.textBrowser.append("已取消！")
+    #     else:
+    #         self.textBrowser.append("设备未连接！")
 
 
     def start_app_action(self):
@@ -480,17 +498,17 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str
 
-    def adb_cpu_info_wrapper(self):
-        def inner():
-            device_id = self.get_selected_device()
-            devices_id_lst = self.get_new_device_lst()
-            if device_id in devices_id_lst:
-                # device_id:下拉框选择的设备ID
-                res = adb_cpu_info(device_id)
-                self.textBrowser.append(res)
-            else:
-                self.textBrowser.append("设备已断开！")
-        threading.Thread(target=inner).start()  # 异步执行
+    # def adb_cpu_info_wrapper(self):
+    #     def inner():
+    #         device_id = self.get_selected_device()
+    #         devices_id_lst = self.get_new_device_lst()
+    #         if device_id in devices_id_lst:
+    #             # device_id:下拉框选择的设备ID
+    #             res = adb_cpu_info(device_id)
+    #             self.textBrowser.append(res)
+    #         else:
+    #             self.textBrowser.append("设备已断开！")
+    #     threading.Thread(target=inner).start()  # 异步执行
 
 
     def view_apk_path_wrapper(self):
@@ -593,7 +611,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
-                d = u2.connect(device_id)
                 file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
                 if file_path:
                     # 传入下拉框选择的设备ID
