@@ -100,7 +100,6 @@ def input_text_via_adb(text_to_input, device_id):
         return f"文本输入失败: {e}"
 
 
-
 def get_screenshot(file_path, device_id):
     command = f"adb -s {device_id} shell screencap -p /sdcard/screenshot.png && adb -s {device_id} pull /sdcard/screenshot.png {file_path} && adb -s {device_id} shell rm /sdcard/screenshot.png"
     try:
@@ -191,7 +190,6 @@ def pull_log_with_clear(file_path, device_id):
             break
 
 
-
 def simulate_click(x, y, device_id):
     command = f"adb -s {device_id} shell input tap {x} {y}"
     try:
@@ -200,7 +198,6 @@ def simulate_click(x, y, device_id):
     except subprocess.CalledProcessError as e:
         return f"点击失败: {e}"
 
-
 def adb_push_file(local_file_path, target_path_on_device, device_id):
     command = f"adb -s {device_id} push {local_file_path} {target_path_on_device}"
     try:
@@ -208,7 +205,6 @@ def adb_push_file(local_file_path, target_path_on_device, device_id):
         return "文件推送成功！"
     except subprocess.CalledProcessError as e:
         return f"文件推送失败: {e}"
-
 def aapt_get_packagen_name(apk_path):
     """
     通过aapt命令获取apk包名
@@ -224,13 +220,14 @@ def aapt_get_packagen_name(apk_path):
 
 # noinspection PyShadowingNames
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
-
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
         self.setupUi(self)
-        """print重定向到textEdit、textBrowser"""
-        # self.device = u2.connect(device_id)
-
+        # 添加按钮点击间隔控制和线程锁
+        self._last_click_time = {}
+        self._click_interval = 1.0  # 设置点击间隔为1秒
+        self._thread_locks = {}
+        
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
@@ -317,15 +314,56 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 try:
                     d = u2.connect(device_id)
                     app_list = d.app_list()
-                    output_lines = [f"设备 {device_id} 上的应用列表："]
+                    total_apps = len(app_list)
+                    self.textBrowser.append(f"设备 {device_id} 上共有 {total_apps} 个应用")
+                    self.textBrowser.append("正在获取应用信息...")
 
-                    for app in app_list:
-                        app_info = d.app_info(app)
-                        version_name = app_info.get('versionName')
-                        output_lines.append(f"{app}, 版本号: {version_name}")
+                    # 使用队列来管理输出，避免内存占用过大
+                    output_queue = queue.Queue()
+                    batch_size = 100  # 增加每批处理数量到100个应用
+                    last_progress_line = None  # 记录上一次的进度行
+                    
+                    def process_app_batch(apps_batch):
+                        batch_output = []
+                        for app in apps_batch:
+                            try:
+                                app_info = d.app_info(app)
+                                version_name = app_info.get('versionName', '未知版本')
+                                batch_output.append(f"{app}, 版本号: {version_name}")
+                            except Exception as e:
+                                batch_output.append(f"获取应用 {app} 信息失败: {str(e)}")
+                        return batch_output
 
-                    # 批量更新
-                    self.textBrowser.append('\n'.join(output_lines))
+                    # 分批处理应用
+                    current_batch = []
+                    for i, app in enumerate(app_list):
+                        current_batch.append(app)
+                        
+                        if len(current_batch) >= batch_size or i == len(app_list) - 1:
+                            # 处理当前批次
+                            batch_results = process_app_batch(current_batch)
+                            output_queue.put(batch_results)
+                            
+                            # 显示当前批次结果
+                            self.textBrowser.append('\n'.join(batch_results))
+                            
+                            # 更新进度 - 如果存在上一次的进度行，先清除它
+                            if last_progress_line:
+                                self.text_edit_output_stream.set_clear_before_write(True)
+                            progress = (i + 1) / total_apps * 100
+                            progress_text = f"处理进度: {progress:.1f}% ({i + 1}/{total_apps})"
+                            self.textBrowser.append(progress_text)
+                            last_progress_line = progress_text
+                            
+                            # 清空当前批次
+                            current_batch = []
+                    
+                    # 处理队列中剩余的结果
+                    while not output_queue.empty():
+                        batch_results = output_queue.get()
+                        self.textBrowser.append('\n'.join(batch_results))
+                    
+                    self.textBrowser.append(f"\n完成! 共处理 {total_apps} 个应用")
 
                 except Exception as e:
                     self.textBrowser.append(f"获取应用列表失败: {e}")
@@ -444,8 +482,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """启动应用"""
         device_ids = self.get_new_device_lst()
         device_id = self.get_selected_device()
-        device = u2.connect(device_id)
         if device_id in device_ids:
+            device = u2.connect(device_id)
             try:
                 # 弹出对话框，请用户输入应用包名和活动名，格式为：包名: com.android.settings, 活动名:.MainSettings
                 input_text, ok = QInputDialog.getText(self, '输入应用信息',
@@ -498,18 +536,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str
 
-    # def adb_cpu_info_wrapper(self):
-    #     def inner():
-    #         device_id = self.get_selected_device()
-    #         devices_id_lst = self.get_new_device_lst()
-    #         if device_id in devices_id_lst:
-    #             # device_id:下拉框选择的设备ID
-    #             res = adb_cpu_info(device_id)
-    #             self.textBrowser.append(res)
-    #         else:
-    #             self.textBrowser.append("设备已断开！")
-    #     threading.Thread(target=inner).start()  # 异步执行
-
 
     def view_apk_path_wrapper(self):
 
@@ -530,7 +556,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     # result缓缓为bytes类型，需要转换为str类型
                     self.textBrowser.append(f"应用安装路径: {result.output.split('package:')[1].strip()}")
             else:
-                self.textBrowser.append("设备已断开！")
+                self.textBrowser.append("未连接设备！")
         except Exception as e:
             self.textBrowser.append(f"获取应用安装路径失败: {e}")
 
@@ -573,18 +599,18 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 res = adb_root(device_id)  # 传入下拉框选择的设备ID
                 self.textBrowser.append(res)
             else:
-                self.textBrowser.append("未连接设备！")
+                self.textBrowser.append("设备未连接！")
         threading.Thread(target=inner).start()  # 异步执行
 
     def reboot_device(self):
-        # 弹出对话框询问是否要重启设备
-        dig = QMessageBox.question(self, "重启设备", "是否要重启设备？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if dig == QMessageBox.Yes:
-            def inner():
-                try:
-                    device_id = self.get_selected_device()
-                    device_ids = self.get_new_device_lst()
-                    if device_id in device_ids:
+        device_id = self.get_selected_device()
+        device_ids = self.get_new_device_lst()
+        if device_id in device_ids:
+            # 弹出对话框询问是否要重启设备
+            dig = QMessageBox.question(self, "重启设备", "是否要重启设备？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if dig == QMessageBox.Yes:
+                def inner():
+                    try:
                         # 执行 adb reboot 命令
                         result = subprocess.run(
                             f"start /b adb -s {device_id} reboot",
@@ -600,11 +626,11 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                         elif "not found" in result.stdout.decode('utf-8'):
                             self.adb_root_wrapper()
                             self.reboot_device()
-                    else:
-                        self.textBrowser.append(f"设备已断开！")
-                except Exception as e:
-                    self.textBrowser.append(f"重启设备失败: {e}")
-            threading.Thread(target=inner).start()  # 异步执行
+                    except Exception as e:
+                        self.textBrowser.append(f"重启设备失败: {e}")
+                threading.Thread(target=inner).start()  # 异步执行
+        else:
+            self.textBrowser.append("未连接设备！")
 
     def show_screenshot_dialog(self):
         def inner():
@@ -613,12 +639,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             if device_id in devices_id_lst:
                 file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
                 if file_path:
-                    # 传入下拉框选择的设备ID
                     res = get_screenshot(file_path, device_id)
-                    # screen = d.shell("screencap -p /sdcard/screenshot.png")
-                    # pull_res = d.shell(f"/sdcard/screenshot.png {file_path}")
-                    # self.textBrowser.append(screen)
-                    # self.textBrowser.append(pull_res)
                     self.textBrowser.append(res)
             else:
                 self.textBrowser.append("未连接设备！")
@@ -655,18 +676,22 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
 
     def show_install_file_dialog(self):
-        # def inner():
-        device_id = self.get_selected_device()
-        if device_id:
-            package_path, _ = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
-                                                          "APK Files (*.apk);;All Files (*)")
-            if package_path:
-                def inner():
-                    # 传入下拉框选择的设备ID
-                    res = adb_install(package_path, device_id)
-                    self.textBrowser.append(res)
-                threading.Thread(target=inner).start()  # 异步执行
-        self.textBrowser.append("即将开始安装应用，请耐心等待...")
+        def inner():
+            device_id = self.get_selected_device()
+            devices_id_lst = self.get_new_device_lst()
+            if device_id in devices_id_lst:
+                package_path, _ = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
+                                                              "APK Files (*.apk);;All Files (*)")
+                if package_path:
+                    def inner():
+                        # 传入下拉框选择的设备ID
+                        res = adb_install(package_path, device_id)
+                        self.textBrowser.append(res)
+                    threading.Thread(target=inner).start()  # 异步执行
+                    self.textBrowser.append("即将开始安装应用，请耐心等待...")
+            else:
+                self.textBrowser.append("未连接设备！")
+        threading.Thread(target=inner).start()  # 异步执行
 
     def show_pull_log_without_clear_dialog(self):
 
@@ -787,7 +812,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                         except subprocess.CalledProcessError as e:
                             self.textBrowser.append(f"强制停止 {package_name} 应用在设备 {device_id} 上失败: {e}")
                 else:
-                    self.textBrowser.append("设备已断开！")
+                    self.textBrowser.append("未连接设备！")
             except Exception as e:
                 self.textBrowser.append(f"强制停止应用失败: {e}")
         threading.Thread(target=inner).start()  # 异步执行
@@ -832,7 +857,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     self.textBrowser.append(f"获取前台正在运行的应用包名失败: {e}")
                     result_queue.put(None)  # 将结果放入队列，表示获取失败
             else:
-                self.textBrowser.append("设备已断开！")
+                self.textBrowser.append("未连接设备！")
                 result_queue.put(None)  # 将结果放入队列，表示设备断开
 
         threading.Thread(target = inner).start()
