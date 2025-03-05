@@ -1,0 +1,25 @@
+[2025-03-05 13:17:38.302] INFO     [ADBTools] [MainThread] main.setup_logging:44 - ==================================================
+[2025-03-05 13:17:38.302] INFO     [ADBTools] [MainThread] main.setup_logging:45 - 程序启动
+[2025-03-05 13:17:38.411] INFO     [ADBTools] [MainThread] main.setup_logging:46 - 系统信息:
+操作系统: Windows-11-10.0.22631-SP0
+Python版本: 3.12.0 | packaged by Anaconda, Inc. | (main, Oct  2 2023, 17:20:38) [MSC v.1916 64 bit (AMD64)]
+CPU信息: Intel64 Family 6 Model 186 Stepping 3, GenuineIntel
+内存使用: 77.5%
+磁盘使用: 90.4%
+[2025-03-05 13:17:38.411] INFO     [ADBTools] [MainThread] main.setup_logging:47 - ==================================================
+[2025-03-05 13:17:38.414] INFO     [ADBTools] [MainThread] main.main:57 - 启动 ADBTools 应用程序
+[2025-03-05 13:17:38.426] DEBUG    [ADBTools] [MainThread] main.main:61 - 初始化 QApplication
+[2025-03-05 13:17:38.431] DEBUG    [ADBTools] [MainThread] main.main:64 - 应用深色主题样式
+[2025-03-05 13:17:38.431] INFO     [ADBTools] [MainThread] ADB_module.__init__:244 - 初始化ADB_Mainwindow类
+[2025-03-05 13:17:38.651] DEBUG    [ADBTools] [MainThread] ADB_module.__init__:248 - 初始化按钮点击间隔控制和线程锁
+[2025-03-05 13:17:38.652] DEBUG    [ADBTools] [MainThread] ADB_module.__init__:254 - 设置输出重定向到textBrowser
+[2025-03-05 13:17:38.652] INFO     [ADBTools] [MainThread] ADB_module.__init__:258 - 开始刷新设备列表
+[2025-03-05 13:17:38.652] INFO     [ADBTools] [MainThread] ADB_module.refresh_devices:681 - 开始刷新设备列表
+[2025-03-05 13:17:38.652] DEBUG    [ADBTools] [Thread-1 (inner)] ADB_module.inner:685 - 执行adb devices命令
+[2025-03-05 13:17:38.653] DEBUG    [ADBTools] [MainThread] main.main:67 - 创建主窗口
+[2025-03-05 13:17:38.867] INFO     [ADBTools] [MainThread] main.main:78 - 显示主窗口
+[2025-03-05 13:17:38.869] DEBUG    [ADBTools] [Thread-1 (inner)] ADB_module.inner:689 - 找到的设备：['GFEDCBA0987654321']
+[2025-03-05 13:17:38.869] DEBUG    [ADBTools] [Thread-1 (inner)] ADB_module.inner:692 - 更新设备列表下拉框
+[2025-03-05 13:17:38.870] INFO     [ADBTools] [Thread-1 (inner)] ADB_module.inner:700 - 设备列表刷新成功：GFEDCBA0987654321
+[2025-03-05 13:18:04.767] INFO     [ADBTools] [MainThread] main.closeEvent:71 - 应用程序正在关闭
+[2025-03-05 13:18:04.767] INFO     [ADBTools] [MainThread] main.closeEvent:72 - 最终内存使用: 86.18 MB
