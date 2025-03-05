@@ -234,7 +234,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         sys.stderr = self.text_edit_output_stream
         self.refresh_devices()  # 刷新设备列表
         # self.adb_cpu_info.clicked.connect(self.adb_cpu_info_wrapper)  # 显示CPU信息
-        self.simulate_swipe.clicked.connect(self.show_simulate_swipe_dialog)  # 模拟滑动
+        # self.simulate_swipe.clicked.connect(self.show_simulate_swipe_dialog)  # 模拟滑动
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb.clicked.connect(self.show_input_text_dialog)  # 输入文本
         self.get_screenshot.clicked.connect(self.show_screenshot_dialog)  # 截图
@@ -267,7 +267,25 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.skipping_powerlimit_button.clicked.connect(self.skip_power_limit)  # 跳过电源挡位限制
         self.enter_engineering_mode_button.clicked.connect(self.enter_engineering_mode)  # 进入工程模式
         self.upgrade_page_button_2.clicked.connect(self.as33_upgrade_page) # 打开延峰升级页面
+        self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(self.MZS3E_TT_enter_engineering_mode)  # MZS3E_TT进入工程模式
         # self.d_list()  # 设备列表初始化
+
+    def MZS3E_TT_enter_engineering_mode(self):
+        """MZS3E_TT进入工程模式"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    d = u2.connect(device_id)
+                    # 包名: com.saicmotor.diag, 活动名: .ui.main.MainActivity
+                    result = d.app_start("com.saicmotor.diag", ".ui.main.MainActivity")
+                    return result
+                except Exception as e:
+                    self.textBrowser.append(f"MZS3E_TT进入工程模式失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
 
     def enter_engineering_mode(self):
         """进入工程模式"""
@@ -308,21 +326,27 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """获取设备上安装的应用列表"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-
+        findstr = self.Findstr.toPlainText()
+        # print(findstr)
         def inner():
             if device_id in devices_id_lst:
                 try:
                     d = u2.connect(device_id)
-                    app_list = d.app_list()
+                    app_list = d.app_list(findstr)
                     total_apps = len(app_list)
-                    self.textBrowser.append(f"设备 {device_id} 上共有 {total_apps} 个应用")
-                    self.textBrowser.append("正在获取应用信息...")
+                    if findstr:
+                        self.textBrowser.append(f"设备 {device_id} 上共有 {total_apps} 个应用，包含关键字 {findstr}")
+                        self.textBrowser.append("正在获取应用信息...")
+
+                    else:
+                        self.textBrowser.append(f"设备 {device_id} 上共有 {total_apps} 个应用")
+                        self.textBrowser.append("正在获取应用信息...")
 
                     # 使用队列来管理输出，避免内存占用过大
                     output_queue = queue.Queue()
                     batch_size = 100  # 增加每批处理数量到100个应用
                     last_progress_line = None  # 记录上一次的进度行
-                    
+
                     def process_app_batch(apps_batch):
                         batch_output = []
                         for app in apps_batch:
@@ -338,15 +362,15 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     current_batch = []
                     for i, app in enumerate(app_list):
                         current_batch.append(app)
-                        
+
                         if len(current_batch) >= batch_size or i == len(app_list) - 1:
                             # 处理当前批次
                             batch_results = process_app_batch(current_batch)
                             output_queue.put(batch_results)
-                            
+
                             # 显示当前批次结果
                             self.textBrowser.append('\n'.join(batch_results))
-                            
+
                             # 更新进度 - 如果存在上一次的进度行，先清除它
                             if last_progress_line:
                                 self.text_edit_output_stream.set_clear_before_write(True)
@@ -354,15 +378,15 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                             progress_text = f"处理进度: {progress:.1f}% ({i + 1}/{total_apps})"
                             self.textBrowser.append(progress_text)
                             last_progress_line = progress_text
-                            
+
                             # 清空当前批次
                             current_batch = []
-                    
+
                     # 处理队列中剩余的结果
                     while not output_queue.empty():
                         batch_results = output_queue.get()
                         self.textBrowser.append('\n'.join(batch_results))
-                    
+
                     self.textBrowser.append(f"\n完成! 共处理 {total_apps} 个应用")
 
                 except Exception as e:
@@ -748,25 +772,25 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.textBrowser.append("未连接设备！")
         threading.Thread(target=inner).start()  # 异步执行
 
-    def show_simulate_swipe_dialog(self):  # 模拟滑动
-        def inner():
-            try:
-                device_id = self.get_selected_device()
-                devices_id_lst = self.get_new_device_lst()
-                if device_id in devices_id_lst:
-                    # 弹出一个输入框让用户一次性输入所有坐标共四个整数
-                    input_text, ok = QInputDialog.getText(self, "输入坐标", "请输入滑动的起始坐标和终止坐标，格式为：x1,y1,x2,y2:")
-                    if ok and input_text:
-                        parts = input_text.split(',')
-                        if len(parts) == 4:
-                            x1, y1, x2, y2 = [int(part) for part in parts]
-                            res = simulate_swipe(x1, y1, x2, y2, 500, device_id)
-                            self.textBrowser.append(res)
-                else:
-                    self.textBrowser.append("未连接设备！")
-            except Exception as e:
-                self.textBrowser.append(f"模拟滑动失败: {e}")
-        threading.Thread(target=inner).start()  # 异步执行
+    # def show_simulate_swipe_dialog(self):  # 模拟滑动
+    #     def inner():
+    #         try:
+    #             device_id = self.get_selected_device()
+    #             devices_id_lst = self.get_new_device_lst()
+    #             if device_id in devices_id_lst:
+    #                 # 弹出一个输入框让用户一次性输入所有坐标共四个整数
+    #                 input_text, ok = QInputDialog.getText(self, "输入坐标", "请输入滑动的起始坐标和终止坐标，格式为：x1,y1,x2,y2:")
+    #                 if ok and input_text:
+    #                     parts = input_text.split(',')
+    #                     if len(parts) == 4:
+    #                         x1, y1, x2, y2 = [int(part) for part in parts]
+    #                         res = simulate_swipe(x1, y1, x2, y2, 500, device_id)
+    #                         self.textBrowser.append(res)
+    #             else:
+    #                 self.textBrowser.append("未连接设备！")
+    #         except Exception as e:
+    #             self.textBrowser.append(f"模拟滑动失败: {e}")
+    #     threading.Thread(target=inner).start()  # 异步执行
 
     def show_simulate_long_press_dialog(self):
         def inner():
@@ -907,3 +931,5 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def stop_program():
         sys.exit()
 
+if __name__ == '__main__':
+    app = ADB_Mainwindow().MZS3E_TT_enter_engineering_mode()
