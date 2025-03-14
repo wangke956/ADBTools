@@ -292,7 +292,31 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.enter_engineering_mode_button.clicked.connect(self.enter_engineering_mode)  # 进入工程模式
         self.upgrade_page_button_2.clicked.connect(self.as33_upgrade_page) # 打开延峰升级页面
         self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(self.MZS3E_TT_enter_engineering_mode)  # MZS3E_TT进入工程模式
+        self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.AS33_CR_enter_engineering_mode)
         # self.d_list()  # 设备列表初始化
+
+    def AS33_CR_enter_engineering_mode(self):
+        """AS33_CR进入工程模式"""
+        logger.info('尝试进入AS33_CR工程模式')
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        def inner():
+            if device_id in devices_id_lst:
+                try:
+                    logger.debug(f'连接设备：{device_id}')
+                    d = u2.connect(device_id)
+                    # 包名: com.saicmotor.diag, 活动名: .ui.main.MainActivity
+                    logger.info('启动工程模式应用')
+                    result = d.app_start("com.saicmotor.diag", "com.saicmotor.diag.view.LogMenuActivity")
+                    logger.info('工程模式应用启动成功')
+                    return result
+                except Exception as e:
+                    logger.error(f'AS33_CR进入工程模式失败：{e}')
+                    self.textBrowser.append(f"AS33_CR进入工程模式失败: {e}")
+            else:
+                logger.warning('设备未连接')
+                self.textBrowser.append("设备未连接！")
+        threading.Thread(target=inner).start()
 
     def MZS3E_TT_enter_engineering_mode(self):
         """MZS3E_TT进入工程模式"""

@@ -7,6 +7,7 @@ from datetime import datetime
 from PyQt5.QtWidgets import QApplication
 from ADB_module import ADB_Mainwindow
 import qdarkstyle
+from PyQt5.QtCore import Qt
 
 def get_system_info():
     """获取系统详细信息"""
@@ -57,6 +58,10 @@ def main():
     logger.info('启动 ADBTools 应用程序')
     
     try:
+        # 启用高DPI缩放支持
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+
         app = QApplication(sys.argv)
         logger.debug('初始化 QApplication')
         
@@ -65,7 +70,6 @@ def main():
         
         window = ADB_Mainwindow()
         logger.debug('创建主窗口')
-        
         # 添加窗口关闭事件记录
         def closeEvent(event):
             logger.info('应用程序正在关闭')
