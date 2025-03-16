@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QTextBrowser
 # from ADB_module import ADB_Mainwindow
-from ADB_module_02 import ADB_Mainwindow
+from ADB_module import ADB_Mainwindow
 
 import qdarkstyle
 
