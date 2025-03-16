@@ -13,6 +13,15 @@ class ListPackageThread(QThread):
         self.device = device
         self.findstr = findstr
         self.is_running = True
+        # self.progress_signal = None
+        # self.result_signal = None
+        # self.finished_signal = None
+        # self.error_signal = None
+        # self.progress_signal = pyqtSignal(str)  # 用于发送进度信息
+        # self.result_signal = pyqtSignal(list)  # 用于发送批次处理结果
+        # self.finished_signal = pyqtSignal(str)  # 用于发送完成信息
+        # self.error_signal = pyqtSignal(str)  # 用于发送错误信息
+
 
     def stop(self):
         self.is_running = False

@@ -51,6 +51,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self._click_interval = 1.0  # 设置点击间隔为1秒
         self._thread_locks = {}
         self.d = None
+        self.list_package_thread = None
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
@@ -291,7 +292,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def get_running_app_info(self):
         # 获取当前前景应用的版本号
-
+        print("get_running_app_info")
         device_id = self.get_selected_device()  # 获取当前选定的设备ID
         devices_id_lst = self.get_new_device_lst()
         package_name = self.get_foreground_package(is_direct_call=False)  # 传入 device_id 获取包名
@@ -310,7 +311,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             else:
                 self.textBrowser.append("未获取到当前前景应用的包名")
         else:
-            pass
+            self.textBrowser.append("设备未连接！")
 
     def view_apk_path_wrapper(self):
         device_id = self.get_selected_device()
@@ -734,8 +735,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append("设备未连接！")
 
     def get_foreground_package(self, is_direct_call = True):
-        result_queue = queue.Queue()  # 创建一个队列用于存储结果
-
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         try:
@@ -746,6 +745,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     activity_name = current_app['activity']
                     if is_direct_call:  # 如果是直接调用
                         self.textBrowser.append(f"包名: {package_name}, 活动名: {activity_name}")
+                    else:
+                        return package_name  # 返回包名
                 else:
                     self.textBrowser.append("未找到正在运行的应用包名")
             else:
@@ -753,7 +754,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         except Exception as e:
             self.textBrowser.append(f"获取前台正在运行的应用包名失败: {e}")
 
-        return result_queue.get()  # 在主线程中获取队列中的结果
 
     @staticmethod
     def aapt_get_packagen_name(apk_path):
