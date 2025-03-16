@@ -115,7 +115,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         device_ids = self.get_new_device_lst()
         device_id = self.get_selected_device()
         if device_id in device_ids:
-            device = u2.connect(device_id)
             try:
                 # 弹出对话框，请用户输入应用包名和活动名，格式为：包名: com.android.settings, 活动名:.MainSettings
                 input_text, ok = QInputDialog.getText(self, '输入应用信息',
@@ -126,8 +125,12 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     package_name = parts[0].split('包名: ')[1]
                     activity_name = parts[1].split('活动名: ')[1]
                     if len(parts) >= 2:
-                        device.app_start(package_name, activity_name)
-                        self.textBrowser.append(f"应用 {package_name} 已启动")
+                        # 创建并启动线程
+                        from start_app_thread import StartAppThread
+                        self.start_app_thread = StartAppThread(device_id, package_name, activity_name)
+                        self.start_app_thread.success_signal.connect(self.textBrowser.append)
+                        self.start_app_thread.error_signal.connect(self.textBrowser.append)
+                        self.start_app_thread.start()
                     else:
                         self.textBrowser.append("输入的格式不正确，请按照格式输入：包名: com.xxx.xxx, 活动名:.xxx")
                 else:
