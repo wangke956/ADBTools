@@ -211,65 +211,20 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                app_list = self.d.app_list(findstr)
-                total_apps = len(app_list)
-                if findstr:
-                    self.textBrowser.append(f"设备 {device_id} 上共有 {total_apps} 个应用，包含关键字 {findstr}")
-                    self.textBrowser.append("正在获取应用信息...")
-
-                else:
-                    self.textBrowser.append(f"设备 {device_id} 上共有 {total_apps} 个应用")
-                    self.textBrowser.append("正在获取应用信息...")
-
-                # 使用队列来管理输出，避免内存占用过大
-                output_queue = queue.Queue()
-                batch_size = 100  # 增加每批处理数量到100个应用
-                last_progress_line = None  # 记录上一次的进度行
-
-                def process_app_batch(apps_batch):
-                    batch_output = []
-                    for app in apps_batch:
-                        try:
-                            app_info = self.d.app_info(app)
-                            version_name = app_info.get('versionName', '未知版本')
-                            batch_output.append(f"{app}, 版本号: {version_name}")
-                        except Exception as e:
-                            batch_output.append(f"获取应用 {app} 信息失败: {str(e)}")
-                    return batch_output
-
-                # 分批处理应用
-                current_batch = []
-                for i, app in enumerate(app_list):
-                    current_batch.append(app)
-
-                    if len(current_batch) >= batch_size or i == len(app_list) - 1:
-                        # 处理当前批次
-                        batch_results = process_app_batch(current_batch)
-                        output_queue.put(batch_results)
-
-                        # 显示当前批次结果
-                        self.textBrowser.append('\n'.join(batch_results))
-
-                        # 更新进度 - 如果存在上一次的进度行，先清除它
-                        if last_progress_line:
-                            self.text_edit_output_stream.set_clear_before_write(True)
-                        progress = (i + 1) / total_apps * 100
-                        progress_text = f"处理进度: {progress:.1f}% ({i + 1}/{total_apps})"
-                        self.textBrowser.append(progress_text)
-                        last_progress_line = progress_text
-
-                        # 清空当前批次
-                        current_batch = []
-
-                # 处理队列中剩余的结果
-                while not output_queue.empty():
-                    batch_results = output_queue.get()
-                    self.textBrowser.append('\n'.join(batch_results))
-
-                self.textBrowser.append(f"\n完成! 共处理 {total_apps} 个应用")
-
+                from list_package_thread import ListPackageThread
+                # 创建并启动线程
+                self.list_package_thread = ListPackageThread(self.d, findstr)
+                
+                # 连接信号
+                self.list_package_thread.progress_signal.connect(self.textBrowser.append)
+                self.list_package_thread.result_signal.connect(lambda results: self.textBrowser.append('\n'.join(results)))
+                self.list_package_thread.finished_signal.connect(self.textBrowser.append)
+                self.list_package_thread.error_signal.connect(self.textBrowser.append)
+                
+                # 启动线程
+                self.list_package_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"获取应用列表失败: {e}")
+                self.textBrowser.append(f"启动应用列表获取线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
