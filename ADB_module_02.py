@@ -49,12 +49,14 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self._last_click_time = {}
         self._click_interval = 1.0  # 设置点击间隔为1秒
         self._thread_locks = {}
-
+        self.d = None
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
         sys.stderr = self.text_edit_output_stream
-        self.refresh_devices()  # 刷新设备列表
+        if self.refresh_devices():  # 刷新设备列表
+            self.d = u2.connect(self.get_selected_device())
+        self.ComboxButton.activated[str].connect(self.on_combobox_changed)
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb_button.clicked.connect(self.show_input_text_dialog)  # 输入文本
         self.get_screenshot_button.clicked.connect(self.show_screenshot_dialog)  # 截图
@@ -69,7 +71,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.pull_log_with_clear_button.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
         self.simulate_click_button.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
         self.adb_push_file_button.clicked.connect(self.show_push_file_dialog)  # 推送文件
-        self.adbbutton.clicked.connect(ADB_Mainwindow.run_cmd)  # 执行 adb 命令
+        self.adbbutton.clicked.connect(self.run_cmd)  # 执行 adb 命令
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
         self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
         self.adb_root_button.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
@@ -88,6 +90,14 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(self.MZS3E_TT_enter_engineering_mode)  # MZS3E_TT进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.AS33_CR_enter_engineering_mode)
         # self.d_list()  # 设备列表初始化
+
+    def on_combobox_changed(self, text):
+        self.d = u2.connect(text)
+        if self.d:
+            self.textBrowser.append(f"已连接设备: {text}")
+        else:
+            self.textBrowser.append(f"连接设备 {text} 失败！")
+
 
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str
@@ -386,6 +396,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def refresh_devices(self):
         # 刷新设备列表并添加到下拉框
+        result_queue = queue.Queue()   # 用于异步执行的结果队列
         def inner():
             try:
                 # 执行 adb devices 命令
@@ -402,14 +413,18 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 device_ids_str = ", ".join(device_ids)
                 if device_ids_str:
                     self.textBrowser.append(f"设备列表已刷新：\n{device_ids_str}")
+                    result_queue.put(device_ids)  # 将结果放入队列
                     return device_ids  # 返回设备ID列表
                 else:
                     self.textBrowser.append(f"未连接设备！")
+                    result_queue.put([])  # 将结果放入队列
                     return device_ids  # 返回设备ID列表
             except subprocess.CalledProcessError as e:
                 self.textBrowser.append(f"刷新设备列表失败: {e}")
+                result_queue.put("刷新设备列表失败")  # 将结果放入队列
                 return []  # 返回空列表表示刷新失败
         threading.Thread(target=inner).start()  # 异步执行
+        return result_queue.get()  # 等待结果返回并返回结果
 
     @staticmethod
     def adb_root(device_id):
@@ -496,8 +511,10 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             if device_id in devices_id_lst:
                 file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
                 if file_path:
-                    res = self.get_screenshot(file_path, device_id)
-                    self.textBrowser.append(res)
+                    # res = self.get_screenshot(file_path, device_id)
+                    command = f"adb -s {device_id} shell screencap -p /sdcard/screenshot.png && adb -s {device_id} pull /sdcard/screenshot.png {file_path} && adb -s {device_id} shell rm /sdcard/screenshot.png"
+                    res = subprocess.run(command, shell=True, check=True)
+                    self.textBrowser.append(res.stdout)
                 else:
                     self.textBrowser.append("已取消！")
             else:
