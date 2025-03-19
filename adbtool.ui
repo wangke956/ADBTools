@@ -188,7 +188,7 @@
        <string notr="true"/>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>2</number>
       </property>
       <property name="iconSize">
        <size>
@@ -256,7 +256,7 @@
              </widget>
             </item>
             <item row="8" column="0">
-             <widget class="QPushButton" name="simulate_long_press">
+             <widget class="QPushButton" name="simulate_long_press_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -275,7 +275,7 @@
              </widget>
             </item>
             <item row="8" column="1">
-             <widget class="QPushButton" name="simulate_click">
+             <widget class="QPushButton" name="simulate_click_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -325,7 +325,7 @@
              </widget>
             </item>
             <item row="6" column="1">
-             <widget class="QPushButton" name="adb_push_file">
+             <widget class="QPushButton" name="adb_push_file_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -344,7 +344,7 @@
              </widget>
             </item>
             <item row="7" column="0">
-             <widget class="QPushButton" name="adb_uninstall">
+             <widget class="QPushButton" name="adb_uninstall_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -363,7 +363,7 @@
              </widget>
             </item>
             <item row="3" column="1">
-             <widget class="QPushButton" name="adb_pull_file">
+             <widget class="QPushButton" name="adb_pull_file_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -401,7 +401,7 @@
              </widget>
             </item>
             <item row="6" column="0">
-             <widget class="QPushButton" name="adb_install">
+             <widget class="QPushButton" name="adb_install_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -420,7 +420,7 @@
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="QPushButton" name="adb_root">
+             <widget class="QPushButton" name="adb_root_button">
               <property name="enabled">
                <bool>true</bool>
               </property>
@@ -504,7 +504,7 @@
           <item row="0" column="1">
            <layout class="QGridLayout" name="gridLayout_2">
             <item row="1" column="0">
-             <widget class="QPushButton" name="get_screenshot">
+             <widget class="QPushButton" name="get_screenshot_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -557,7 +557,7 @@
              </widget>
             </item>
             <item row="2" column="0">
-             <widget class="QPushButton" name="input_text_via_adb">
+             <widget class="QPushButton" name="input_text_via_adb_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -657,7 +657,7 @@
              </widget>
             </item>
             <item row="4" column="0">
-             <widget class="QPushButton" name="pull_log_with_clear">
+             <widget class="QPushButton" name="pull_log_with_clear_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -682,7 +682,7 @@
              </widget>
             </item>
             <item row="4" column="1">
-             <widget class="QPushButton" name="clear_app_cache">
+             <widget class="QPushButton" name="clear_app_cache_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -1040,6 +1040,31 @@
           </property>
           <property name="autoDefault">
            <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QPushButton" name="open_update_page_button">
+          <property name="minimumSize">
+           <size>
+            <width>200</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Agency FB</family>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>调起资源升级页面</string>
           </property>
          </widget>
         </item>

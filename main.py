@@ -2,15 +2,17 @@ import sys
 from PyQt5.QtWidgets import QApplication, QTextBrowser
 # from ADB_module import ADB_Mainwindow
 from ADB_module import ADB_Mainwindow
-
+from PyQt5.QtCore import Qt
 import qdarkstyle
-
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
 def main():
     try:
         app = QApplication(sys.argv)
         app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt5'))
         window = ADB_Mainwindow()
+
         # 添加窗口关闭事件记录
         def closeEvent(event):
             event.accept()

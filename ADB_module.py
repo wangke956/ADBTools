@@ -94,7 +94,12 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.upgrade_page_button_2.clicked.connect(self.as33_upgrade_page)  # 打开延峰升级页面
         self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(self.MZS3E_TT_enter_engineering_mode)  # MZS3E_TT进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.AS33_CR_enter_engineering_mode)
+        self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
         # self.d_list()  # 设备列表初始化
+
+    # 调起资源升级页面
+    def open_update_page(self):
+        return self.d.app_start("com.saicmotor.update", ".view.MainActivity")
 
     def on_combobox_changed(self, text):
         self.d = u2.connect(text)

@@ -1,3 +1,3 @@
-pyinstaller --onefile --noconsole --add-data "C:\Users\wangke\.conda\envs\adb_tools_env_py311\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" main.py
+pyinstaller --onefile --noconsole --add-data "D:\Work files\Users\a\.conda\envs\autotest_py311\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" main.py
 pyuic5 -x adbtool.ui -o ADB_module_UI.py
-C:\Users\wangke\.conda\envs\adb_tools_env_py311\Lib\site-packages\uiautomator2\assets\u2.jar
+D:\Work files\Users\a\.conda\envs\autotest_py311\Lib\site-packages\uiautomator2\assets\u2.jar
