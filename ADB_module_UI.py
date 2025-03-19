@@ -627,7 +627,7 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
         self.ComboxButton.setCurrentIndex(0)
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(0)
         self.Cleartextbutton.clicked.connect(self.textBrowser.clear) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 

@@ -4,8 +4,10 @@ from PyQt5.QtWidgets import QApplication, QTextBrowser
 from ADB_module import ADB_Mainwindow
 from PyQt5.QtCore import Qt
 import qdarkstyle
+
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
 QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+
 
 def main():
     try:
@@ -16,11 +18,13 @@ def main():
         # 添加窗口关闭事件记录
         def closeEvent(event):
             event.accept()
+
         window.closeEvent = closeEvent
         window.show()
         sys.exit(app.exec())
     except Exception as e:
         print(e)
+
 
 if __name__ == '__main__':
     main()
