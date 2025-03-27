@@ -1,5 +1,7 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 import queue
+import re
+import subprocess
 
 class ListPackageThread(QThread):
     # 定义信号

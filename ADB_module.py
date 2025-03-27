@@ -52,6 +52,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self._thread_locks = {}
         self.d = None
         self.list_package_thread = None
+        self.input_keyevent_287_thread = None
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
@@ -99,7 +100,21 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     # 调起资源升级页面
     def open_update_page(self):
-        return self.d.app_start("com.saicmotor.update", ".view.MainActivity")
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        if device_id in devices_id_lst:
+            try:
+                from update_thread import UpdateThread
+                self.update_thread = UpdateThread(self.d)
+                self.update_thread.progress_signal.connect(self.textBrowser.append)
+                self.update_thread.error_signal.connect(self.textBrowser.append)
+                self.update_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"启动更新页面线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+        return
 
     def on_combobox_changed(self, text):
         self.d = u2.connect(text)
@@ -241,10 +256,14 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                d = u2.connect(device_id)
-                d.shell('input keyevent 287')
+                from vr_thread import VRActivationThread
+                self.vr_thread = VRActivationThread(device_id)
+                self.vr_thread.progress_signal.connect(self.textBrowser.append)
+                self.vr_thread.result_signal.connect(self.textBrowser.append)
+                self.vr_thread.error_signal.connect(self.textBrowser.append)
+                self.vr_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"激活VR失败: {e}")
+                self.textBrowser.append(f"启动VR激活线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
