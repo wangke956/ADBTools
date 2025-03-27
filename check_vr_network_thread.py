@@ -14,8 +14,8 @@ class CheckVRNetworkThread(QThread):
         try:
             self.progress_signal.emit("页面正在打开...")
             # result = self.d.shell('am start -n com.microsoft.assistant.client/com.microsoft.assistant.client.MainActivity')
-            # result = self.d.app_start("com.microsoft.assistant.client", "com.microsoft.assistant.client.MainActivity")
-            result = self.d.app_start("com.tencent.mm", ".ui.LauncherUI")
+            result = self.d.app_start("com.microsoft.assistant.client", "com.microsoft.assistant.client.MainActivity")
+            # result = self.d.app_start("com.tencent.mm", ".ui.LauncherUI")
             if result:
                 self.result_signal.emit("页面打开成功!")
             else:

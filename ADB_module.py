@@ -45,6 +45,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.check_vr_env_thread = None
         self.mzs3ett_thread = None
         self.check_vr_network_thread = None
         self.vr_thread = None
@@ -300,11 +301,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.check_vr_network_thread.result_signal.connect(self.textBrowser.append)
                 self.check_vr_network_thread.error_signal.connect(self.textBrowser.append)
                 self.check_vr_network_thread.start()
-                # result = self.d.shell('am start -n com.microsoft.assistant.client/com.microsoft.assistant.client.MainActivity')
-                # if result:
-                #     self.textBrowser.append("页面打开成功！")
-                # else:
-                #     self.textBrowser.append("页面打开失败！")
             except Exception as e:
                 self.textBrowser.append(f"检查VR网络失败: {e}")
         else:
@@ -317,9 +313,17 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                self.d.shell('am start com.saicmotor.voiceservice/com.saicmotor.voiceagent.VREngineModeActivity')
+                from switch_vr_env_thread import SwitchVrEnvThread
+                self.check_vr_env_thread = SwitchVrEnvThread(self.d)
+                self.check_vr_env_thread.progress_signal.connect(self.textBrowser.append)
+                self.check_vr_env_thread.result_signal.connect(self.textBrowser.append)
+                self.check_vr_env_thread.error_signal.connect(self.textBrowser.append)
+                self.check_vr_env_thread.start()
             except Exception as e:
                 self.textBrowser.append(f"切换VR环境失败: {e}")
+            #     self.d.shell('am start com.saicmotor.voiceservice/com.saicmotor.voiceagent.VREngineModeActivity')
+            # except Exception as e:
+            #     self.textBrowser.append(f"切换VR环境失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
