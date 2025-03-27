@@ -188,12 +188,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                d = u2.connect(device_id)
-                # 包名: com.saicmotor.diag, 活动名: .ui.main.MainActivity
-                result = d.app_start("com.saicmotor.diag", ".ui.main.MainActivity")
-                return result
+                from mzs3e_tt_thread import MZS3E_TTEngineeringModeThread
+                self.mzs3ett_thread = MZS3E_TTEngineeringModeThread(self.d)
+                self.mzs3ett_thread.progress_signal.connect(self.textBrowser.append)
+                self.mzs3ett_thread.error_signal.connect(self.textBrowser.append)
+                self.mzs3ett_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"MZS3E_TT进入工程模式失败: {e}")
+                self.textBrowser.append(f"启动MZS3E_TT工程模式线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
