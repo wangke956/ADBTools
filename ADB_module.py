@@ -45,6 +45,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.vr_thread = None
         self.setupUi(self)
         # 添加按钮点击间隔控制和线程锁
         self._last_click_time = {}
@@ -53,6 +54,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.d = None
         self.list_package_thread = None
         self.input_keyevent_287_thread = None
+        self.engineering_thread = None
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
@@ -164,14 +166,17 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         """AS33_CR进入工程模式"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
+
         if device_id in devices_id_lst:
             try:
-                # d = u2.connect(device_id)
-                # 包名: com.saicmotor.diag, 活动名: .ui.main.MainActivity
-                result = self.d.app_start("com.saicmotor.diag", "com.saicmotor.diag.view.LogMenuActivity")
-                return result
+                from engineering_mode_thread import EngineeringModeThread
+                self.engineering_thread = EngineeringModeThread(self.d)
+                self.engineering_thread.progress_signal.connect(self.textBrowser.append)
+                self.engineering_thread.result_signal.connect(self.textBrowser.append)
+                self.engineering_thread.error_signal.connect(self.textBrowser.append)
+                self.engineering_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"AS33_CR进入工程模式失败: {e}")
+                self.textBrowser.append(f"启动工程模式线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
