@@ -55,6 +55,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.list_package_thread = None
         self.input_keyevent_287_thread = None
         self.engineering_thread = None
+        self.app_action_thread = None
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
@@ -142,19 +143,17 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         device_id = self.get_selected_device()
         if device_id in device_ids:
             try:
-                # 弹出对话框，请用户输入应用包名和活动名，格式为：包名: com.android.settings, 活动名:.MainSettings
                 input_text, ok = QInputDialog.getText(self, '输入应用信息',
-                                                      '请输入应用包名和活动名，格式为：包名: com.xxx.xxx, 活动名:.xxx')
+                                                    '请输入应用包名和活动名，格式为：包名: com.xxx.xxx, 活动名:.xxx')
                 if ok and input_text:
-                    # 解析输入的文本，获取包名和活动名
                     parts = input_text.split(', ')
                     package_name = parts[0].split('包名: ')[1]
                     activity_name = parts[1].split('活动名: ')[1]
-                    if len(parts) >= 2:
-                        self.d.app_start(package_name, activity_name)
-                        self.textBrowser.append(f"启动应用 {package_name} 成功")
-                    else:
-                        self.textBrowser.append("输入的格式不正确，请按照格式输入：包名: com.xxx.xxx, 活动名:.xxx")
+                    from app_action_thread import AppActionThread
+                    self.app_action_thread = AppActionThread(self.d, package_name, activity_name)
+                    self.app_action_thread.progress_signal.connect(self.textBrowser.append)
+                    self.app_action_thread.error_signal.connect(self.textBrowser.append)
+                    self.app_action_thread.start()
                 else:
                     self.textBrowser.append("用户取消输入或输入为空")
             except Exception as e:
