@@ -45,6 +45,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.get_running_app_info_thread = None
         self.check_vr_env_thread = None
         self.mzs3ett_thread = None
         self.check_vr_network_thread = None
@@ -333,24 +334,29 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def get_running_app_info(self):
         # 获取当前前景应用的版本号
-        print("get_running_app_info")
         device_id = self.get_selected_device()  # 获取当前选定的设备ID
         devices_id_lst = self.get_new_device_lst()
         package_name = self.get_foreground_package(is_direct_call=False)  # 传入 device_id 获取包名
         if device_id in devices_id_lst:
-            if package_name:
-                try:
-                    # 获取应用信息
-                    app_info = self.d.app_info(package_name)
-                    if app_info:
-                        version_name = app_info.get('versionName', '未知版本')
-                        self.textBrowser.append(f"应用 {package_name} 版本号: {version_name}")
-                    else:
-                        self.textBrowser.append("无法获取应用信息")
-                except Exception as e:
-                    self.textBrowser.append(f"获取应用信息失败: {e}")
-            else:
-                self.textBrowser.append("未获取到当前前景应用的包名")
+            from get_running_app_info_thread import GetRunningAppInfoThread
+            self.get_running_app_info_thread = GetRunningAppInfoThread(self.d, package_name)
+            self.get_running_app_info_thread.progress_signal.connect(self.textBrowser.append)
+            self.get_running_app_info_thread.result_signal.connect(self.textBrowser.append)
+            self.get_running_app_info_thread.error_signal.connect(self.textBrowser.append)
+            self.get_running_app_info_thread.start()
+            # if package_name:
+            #     try:
+            #         # 获取应用信息
+            #         app_info = self.d.app_info(package_name)
+            #         if app_info:
+            #             version_name = app_info.get('versionName', '未知版本')
+            #             self.textBrowser.append(f"应用 {package_name} 版本号: {version_name}")
+            #         else:
+            #             self.textBrowser.append("无法获取应用信息")
+            #     except Exception as e:
+            #         self.textBrowser.append(f"获取应用信息失败: {e}")
+            # else:
+            #     self.textBrowser.append("未获取到当前前景应用的包名")
         else:
             self.textBrowser.append("设备未连接！")
 
