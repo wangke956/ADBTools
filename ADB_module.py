@@ -45,6 +45,8 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.mzs3ett_thread = None
+        self.check_vr_network_thread = None
         self.vr_thread = None
         self.setupUi(self)
         # 添加按钮点击间隔控制和线程锁
@@ -292,11 +294,17 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                result = self.d.shell('am start -n com.microsoft.assistant.client/com.microsoft.assistant.client.MainActivity')
-                if result:
-                    self.textBrowser.append("页面打开成功！")
-                else:
-                    self.textBrowser.append("页面打开失败！")
+                from check_vr_network_thread import CheckVRNetworkThread
+                self.check_vr_network_thread = CheckVRNetworkThread(self.d)
+                self.check_vr_network_thread.progress_signal.connect(self.textBrowser.append)
+                self.check_vr_network_thread.result_signal.connect(self.textBrowser.append)
+                self.check_vr_network_thread.error_signal.connect(self.textBrowser.append)
+                self.check_vr_network_thread.start()
+                # result = self.d.shell('am start -n com.microsoft.assistant.client/com.microsoft.assistant.client.MainActivity')
+                # if result:
+                #     self.textBrowser.append("页面打开成功！")
+                # else:
+                #     self.textBrowser.append("页面打开失败！")
             except Exception as e:
                 self.textBrowser.append(f"检查VR网络失败: {e}")
         else:
