@@ -414,37 +414,38 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append(f"刷新设备列表失败: {e}")
             return []  # 返回空列表表示刷新失败
 
-    @staticmethod
-    def adb_root(device_id):
-        device_ids = ADB_Mainwindow.get_new_device_lst()
-        if device_id in device_ids:
+    def adb_root_wrapper(self):
+        """ 以 root 权限运行 ADB """
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        if device_id in devices_id_lst:
             try:
-                result = subprocess.run(f"adb -s {device_id} root", shell=True, check=True, capture_output=True,
-                                        text=True)
+                result = subprocess.run(f"adb -s {device_id} root", 
+                                      shell=True, 
+                                      check=True, 
+                                      capture_output=True,
+                                      text=True)
+                
                 if "adbd is already running as root" in result.stdout:
-                    return "ADB 已成功以 root 权限运行"
+                    self.textBrowser.append("ADB 已成功以 root 权限运行")
                 elif 'adbd cannot run as root in production builds' in result.stdout:
-                    return "设备不支持 ADB root，无法以 root 权限运行。"
+                    self.textBrowser.append("设备不支持 ADB root，无法以 root 权限运行。")
                 elif result.returncode == 0:
-                    return "ADB root 成功"
+                    self.textBrowser.append("ADB root 成功")
+                
             except subprocess.CalledProcessError as e:
                 error_msg = str(e)
                 if "not found" in error_msg:
-                    return "ADB 命令未找到，请确保 ADB 工具已正确安装并添加到系统路径中。"
+                    self.textBrowser.append("ADB 命令未找到，请确保 ADB 工具已正确安装并添加到系统路径中。")
                 elif "permission denied" in error_msg:
-                    return "权限被拒绝，请确保你有足够的权限执行 ADB root 命令。"
+                    self.textBrowser.append("权限被拒绝，请确保你有足够的权限执行 ADB root 命令。")
                 elif "adbd cannot run as root" in error_msg:
-                    return "设备不支持 ADB root，无法以 root 权限运行。"
+                    self.textBrowser.append("设备不支持 ADB root，无法以 root 权限运行。")
                 else:
-                    return f"ADB root 失败: {e}"
-        else:
-            return "设备未连接！"
-
-    def adb_root_wrapper(self):
-        device_id = self.get_selected_device()
-        if device_id:
-            res = self.adb_root(device_id)  # 传入下拉框选择的设备ID
-            self.textBrowser.append(res)
+                    self.textBrowser.append(f"ADB root 失败: {e}")
+            except Exception as e:
+                self.textBrowser.append(f"发生未知错误: {str(e)}")
         else:
             self.textBrowser.append("设备未连接！")
 
