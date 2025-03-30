@@ -376,18 +376,20 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         devices_id_lst = self.get_new_device_lst()
         try:
             if device_id in devices_id_lst:
-                # 弹窗获取用户输入包名
                 package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要查看安装路径的应用包名：")
                 if not ok:
                     self.textBrowser.append("已取消！")
-                else:
-                    result = self.d.shell(f'pm path {package_name}')
-                    path = result.output.split('package:')[1].strip()
-                    self.textBrowser.append(f"应用安装路径: {path}")
+                    return
+                from view_apk_path_wrapper_thread import ViewApkPathWrapperThread
+                self.view_apk_thread = ViewApkPathWrapperThread(device_id, package_name)
+                self.view_apk_thread.progress_signal.connect(self.textBrowser.append)
+                self.view_apk_thread.result_signal.connect(self.textBrowser.append)
+                self.view_apk_thread.error_signal.connect(self.textBrowser.append)
+                self.view_apk_thread.start()
             else:
                 self.textBrowser.append("未连接设备！")
         except Exception as e:
-            self.textBrowser.append(f"获取应用安装路径失败: {e}")
+            self.textBrowser.append(f"初始化线程失败: {e}")
 
     @staticmethod
     def run_cmd():
