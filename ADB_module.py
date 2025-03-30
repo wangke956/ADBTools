@@ -436,41 +436,30 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
     def reboot_device(self):
         device_id = self.get_selected_device()
-        device_ids = self.get_new_device_lst()
-        if device_id in device_ids:
-            # 弹出对话框询问是否要重启设备
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("重启设备")
-            msg_box.setText("是否要重启设备？")
-            # dig = QMessageBox.question(self, "重启设备", "是否要重启设备？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            yes_button = msg_box.addButton("是", QMessageBox.YesRole)
-            no_button = msg_box.addButton("否", QMessageBox.NoRole)
+        devices_id_lst = self.get_new_device_lst()
 
-            msg_box.setDefaultButton(no_button)
-
-            msg_box.exec_()
-            if msg_box.clickedButton() == yes_button:
+        if device_id in devices_id_lst:
+            reply = QMessageBox.question(
+                self, 
+                '确认重启',
+                '确定要重启设备吗？此操作不可逆！',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
                 try:
-                    # 执行 adb reboot 命令
-                    result = subprocess.run(
-                        f"start /b adb -s {device_id} reboot",
-                        shell=True,  # 执行命令
-                        check=True,  # 检查命令是否成功
-                        stdout=subprocess.PIPE,  # 捕获输出
-                        stderr=subprocess.PIPE  # 捕获错误
-                    )
-                    # 不要用print，会导致UI卡死，用textBrowser.append
-                    if "not found" not in str(result.stdout.decode('utf-8')):
-                        self.textBrowser.append(f"设备 {device_id} 已重启！")
-                    elif "not found" in result.stdout.decode('utf-8'):
-                        self.adb_root_wrapper()
-                        self.reboot_device()
+                    from reboot_device_thread import RebootDeviceThread
+                    self.reboot_thread = RebootDeviceThread(device_id)
+                    self.reboot_thread.progress_signal.connect(self.textBrowser.append)
+                    self.reboot_thread.error_signal.connect(self.textBrowser.append)
+                    self.reboot_thread.start()
                 except Exception as e:
-                    self.textBrowser.append(f"重启设备失败: {e}")
+                    self.textBrowser.append(f"启动设备重启线程失败: {e}")
             else:
-                self.textBrowser.append("已取消！")
+                self.textBrowser.append("用户取消重启操作")
         else:
-            self.textBrowser.append("未连接设备！")
+            self.textBrowser.append("设备未连接！")
 
     @staticmethod
     def get_screenshot(file_path, device_id):
