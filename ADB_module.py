@@ -48,6 +48,9 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.upgrade_page_thread = None
+        self.update_thread = None
+        self.adb_root_thread = None
         self.get_running_app_info_thread = None
         self.check_vr_env_thread = None
         self.mzs3ett_thread = None
