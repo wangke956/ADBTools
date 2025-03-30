@@ -287,9 +287,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                self.d.shell('am start com.yfve.usbupdate/.MainActivity')
+                from as33_upgrade_page_thread import AS33UpgradePageThread
+                self.upgrade_page_thread = AS33UpgradePageThread(self.d)
+                self.upgrade_page_thread.progress_signal.connect(self.textBrowser.append)
+                self.upgrade_page_thread.error_signal.connect(self.textBrowser.append)
+                self.upgrade_page_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"升级页面失败: {e}")
+                self.textBrowser.append(f"启动升级页面线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
