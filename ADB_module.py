@@ -229,14 +229,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                result = subprocess.run(f"adb -s {device_id} root", shell=True, check=True, capture_output=True,
-                                        text=True)
-                time.sleep(3)
-                result_2 = subprocess.run(f'adb -s {device_id} shell "setprop bmi.service.adb.root 1"')
-                self.textBrowser.append(result.stdout)
-                self.textBrowser.append(result_2.stdout)
+                from skip_power_limit_thread import SkipPowerLimitThread
+                self.skip_power_limit_thread = SkipPowerLimitThread(device_id)
+                self.skip_power_limit_thread.progress_signal.connect(self.textBrowser.append)
+                self.skip_power_limit_thread.error_signal.connect(self.textBrowser.append)
+                self.skip_power_limit_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"跳过电源挡位限制失败: {e}")
+                self.textBrowser.append(f"启动跳过电源限制线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
