@@ -5,6 +5,7 @@ import io
 import subprocess
 import queue
 from PyQt5.QtCore import QThread, pyqtSignal
+from adb_root_wrapper_thread import AdbRootWrapperThread
 
 if hasattr(sys.stdout, 'buffer'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -415,37 +416,17 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             return []  # 返回空列表表示刷新失败
 
     def adb_root_wrapper(self):
-        """ 以 root 权限运行 ADB """
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
         if device_id in devices_id_lst:
             try:
-                result = subprocess.run(f"adb -s {device_id} root", 
-                                      shell=True, 
-                                      check=True, 
-                                      capture_output=True,
-                                      text=True)
-                
-                if "adbd is already running as root" in result.stdout:
-                    self.textBrowser.append("ADB 已成功以 root 权限运行")
-                elif 'adbd cannot run as root in production builds' in result.stdout:
-                    self.textBrowser.append("设备不支持 ADB root，无法以 root 权限运行。")
-                elif result.returncode == 0:
-                    self.textBrowser.append("ADB root 成功")
-                
-            except subprocess.CalledProcessError as e:
-                error_msg = str(e)
-                if "not found" in error_msg:
-                    self.textBrowser.append("ADB 命令未找到，请确保 ADB 工具已正确安装并添加到系统路径中。")
-                elif "permission denied" in error_msg:
-                    self.textBrowser.append("权限被拒绝，请确保你有足够的权限执行 ADB root 命令。")
-                elif "adbd cannot run as root" in error_msg:
-                    self.textBrowser.append("设备不支持 ADB root，无法以 root 权限运行。")
-                else:
-                    self.textBrowser.append(f"ADB root 失败: {e}")
+                self.adb_root_thread = AdbRootWrapperThread(device_id)
+                self.adb_root_thread.progress_signal.connect(self.textBrowser.append)
+                self.adb_root_thread.error_signal.connect(self.textBrowser.append)
+                self.adb_root_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"发生未知错误: {str(e)}")
+                self.textBrowser.append(f"获取root权限失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
