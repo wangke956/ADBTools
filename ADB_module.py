@@ -45,9 +45,13 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
         self.clear_before_write = clear
 
 
+# noinspection DuplicatedCode
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.reboot_thread = None
+        self.view_apk_thread = None
+        self.skip_power_limit_thread = None
         self.upgrade_page_thread = None
         self.update_thread = None
         self.adb_root_thread = None
@@ -208,20 +212,34 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append("设备未连接！")
 
     def enter_engineering_mode(self):
+
         """进入工程模式"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
         if device_id in devices_id_lst:
             try:
-                d = u2.connect(device_id)
-                result = d.app_start("com.saicmotor.hmi.engmode",
-                                     "com.saicmotor.hmi.engmode.home.ui.EngineeringModeActivity")
-                return result
+                from enter_engineering_mode_thread import enter_engineering_mode_thread
+                self.engineering_thread = enter_engineering_mode_thread(self.d)
+                self.engineering_thread.progress_signal.connect(self.textBrowser.append)
+                self.engineering_thread.result_signal.connect(self.textBrowser.append)
+                self.engineering_thread.error_signal.connect(self.textBrowser.append)
+                self.engineering_thread.start()
             except Exception as e:
-                self.textBrowser.append(f"进入工程模式失败: {e}")
+                self.textBrowser.append(f"启动工程模式线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
+
+        # if device_id in devices_id_lst:
+        #     try:
+        #         d = u2.connect(device_id)
+        #         result = d.app_start("com.saicmotor.hmi.engmode",
+        #                              "com.saicmotor.hmi.engmode.home.ui.EngineeringModeActivity")
+        #         return result
+        #     except Exception as e:
+        #         self.textBrowser.append(f"进入工程模式失败: {e}")
+        # else:
+        #     self.textBrowser.append("设备未连接！")
 
     def skip_power_limit(self):
         """跳过电源挡位限制"""
