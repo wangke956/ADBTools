@@ -82,7 +82,8 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.force_stop_app.clicked.connect(self.show_force_stop_app_dialog)  # 强制停止应用
         self.adb_uninstall_button.clicked.connect(self.show_uninstall_dialog)  # 卸载应用
         self.adb_pull_file_button.clicked.connect(self.show_pull_file_dialog)  # 拉取文件
-        self.simulate_long_press_button.clicked.connect(self.show_simulate_long_press_dialog)  # 模拟长按
+        self.reboot_adb_service_button.clicked.connect(self.show_simulate_long_press_dialog)  # 模拟长按
+
         self.adb_install_button.clicked.connect(self.show_install_file_dialog)  # 安装应用
         self.clear_app_cache_button.clicked.connect(self.show_clear_app_cache_dialog)  # 清除应用缓存
         self.app_package_and_activity.clicked.connect(lambda: self.get_foreground_package(is_direct_call=True))
@@ -671,24 +672,25 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         except subprocess.CalledProcessError as e:
             return f"长按模拟失败: {e}"
 
+
     def show_simulate_long_press_dialog(self):
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            input_text, ok = QInputDialog.getText(self, "输入坐标和长按时间",
-                                                  "请输入长按的坐标和长按时间，格式为：x,y,时间:")
-            if ok and input_text:
-                parts = input_text.split(',')
-                if len(parts) == 3:
-                    x, y, duration = [int(part) for part in parts]
-                    res = self.simulate_long_press(x, y, duration, device_id)
-                    self.textBrowser.append(res)
-                else:
-                    self.textBrowser.append("输入格式错误！")
-            else:
-                self.textBrowser.append("已取消！")
+        # 执行adb kill-server
+        # 执行adb start-server
+        result = subprocess.run("adb kill-server", capture_output=True, text=True)
+        if result.returncode == 0:
+            self.textBrowser.append("杀死ADB服务成功！")
+            self.textBrowser.append(result.stdout)
         else:
-            self.textBrowser.append("未连接设备！")
+            self.textBrowser.append("命令执行失败，标准错误输出如下：")
+            self.textBrowser.append(result.stderr)
+        result_2 = subprocess.run("adb start-server", capture_output=True, text=True)
+        if result_2.returncode == 0:
+            self.textBrowser.append("ADB服务启动成功，标准输出如下：")
+            self.textBrowser.append(result.stdout)
+        else:
+            self.textBrowser.append("ADB服务启动失败，标准错误输出如下：")
+            self.textBrowser.append(result.stderr)
+
 
     @staticmethod
     def input_text_via_adb(text_to_input, device_id):

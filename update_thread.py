@@ -14,12 +14,7 @@ class UpdateThread(QThread):
 
         try:
             self.progress_signal.emit("正在尝试启动更新页面...")
-            result = self.d.app_start("com.saicmotor.update", ".view.MainActivity")
-            # result = self.d.app_start("com.tencent.mm", ".ui.LauncherUI")
-            #  微信包名: com.tencent.mm, 活动名: .ui.LauncherUI
-            if result:
-                self.progress_signal.emit(f"更新页面启动成功！")
-            else:
-                self.error_signal.emit(f"更新页面启动失败: {result}")
+            self.d.app_start("com.saicmotor.update", ".view.MainActivity")
+            self.progress_signal.emit(f"启动更新页面成功！")
         except Exception as e:
             self.error_signal.emit(f"更新页面启动失败: {str(e)}")

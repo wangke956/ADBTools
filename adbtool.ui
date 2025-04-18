@@ -219,7 +219,7 @@
               <property name="font">
                <font>
                 <family>Arial</family>
-                <pointsize>20</pointsize>
+                <pointsize>14</pointsize>
                </font>
               </property>
              </widget>
@@ -256,7 +256,7 @@
              </widget>
             </item>
             <item row="8" column="0">
-             <widget class="QPushButton" name="simulate_long_press_button">
+             <widget class="QPushButton" name="reboot_adb_service_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -270,7 +270,7 @@
                </font>
               </property>
               <property name="text">
-               <string>模拟长按</string>
+               <string>重启ADB服务</string>
               </property>
              </widget>
             </item>
