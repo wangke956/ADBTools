@@ -49,6 +49,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.uninstall_thread = None
         self.reboot_thread = None
         self.view_apk_thread = None
         self.skip_power_limit_thread = None
@@ -520,8 +521,14 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if device_id in devices_id_lst:
             package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要卸载的应用包名：")
             if ok and package_name:
-                res = self.adb_uninstall(package_name, device_id)
-                self.textBrowser.append(res)
+                from show_uninstall_thread import ShowUninstallThread
+                self.uninstall_thread = ShowUninstallThread(self.d, package_name)
+                self.uninstall_thread.progress_signal.connect(self.textBrowser.append)
+                self.uninstall_thread.result_signal.connect(self.textBrowser.append)
+                self.uninstall_thread.error_signal.connect(self.textBrowser.append)
+                self.uninstall_thread.start()
+                # res = self.adb_uninstall(package_name, device_id)
+                # self.textBrowser.append(res)
             else:
                 self.textBrowser.append("已取消！")
         else:

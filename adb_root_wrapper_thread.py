@@ -2,6 +2,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 import subprocess
 import time
 
+
 class AdbRootWrapperThread(QThread):
     progress_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
@@ -13,12 +14,12 @@ class AdbRootWrapperThread(QThread):
     def run(self):
         try:
             self.progress_signal.emit("正在尝试获取root权限...")
-            result = subprocess.run(f"adb -s {self.device_id} root", 
-                                  shell=True, 
-                                  capture_output=True,
-                                  text=True,
-                                  timeout=10)
-            
+            result = subprocess.run(f"adb -s {self.device_id} root",
+                                    shell=True,
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=10)
+
             time.sleep(3)
             if "adbd cannot run as root in production builds" in result.stdout:
                 self.progress_signal.emit(result.stdout)
