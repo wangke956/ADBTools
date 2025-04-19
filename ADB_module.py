@@ -49,6 +49,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.Clear_app_cache_thread = None
         self.Force_app_thread = None
         self.uninstall_thread = None
         self.reboot_thread = None
@@ -62,16 +63,18 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.mzs3ett_thread = None
         self.check_vr_network_thread = None
         self.vr_thread = None
+        self.list_package_thread = None
+        self.input_keyevent_287_thread = None
+        self.engineering_thread = None
+        self.app_action_thread = None
+
         self.setupUi(self)
         # 添加按钮点击间隔控制和线程锁
         self._last_click_time = {}
         self._click_interval = 1.0  # 设置点击间隔为1秒
         self._thread_locks = {}
         self.d = None
-        self.list_package_thread = None
-        self.input_keyevent_287_thread = None
-        self.engineering_thread = None
-        self.app_action_thread = None
+
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         sys.stdout = self.text_edit_output_stream
@@ -771,27 +774,32 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         except Exception as e:
             self.textBrowser.append(f"强制停止应用失败: {e}")
 
-    @staticmethod
-    def clear_app_cache(device, package_name):
-        if device is not None:
-            try:
-                device.app_clear(package_name)
-                return f"应用 {package_name} 的缓存已清除"
-            except Exception as e:
-                return f"清除应用缓存失败: {e}"
-        else:
-            return "设备未连接！"
+    # @staticmethod
+    # def clear_app_cache(device, package_name):
+    #     if device is not None:
+    #         try:
+    #             device.app_clear(package_name)
+    #             return f"应用 {package_name} 的缓存已清除"
+    #         except Exception as e:
+    #             return f"清除应用缓存失败: {e}"
+    #     else:
+    #         return "设备未连接！"
 
     def show_clear_app_cache_dialog(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            package_name = self.get_foreground_package(is_direct_call=False)
-            if package_name:
-                result = self.clear_app_cache(self.d, package_name)
-                self.textBrowser.append(result)
-            else:
-                self.textBrowser.append("未获取到前台应用包名")
+            from clear_app_cache_thread import ClearAppCacheThread
+            self.Clear_app_cache_thread = ClearAppCacheThread(self.d)
+            self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
+            self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
+            self.Clear_app_cache_thread.start()
+            # package_name = self.get_foreground_package(is_direct_call=False)
+            # if package_name:
+            #     result = self.clear_app_cache(self.d, package_name)
+            #     self.textBrowser.append(result)
+            # else:
+            #     self.textBrowser.append("未获取到前台应用包名")
         else:
             self.textBrowser.append("设备未连接！")
 
