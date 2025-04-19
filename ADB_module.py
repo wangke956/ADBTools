@@ -49,6 +49,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.GetForegroundPackageThread = None
         self.input_text_thread = None
         self.Clear_app_cache_thread = None
         self.Force_app_thread = None
@@ -372,10 +373,9 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         # 获取当前前景应用的版本号
         device_id = self.get_selected_device()  # 获取当前选定的设备ID
         devices_id_lst = self.get_new_device_lst()
-        package_name = self.get_foreground_package(is_direct_call=False)  # 传入 device_id 获取包名
         if device_id in devices_id_lst:
             from get_running_app_info_thread import GetRunningAppInfoThread
-            self.get_running_app_info_thread = GetRunningAppInfoThread(self.d, package_name)
+            self.get_running_app_info_thread = GetRunningAppInfoThread(self.d)
             self.get_running_app_info_thread.progress_signal.connect(self.textBrowser.append)
             self.get_running_app_info_thread.result_signal.connect(self.textBrowser.append)
             self.get_running_app_info_thread.error_signal.connect(self.textBrowser.append)
@@ -814,16 +814,20 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         devices_id_lst = self.get_new_device_lst()
         try:
             if device_id in devices_id_lst:
-                current_app = self.d.app_current()  # 获取当前正在运行的应用
-                if current_app:
-                    package_name = current_app['package']
-                    activity_name = current_app['activity']
-                    if is_direct_call:  # 如果是直接调用
-                        self.textBrowser.append(f"包名: {package_name}, 活动名: {activity_name}")
-                    else:
-                        return package_name  # 返回包名
-                else:
-                    self.textBrowser.append("未找到正在运行的应用包名")
+                from get_foreground_package_thread import GetForegroundPackageThread
+                self.GetForegroundPackageThread = GetForegroundPackageThread(self.d)
+                self.GetForegroundPackageThread.signal_package.connect(self.textBrowser.append)
+                self.GetForegroundPackageThread.start()
+                # current_app = self.d.app_current()  # 获取当前正在运行的应用
+                # if current_app:
+                #     package_name = current_app['package']
+                #     activity_name = current_app['activity']
+                #     if is_direct_call:  # 如果是直接调用
+                #         self.textBrowser.append(f"包名: {package_name}, 活动名: {activity_name}")
+                #     else:
+                #         return package_name  # 返回包名
+                # else:
+                #     self.textBrowser.append("未找到正在运行的应用包名")
             else:
                 self.textBrowser.append("设备连接失败")
         except Exception as e:

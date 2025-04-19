@@ -6,14 +6,20 @@ class GetRunningAppInfoThread(QThread):
     result_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
 
-    def __init__(self, d, package_name):
+    def __init__(self, d):
         super().__init__()
         self.d = d
-        self.package_name = package_name
+        # self.package_name = package_name
+        self.current_app = None
+        self.package_name = None
 
     def run(self):
         try:
             self.progress_signal.emit("正在获取应用信息...")
+            self.current_app = self.d.app_current()
+            self.progress_signal.emit("正在获取包名...")
+            self.package_name = self.current_app['package']
+            self.progress_signal.emit("正在获取应用版本信息...")
             app_info = self.d.app_info(self.package_name)
             if app_info:
                 version_name = app_info.get('versionName', '未知版本')
