@@ -3,9 +3,7 @@ from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox
 import sys
 import io
 import subprocess
-import queue
-from PyQt5.QtCore import QThread, pyqtSignal
-from adb_root_wrapper_thread import AdbRootWrapperThread
+from Function_Moudle.adb_root_wrapper_thread import AdbRootWrapperThread
 
 if hasattr(sys.stdout, 'buffer'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -122,7 +120,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.MZS3E_TT_enter_engineering_mode)  # MZS3E_TT进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.AS33_CR_enter_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
-        # self.d_list()  # 设备列表初始化
 
     # 调起资源升级页面
     def open_update_page(self):
@@ -131,7 +128,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from update_thread import UpdateThread
+                from Function_Moudle.update_thread import UpdateThread
                 self.update_thread = UpdateThread(self.d)
                 self.update_thread.progress_signal.connect(self.textBrowser.append)
                 self.update_thread.error_signal.connect(self.textBrowser.append)
@@ -171,7 +168,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                     parts = input_text.split(', ')
                     package_name = parts[0].split('包名: ')[1]
                     activity_name = parts[1].split('活动名: ')[1]
-                    from app_action_thread import AppActionThread
+                    from Function_Moudle.app_action_thread import AppActionThread
                     self.app_action_thread = AppActionThread(self.d, package_name, activity_name)
                     self.app_action_thread.progress_signal.connect(self.textBrowser.append)
                     self.app_action_thread.error_signal.connect(self.textBrowser.append)
@@ -190,7 +187,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from engineering_mode_thread import EngineeringModeThread
+                from Function_Moudle.engineering_mode_thread import EngineeringModeThread
                 self.engineering_thread = EngineeringModeThread(self.d)
                 self.engineering_thread.progress_signal.connect(self.textBrowser.append)
                 self.engineering_thread.result_signal.connect(self.textBrowser.append)
@@ -208,7 +205,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from mzs3e_tt_thread import MZS3E_TTEngineeringModeThread
+                from Function_Moudle.mzs3e_tt_thread import MZS3E_TTEngineeringModeThread
                 self.mzs3ett_thread = MZS3E_TTEngineeringModeThread(self.d)
                 self.mzs3ett_thread.progress_signal.connect(self.textBrowser.append)
                 self.mzs3ett_thread.error_signal.connect(self.textBrowser.append)
@@ -226,7 +223,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from enter_engineering_mode_thread import enter_engineering_mode_thread
+                from Function_Moudle.enter_engineering_mode_thread import enter_engineering_mode_thread
                 self.engineering_thread = enter_engineering_mode_thread(self.d)
                 self.engineering_thread.progress_signal.connect(self.textBrowser.append)
                 self.engineering_thread.result_signal.connect(self.textBrowser.append)
@@ -255,7 +252,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from skip_power_limit_thread import SkipPowerLimitThread
+                from Function_Moudle.skip_power_limit_thread import SkipPowerLimitThread
                 self.skip_power_limit_thread = SkipPowerLimitThread(device_id)
                 self.skip_power_limit_thread.progress_signal.connect(self.textBrowser.append)
                 self.skip_power_limit_thread.error_signal.connect(self.textBrowser.append)
@@ -273,7 +270,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from list_package_thread import ListPackageThread
+                from Function_Moudle.list_package_thread import ListPackageThread
                 # 创建并启动线程
                 self.list_package_thread = ListPackageThread(self.d, findstr)
 
@@ -298,7 +295,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from vr_thread import VRActivationThread
+                from Function_Moudle.vr_thread import VRActivationThread
                 self.vr_thread = VRActivationThread(device_id)
                 self.vr_thread.progress_signal.connect(self.textBrowser.append)
                 self.vr_thread.result_signal.connect(self.textBrowser.append)
@@ -316,7 +313,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from as33_upgrade_page_thread import AS33UpgradePageThread
+                from Function_Moudle.as33_upgrade_page_thread import AS33UpgradePageThread
                 self.upgrade_page_thread = AS33UpgradePageThread(self.d)
                 self.upgrade_page_thread.progress_signal.connect(self.textBrowser.append)
                 self.upgrade_page_thread.error_signal.connect(self.textBrowser.append)
@@ -333,7 +330,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from check_vr_network_thread import CheckVRNetworkThread
+                from Function_Moudle.check_vr_network_thread import CheckVRNetworkThread
                 self.check_vr_network_thread = CheckVRNetworkThread(self.d)
                 self.check_vr_network_thread.progress_signal.connect(self.textBrowser.append)
                 self.check_vr_network_thread.result_signal.connect(self.textBrowser.append)
@@ -351,7 +348,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from switch_vr_env_thread import SwitchVrEnvThread
+                from Function_Moudle.switch_vr_env_thread import SwitchVrEnvThread
                 self.check_vr_env_thread = SwitchVrEnvThread(self.d)
                 self.check_vr_env_thread.progress_signal.connect(self.textBrowser.append)
                 self.check_vr_env_thread.result_signal.connect(self.textBrowser.append)
@@ -374,7 +371,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         device_id = self.get_selected_device()  # 获取当前选定的设备ID
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            from get_running_app_info_thread import GetRunningAppInfoThread
+            from Function_Moudle.get_running_app_info_thread import GetRunningAppInfoThread
             self.get_running_app_info_thread = GetRunningAppInfoThread(self.d)
             self.get_running_app_info_thread.progress_signal.connect(self.textBrowser.append)
             self.get_running_app_info_thread.result_signal.connect(self.textBrowser.append)
@@ -405,7 +402,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 if not ok:
                     self.textBrowser.append("已取消！")
                     return
-                from view_apk_path_wrapper_thread import ViewApkPathWrapperThread
+                from Function_Moudle.view_apk_path_wrapper_thread import ViewApkPathWrapperThread
                 self.view_apk_thread = ViewApkPathWrapperThread(device_id, package_name)
                 self.view_apk_thread.progress_signal.connect(self.textBrowser.append)
                 self.view_apk_thread.result_signal.connect(self.textBrowser.append)
@@ -474,7 +471,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
             if reply == QMessageBox.Yes:
                 try:
-                    from reboot_device_thread import RebootDeviceThread
+                    from Function_Moudle.reboot_device_thread import RebootDeviceThread
                     self.reboot_thread = RebootDeviceThread(device_id)
                     self.reboot_thread.progress_signal.connect(self.textBrowser.append)
                     self.reboot_thread.error_signal.connect(self.textBrowser.append)
@@ -526,7 +523,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if device_id in devices_id_lst:
             package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要卸载的应用包名：")
             if ok and package_name:
-                from show_uninstall_thread import ShowUninstallThread
+                from Function_Moudle.show_uninstall_thread import ShowUninstallThread
                 self.uninstall_thread = ShowUninstallThread(self.d, package_name)
                 self.uninstall_thread.progress_signal.connect(self.textBrowser.append)
                 self.uninstall_thread.result_signal.connect(self.textBrowser.append)
@@ -742,7 +739,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             text_to_input, ok = QInputDialog.getText(self, "输入文本", "请输入要通过 ADB 输入的文本:")
             if ok and text_to_input:
                 # self.textBrowser.append(text_to_input)
-                from input_text_thread import InputTextThread
+                from Function_Moudle.input_text_thread import InputTextThread
                 self.input_text_thread = InputTextThread(self.d, text_to_input)
                 self.input_text_thread.progress_signal.connect(self.textBrowser.append)
                 self.input_text_thread.error_signal.connect(self.textBrowser.append)
@@ -759,7 +756,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
-                from force_stop_app_thread import ForceStopAppThread
+                from Function_Moudle.force_stop_app_thread import ForceStopAppThread
                 self.Force_app_thread = ForceStopAppThread(self.d)
                 self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
                 self.Force_app_thread.error_signal.connect(self.textBrowser.append)
@@ -795,7 +792,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            from clear_app_cache_thread import ClearAppCacheThread
+            from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
             self.Clear_app_cache_thread = ClearAppCacheThread(self.d)
             self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
             self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
@@ -814,7 +811,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         devices_id_lst = self.get_new_device_lst()
         try:
             if device_id in devices_id_lst:
-                from get_foreground_package_thread import GetForegroundPackageThread
+                from Function_Moudle.get_foreground_package_thread import GetForegroundPackageThread
                 self.GetForegroundPackageThread = GetForegroundPackageThread(self.d)
                 self.GetForegroundPackageThread.signal_package.connect(self.textBrowser.append)
                 self.GetForegroundPackageThread.start()
