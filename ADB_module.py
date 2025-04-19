@@ -49,6 +49,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.input_text_thread = None
         self.Clear_app_cache_thread = None
         self.Force_app_thread = None
         self.uninstall_thread = None
@@ -464,13 +465,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
 
         if device_id in devices_id_lst:
             reply = QMessageBox.question(
-                self, 
+                self,
                 '确认重启',
                 '确定要重启设备吗？此操作不可逆！',
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
-            
+
             if reply == QMessageBox.Yes:
                 try:
                     from reboot_device_thread import RebootDeviceThread
@@ -701,7 +702,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         except subprocess.CalledProcessError as e:
             return f"长按模拟失败: {e}"
 
-
     def show_simulate_long_press_dialog(self):
         # 执行adb kill-server
         # 执行adb start-server
@@ -720,20 +720,20 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append("ADB服务启动失败，标准错误输出如下：")
             self.textBrowser.append(result.stderr)
 
-
-    @staticmethod
-    def input_text_via_adb(text_to_input, device_id):
-        command = f"adb -s {device_id} shell input text '{text_to_input}'"
-        try:
-            res = subprocess.run(command,
-                                 shell=True,
-                                 check=True,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE,
-                                 text=True)
-            return f"文本输入成功！{res.stdout.strip()}"  # 获取输出并转为字符串
-        except subprocess.CalledProcessError as e:
-            return f"文本输入失败: {e}"
+    # @staticmethod
+    # def input_text_via_adb(self, text_to_input, device_id):
+    #     self.d.send_keys(text_to_input)
+    #     command = f"adb -s {device_id} shell input text '{text_to_input}'"
+    #     try:
+    #         res = subprocess.run(command,
+    #                              shell=True,
+    #                              check=True,
+    #                              stdout=subprocess.PIPE,
+    #                              stderr=subprocess.PIPE,
+    #                              text=True)
+    #         return f"文本输入成功！{res.stdout.strip()}"  # 获取输出并转为字符串
+    #     except subprocess.CalledProcessError as e:
+    #         return f"文本输入失败: {e}"
 
     def show_input_text_dialog(self):
         device_id = self.get_selected_device()
@@ -741,8 +741,14 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if device_id in devices_id_lst:
             text_to_input, ok = QInputDialog.getText(self, "输入文本", "请输入要通过 ADB 输入的文本:")
             if ok and text_to_input:
-                lst = self.input_text_via_adb(text_to_input, device_id)
-                self.textBrowser.append(lst)
+                # self.textBrowser.append(text_to_input)
+                from input_text_thread import InputTextThread
+                self.input_text_thread = InputTextThread(self.d, text_to_input)
+                self.input_text_thread.progress_signal.connect(self.textBrowser.append)
+                self.input_text_thread.error_signal.connect(self.textBrowser.append)
+                self.input_text_thread.start()
+                # lst = self.input_text_via_adb(text_to_input, device_id)
+                # self.textBrowser.append(lst)
             else:
                 self.textBrowser.append("已取消！")
         else:
@@ -840,17 +846,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append(f"包名: {package_name}")
         else:
             self.textBrowser.append("未选择APK文件")
-
-    def d_list(self):
-        devices_id_lst = self.get_new_device_lst()
-        if devices_id_lst:
-            for device_id in devices_id_lst:
-                try:
-                    d = u2.connect(device_id)
-                except Exception as e:
-                    self.textBrowser.append(f"设备 {device_id} 连接失败: {e}")
-        else:
-            self.textBrowser.append("未连接设备！")
 
     @staticmethod
     def stop_program():
