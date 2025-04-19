@@ -49,6 +49,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.Force_app_thread = None
         self.uninstall_thread = None
         self.reboot_thread = None
         self.view_apk_thread = None
@@ -749,17 +750,22 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
-                package_name = self.get_foreground_package(is_direct_call=False)
-                if package_name:
-                    adb_command = f"am force-stop {package_name}"
-                    try:
-                        # subprocess.run(adb_command, shell=True, check=True)
-                        self.d.shell(adb_command)
-                        self.textBrowser.append(f"成功强制停止 {package_name} 应用在设备 {device_id} 上")
-                    except subprocess.CalledProcessError as e:
-                        self.textBrowser.append(f"强制停止 {package_name} 应用在设备 {device_id} 上失败: {e}")
-                else:
-                    self.textBrowser.append("未获取到前台应用包名")
+                from force_stop_app_thread import ForceStopAppThread
+                self.Force_app_thread = ForceStopAppThread(self.d)
+                self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
+                self.Force_app_thread.error_signal.connect(self.textBrowser.append)
+                self.Force_app_thread.start()
+                # package_name = self.get_foreground_package(is_direct_call=False)
+                # if package_name:
+                #     adb_command = f"am force-stop {package_name}"
+                #     try:
+                #         # subprocess.run(adb_command, shell=True, check=True)
+                #         self.d.shell(adb_command)
+                #         self.textBrowser.append(f"成功强制停止 {package_name} 应用在设备 {device_id} 上")
+                #     except subprocess.CalledProcessError as e:
+                #         self.textBrowser.append(f"强制停止 {package_name} 应用在设备 {device_id} 上失败: {e}")
+                # else:
+                #     self.textBrowser.append("未获取到前台应用包名")
             else:
                 self.textBrowser.append("未连接设备！")
         except Exception as e:
