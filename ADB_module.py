@@ -48,6 +48,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.simulate_long_press_dialog_thread = None
         self.GetForegroundPackageThread = None
         self.input_text_thread = None
         self.Clear_app_cache_thread = None
@@ -679,20 +680,11 @@ class ADB_Mainwindow(QMainWindow):
     def show_simulate_long_press_dialog(self):
         # 执行adb kill-server
         # 执行adb start-server
-        result = subprocess.run("adb kill-server", capture_output=True, text=True)
-        if result.returncode == 0:
-            self.textBrowser.append("杀死ADB服务成功！")
-            self.textBrowser.append(result.stdout)
-        else:
-            self.textBrowser.append("命令执行失败，标准错误输出如下：")
-            self.textBrowser.append(result.stderr)
-        result_2 = subprocess.run("adb start-server", capture_output=True, text=True)
-        if result_2.returncode == 0:
-            self.textBrowser.append("ADB服务启动成功，标准输出如下：")
-            self.textBrowser.append(result.stdout)
-        else:
-            self.textBrowser.append("ADB服务启动失败，标准错误输出如下：")
-            self.textBrowser.append(result.stderr)
+        from Function_Moudle.simulate_long_press_dialog_thread import simulate_long_press_dialog_thread
+        self.simulate_long_press_dialog_thread = simulate_long_press_dialog_thread(self.d)
+        self.simulate_long_press_dialog_thread.result_signal.connect(self.textBrowser.append)
+        self.simulate_long_press_dialog_thread.error_signal.connect(self.textBrowser.append)
+        self.simulate_long_press_dialog_thread.start()
 
     def show_input_text_dialog(self):
         device_id = self.get_selected_device()
