@@ -105,7 +105,7 @@ class ADB_Mainwindow(QMainWindow):
         self.app_package_and_activity.clicked.connect(self.get_foreground_package)
         self.pull_log_without_clear.clicked.connect(self.show_pull_log_without_clear_dialog)  # 拉取日志（不清除）
         self.pull_log_with_clear_button.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
-        self.simulate_click_button.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
+        # self.simulate_click_button.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
         self.adb_push_file_button.clicked.connect(self.show_push_file_dialog)  # 推送文件
         # self.adbbutton.clicked.connect(self.run_cmd)  # 执行 adb 命令
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
@@ -650,22 +650,22 @@ class ADB_Mainwindow(QMainWindow):
         except subprocess.CalledProcessError as e:
             return f"点击失败: {e}"
 
-    def show_simulate_click_dialog(self):  # 模拟点击
-        device_id = self.get_selected_device()
-        device_id_lst = self.get_new_device_lst()
-        if device_id in device_id_lst:
-            x, ok = QInputDialog.getInt(self, "输入 X 坐标", "请输入点击的 X 坐标:")
-            if ok:
-                y, ok = QInputDialog.getInt(self, "输入 Y 坐标", "请输入点击的 Y 坐标:")
-                if ok:
-                    res = self.simulate_click(x, y, device_id)
-                    self.textBrowser.append(res)
-                else:
-                    self.textBrowser.append("已取消！")
-            else:
-                self.textBrowser.append("已取消！")
-        else:
-            self.textBrowser.append("未连接设备！")
+    # def show_simulate_click_dialog(self):  # 模拟点击
+    #     device_id = self.get_selected_device()
+    #     device_id_lst = self.get_new_device_lst()
+    #     if device_id in device_id_lst:
+    #         x, ok = QInputDialog.getInt(self, "输入 X 坐标", "请输入点击的 X 坐标:")
+    #         if ok:
+    #             y, ok = QInputDialog.getInt(self, "输入 Y 坐标", "请输入点击的 Y 坐标:")
+    #             if ok:
+    #                 res = self.simulate_click(x, y, device_id)
+    #                 self.textBrowser.append(res)
+    #             else:
+    #                 self.textBrowser.append("已取消！")
+    #         else:
+    #             self.textBrowser.append("已取消！")
+    #     else:
+    #         self.textBrowser.append("未连接设备！")
 
     @staticmethod
     def simulate_long_press(x, y, duration, device_id):
@@ -769,7 +769,3 @@ class ADB_Mainwindow(QMainWindow):
             self.textBrowser.append(f"包名: {package_name}")
         else:
             self.textBrowser.append("未选择APK文件")
-
-    @staticmethod
-    def stop_program():
-        sys.exit()
