@@ -1,11 +1,10 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QTextBrowser
-from PyQt5 import uic
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 import qdarkstyle
 
-QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)  # type: ignore
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)  # type: ignore
 
 
 def main():
@@ -16,10 +15,11 @@ def main():
         window = ADB_Mainwindow()
 
         # 添加窗口关闭事件记录
-        def closeEvent(event):
+        # noinspection SpellCheckingInspection
+        def closeevent(event):
             event.accept()
 
-        window.closeEvent = closeEvent
+        window.closeEvent = closeevent
         window.show()
         sys.exit(app.exec())
     except Exception as e:
