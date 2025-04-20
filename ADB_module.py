@@ -43,7 +43,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
         self.clear_before_write = clear
 
 
-# noinspection DuplicatedCode
+# noinspection DuplicatedCode,SpellCheckingInspection
 class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)

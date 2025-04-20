@@ -1269,7 +1269,7 @@ p, li { white-space: pre-wrap; }
        </size>
       </property>
       <property name="text">
-       <string>作者：王克    微信：2315313745</string>
+       <string>By wk WX:2315313745</string>
       </property>
      </widget>
     </item>

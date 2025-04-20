@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="adbtools_env_py38" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="adbtools_env" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (ADBTools)" project-jdk-type="Python SDK" />
 </project>
