@@ -48,6 +48,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.install_file_thread = None
         self.simulate_long_press_dialog_thread = None
         self.GetForegroundPackageThread = None
         self.input_text_thread = None
@@ -570,14 +571,22 @@ class ADB_Mainwindow(QMainWindow):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            package_path, _ = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
+            package_path, ok = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
                                                           "APK Files (*.apk);;All Files (*)")
-            if package_path:
-                res = self.adb_install(package_path, device_id)
-                self.textBrowser.append(res)
-                self.textBrowser.append("即将开始安装应用，请耐心等待...")
+            if ok:
+                from Function_Moudle.install_file_thread import InstallFileThread
+                self.install_file_thread = InstallFileThread(self.d, package_path)
+                self.install_file_thread.progress_signal.connect(self.textBrowser.append)
+                self.install_file_thread.signal_status.connect(self.textBrowser.append)
+                self.install_file_thread.start()
             else:
                 self.textBrowser.append("已取消！")
+            # if package_path:
+            #     res = self.adb_install(package_path, device_id)
+            #     self.textBrowser.append(res)
+            #     self.textBrowser.append("即将开始安装应用，请耐心等待...")
+            # else:
+            #     self.textBrowser.append("已取消！")
         else:
             self.textBrowser.append("未连接设备！")
 
@@ -650,23 +659,6 @@ class ADB_Mainwindow(QMainWindow):
             return "点击成功！"
         except subprocess.CalledProcessError as e:
             return f"点击失败: {e}"
-
-    # def show_simulate_click_dialog(self):  # 模拟点击
-    #     device_id = self.get_selected_device()
-    #     device_id_lst = self.get_new_device_lst()
-    #     if device_id in device_id_lst:
-    #         x, ok = QInputDialog.getInt(self, "输入 X 坐标", "请输入点击的 X 坐标:")
-    #         if ok:
-    #             y, ok = QInputDialog.getInt(self, "输入 Y 坐标", "请输入点击的 Y 坐标:")
-    #             if ok:
-    #                 res = self.simulate_click(x, y, device_id)
-    #                 self.textBrowser.append(res)
-    #             else:
-    #                 self.textBrowser.append("已取消！")
-    #         else:
-    #             self.textBrowser.append("已取消！")
-    #     else:
-    #         self.textBrowser.append("未连接设备！")
 
     @staticmethod
     def simulate_long_press(x, y, duration, device_id):
