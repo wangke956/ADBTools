@@ -107,7 +107,7 @@ class ADB_Mainwindow(QMainWindow):
         self.pull_log_with_clear_button.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
         self.simulate_click_button.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
         self.adb_push_file_button.clicked.connect(self.show_push_file_dialog)  # 推送文件
-        self.adbbutton.clicked.connect(self.run_cmd)  # 执行 adb 命令
+        # self.adbbutton.clicked.connect(self.run_cmd)  # 执行 adb 命令
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
         self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
         self.adb_root_button.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
@@ -394,10 +394,10 @@ class ADB_Mainwindow(QMainWindow):
         except Exception as e:
             self.textBrowser.append(f"初始化线程失败: {e}")
 
-    @staticmethod
-    def run_cmd():
-        user_directory = os.path.expanduser("~")
-        subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
+    # @staticmethod
+    # def run_cmd():
+    #     user_directory = os.path.expanduser("~")
+    #     subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
 
     def refresh_devices(self):
         # 刷新设备列表并添加到下拉框
