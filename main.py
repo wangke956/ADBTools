@@ -1,7 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QTextBrowser
-# from ADB_module import ADB_Mainwindow
-from ADB_module import ADB_Mainwindow
+from PyQt5 import uic
 from PyQt5.QtCore import Qt
 import qdarkstyle
 
@@ -13,6 +12,7 @@ def main():
     try:
         app = QApplication(sys.argv)
         app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt5'))
+        from ADB_module import ADB_Mainwindow
         window = ADB_Mainwindow()
 
         # 添加窗口关闭事件记录

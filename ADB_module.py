@@ -17,7 +17,7 @@ else:
 # sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 import uiautomator2 as u2
 import os
-from ADB_module_UI import Ui_MainWindow
+from PyQt5 import uic
 
 
 class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
@@ -44,7 +44,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 
 
 # noinspection DuplicatedCode,SpellCheckingInspection
-class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
+class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
         self.GetForegroundPackageThread = None
@@ -68,7 +68,13 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         self.engineering_thread = None
         self.app_action_thread = None
 
-        self.setupUi(self)
+        # 动态加载ui文件
+        uic.loadUi('adbtool.ui', self)
+        # 假设这里是初始化UI控件的部分，使用findChild方法获取控件
+        from PyQt5 import QtWidgets
+        self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')
+        self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
+        # 继续获取其他控件...
         # 添加按钮点击间隔控制和线程锁
         self._last_click_time = {}
         self._click_interval = 1.0  # 设置点击间隔为1秒
@@ -234,16 +240,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         else:
             self.textBrowser.append("设备未连接！")
 
-        # if device_id in devices_id_lst:
-        #     try:
-        #         d = u2.connect(device_id)
-        #         result = d.app_start("com.saicmotor.hmi.engmode",
-        #                              "com.saicmotor.hmi.engmode.home.ui.EngineeringModeActivity")
-        #         return result
-        #     except Exception as e:
-        #         self.textBrowser.append(f"进入工程模式失败: {e}")
-        # else:
-        #     self.textBrowser.append("设备未连接！")
 
     def skip_power_limit(self):
         """跳过电源挡位限制"""
@@ -356,9 +352,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.check_vr_env_thread.start()
             except Exception as e:
                 self.textBrowser.append(f"切换VR环境失败: {e}")
-            #     self.d.shell('am start com.saicmotor.voiceservice/com.saicmotor.voiceagent.VREngineModeActivity')
-            # except Exception as e:
-            #     self.textBrowser.append(f"切换VR环境失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
@@ -377,19 +370,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.get_running_app_info_thread.result_signal.connect(self.textBrowser.append)
             self.get_running_app_info_thread.error_signal.connect(self.textBrowser.append)
             self.get_running_app_info_thread.start()
-            # if package_name:
-            #     try:
-            #         # 获取应用信息
-            #         app_info = self.d.app_info(package_name)
-            #         if app_info:
-            #             version_name = app_info.get('versionName', '未知版本')
-            #             self.textBrowser.append(f"应用 {package_name} 版本号: {version_name}")
-            #         else:
-            #             self.textBrowser.append("无法获取应用信息")
-            #     except Exception as e:
-            #         self.textBrowser.append(f"获取应用信息失败: {e}")
-            # else:
-            #     self.textBrowser.append("未获取到当前前景应用的包名")
         else:
             self.textBrowser.append("设备未连接！")
 
@@ -498,9 +478,7 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
         if device_id in devices_id_lst:
             file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
             if file_path:
-                # res = self.get_screenshot(file_path, device_id)
                 command = f"adb -s {device_id} shell screencap -p /sdcard/screenshot.png && adb -s {device_id} pull /sdcard/screenshot.png {file_path} && adb -s {device_id} shell rm /sdcard/screenshot.png"
-                # res = self.d.shell(command)
                 res = subprocess.run(command, shell=True, check=True)
                 self.textBrowser.append(res.stdout)
             else:
@@ -529,8 +507,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.uninstall_thread.result_signal.connect(self.textBrowser.append)
                 self.uninstall_thread.error_signal.connect(self.textBrowser.append)
                 self.uninstall_thread.start()
-                # res = self.adb_uninstall(package_name, device_id)
-                # self.textBrowser.append(res)
             else:
                 self.textBrowser.append("已取消！")
         else:
@@ -717,21 +693,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.textBrowser.append("ADB服务启动失败，标准错误输出如下：")
             self.textBrowser.append(result.stderr)
 
-    # @staticmethod
-    # def input_text_via_adb(self, text_to_input, device_id):
-    #     self.d.send_keys(text_to_input)
-    #     command = f"adb -s {device_id} shell input text '{text_to_input}'"
-    #     try:
-    #         res = subprocess.run(command,
-    #                              shell=True,
-    #                              check=True,
-    #                              stdout=subprocess.PIPE,
-    #                              stderr=subprocess.PIPE,
-    #                              text=True)
-    #         return f"文本输入成功！{res.stdout.strip()}"  # 获取输出并转为字符串
-    #     except subprocess.CalledProcessError as e:
-    #         return f"文本输入失败: {e}"
-
     def show_input_text_dialog(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
@@ -744,8 +705,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.input_text_thread.progress_signal.connect(self.textBrowser.append)
                 self.input_text_thread.error_signal.connect(self.textBrowser.append)
                 self.input_text_thread.start()
-                # lst = self.input_text_via_adb(text_to_input, device_id)
-                # self.textBrowser.append(lst)
             else:
                 self.textBrowser.append("已取消！")
         else:
@@ -761,32 +720,10 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
                 self.Force_app_thread.error_signal.connect(self.textBrowser.append)
                 self.Force_app_thread.start()
-                # package_name = self.get_foreground_package(is_direct_call=False)
-                # if package_name:
-                #     adb_command = f"am force-stop {package_name}"
-                #     try:
-                #         # subprocess.run(adb_command, shell=True, check=True)
-                #         self.d.shell(adb_command)
-                #         self.textBrowser.append(f"成功强制停止 {package_name} 应用在设备 {device_id} 上")
-                #     except subprocess.CalledProcessError as e:
-                #         self.textBrowser.append(f"强制停止 {package_name} 应用在设备 {device_id} 上失败: {e}")
-                # else:
-                #     self.textBrowser.append("未获取到前台应用包名")
             else:
                 self.textBrowser.append("未连接设备！")
         except Exception as e:
             self.textBrowser.append(f"强制停止应用失败: {e}")
-
-    # @staticmethod
-    # def clear_app_cache(device, package_name):
-    #     if device is not None:
-    #         try:
-    #             device.app_clear(package_name)
-    #             return f"应用 {package_name} 的缓存已清除"
-    #         except Exception as e:
-    #             return f"清除应用缓存失败: {e}"
-    #     else:
-    #         return "设备未连接！"
 
     def show_clear_app_cache_dialog(self):
         device_id = self.get_selected_device()
@@ -797,12 +734,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
             self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
             self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
             self.Clear_app_cache_thread.start()
-            # package_name = self.get_foreground_package(is_direct_call=False)
-            # if package_name:
-            #     result = self.clear_app_cache(self.d, package_name)
-            #     self.textBrowser.append(result)
-            # else:
-            #     self.textBrowser.append("未获取到前台应用包名")
         else:
             self.textBrowser.append("设备未连接！")
 
@@ -815,16 +746,6 @@ class ADB_Mainwindow(QMainWindow, Ui_MainWindow):
                 self.GetForegroundPackageThread = GetForegroundPackageThread(self.d)
                 self.GetForegroundPackageThread.signal_package.connect(self.textBrowser.append)
                 self.GetForegroundPackageThread.start()
-                # current_app = self.d.app_current()  # 获取当前正在运行的应用
-                # if current_app:
-                #     package_name = current_app['package']
-                #     activity_name = current_app['activity']
-                #     if is_direct_call:  # 如果是直接调用
-                #         self.textBrowser.append(f"包名: {package_name}, 活动名: {activity_name}")
-                #     else:
-                #         return package_name  # 返回包名
-                # else:
-                #     self.textBrowser.append("未找到正在运行的应用包名")
             else:
                 self.textBrowser.append("设备连接失败")
         except Exception as e:
