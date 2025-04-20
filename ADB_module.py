@@ -20,11 +20,12 @@ import os
 from PyQt5 import uic
 
 
+# noinspection SpellCheckingInspection
 class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 
-    def __init__(self, textBrowser):
+    def __init__(self, textbrowser):
         super().__init__()  # 调用父类构造函数
-        self.textBrowser = textBrowser  # 绑定 textEdit
+        self.textBrowser = textbrowser  # 绑定 textEdit
         self.buffer = io.StringIO()  # 创建一个缓存区
         self.clear_before_write = False  # 添加一个标志来控制是否清空内容
 
@@ -101,7 +102,7 @@ class ADB_Mainwindow(QMainWindow):
 
         self.adb_install_button.clicked.connect(self.show_install_file_dialog)  # 安装应用
         self.clear_app_cache_button.clicked.connect(self.show_clear_app_cache_dialog)  # 清除应用缓存
-        self.app_package_and_activity.clicked.connect(lambda: self.get_foreground_package(is_direct_call=True))
+        self.app_package_and_activity.clicked.connect(self.get_foreground_package)
         self.pull_log_without_clear.clicked.connect(self.show_pull_log_without_clear_dialog)  # 拉取日志（不清除）
         self.pull_log_with_clear_button.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
         self.simulate_click_button.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
@@ -123,8 +124,8 @@ class ADB_Mainwindow(QMainWindow):
         self.enter_engineering_mode_button.clicked.connect(self.enter_engineering_mode)  # 进入工程模式
         self.upgrade_page_button_2.clicked.connect(self.as33_upgrade_page)  # 打开延峰升级页面
         self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(
-            self.MZS3E_TT_enter_engineering_mode)  # MZS3E_TT进入工程模式
-        self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.AS33_CR_enter_engineering_mode)
+            self.mas3e_tt_enter_engineering_mode)  # MZS3E_TT进入工程模式
+        self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
 
     # 调起资源升级页面
@@ -186,7 +187,7 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("未连接设备！")
 
-    def AS33_CR_enter_engineering_mode(self):
+    def as33_cr_enter_engineering_mode(self):
         """AS33_CR进入工程模式"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
@@ -204,7 +205,7 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("设备未连接！")
 
-    def MZS3E_TT_enter_engineering_mode(self):
+    def mas3e_tt_enter_engineering_mode(self):
         """MZS3E_TT进入工程模式"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
@@ -737,7 +738,7 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("设备未连接！")
 
-    def get_foreground_package(self, is_direct_call=True):
+    def get_foreground_package(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         try:
