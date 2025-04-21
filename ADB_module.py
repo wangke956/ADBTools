@@ -48,6 +48,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.PullLogSaveThread = None
         self.install_file_thread = None
         self.simulate_long_press_dialog_thread = None
         self.GetForegroundPackageThread = None
@@ -129,6 +130,7 @@ class ADB_Mainwindow(QMainWindow):
             self.mas3e_tt_enter_engineering_mode)  # MZS3E_TT进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
+        self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
 
     # 调起资源升级页面
     def open_update_page(self):
@@ -753,3 +755,28 @@ class ADB_Mainwindow(QMainWindow):
             self.textBrowser.append(f"包名: {package_name}")
         else:
             self.textBrowser.append("未选择APK文件")
+
+
+    def browse_log_save_path(self):
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        if device_id in devices_id_lst:
+            if hasattr(self, 'PullLogSaveThread') and self.PullLogSaveThread and self.PullLogSaveThread.isRunning():
+                self.PullLogSaveThread.stop()
+                self.pull_log_button.setText("拉取日志")
+            else:
+                #  弹出选择路径的窗口
+                file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", "")
+                if file_path:
+                    from Function_Moudle.browse_log_save_path_thread import PullLogSaveThread
+                    self.PullLogSaveThread = PullLogSaveThread(self.d, device_id, file_path)
+                    self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
+                    self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
+                    self.PullLogSaveThread.result_signal.connect(self.textBrowser.append)
+                    self.PullLogSaveThread.start()
+                    self.pull_log_button.setText("停止拉取日志")
+                else:
+                    self.textBrowser.append("已取消！")
+        else:
+            self.textBrowser.append("未连接设备！")
+                
