@@ -188,7 +188,7 @@
        <string notr="true"/>
       </property>
       <property name="currentIndex">
-       <number>5</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -519,31 +519,6 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="3" column="1">
-             <widget class="QPushButton" name="clear_app_cache_button">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                <horstretch>0</horstretch>
-                <verstretch>1</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <family>Arial</family>
-                <pointsize>14</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Clear App 缓存</string>
-              </property>
-             </widget>
-            </item>
             <item row="4" column="1">
              <widget class="QPushButton" name="force_stop_app">
               <property name="sizePolicy">
@@ -644,7 +619,7 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="4" column="0">
+            <item row="2" column="0">
              <widget class="QPushButton" name="app_package_and_activity">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -669,8 +644,8 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="2" column="0">
-             <widget class="QPushButton" name="pull_log_without_clear">
+            <item row="4" column="0">
+             <widget class="QPushButton" name="clear_app_cache_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
@@ -690,32 +665,7 @@ p, li { white-space: pre-wrap; }
                </font>
               </property>
               <property name="text">
-               <string>Pull all log</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QPushButton" name="pull_log_with_clear_button">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                <horstretch>0</horstretch>
-                <verstretch>1</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <family>Arial</family>
-                <pointsize>14</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Clear-Pull log</string>
+               <string>Clear App 缓存</string>
               </property>
              </widget>
             </item>
@@ -734,87 +684,6 @@ p, li { white-space: pre-wrap; }
        </attribute>
        <layout class="QFormLayout" name="formLayout_4">
         <item row="0" column="0">
-         <widget class="QPushButton" name="switch_vr_env_button">
-          <property name="minimumSize">
-           <size>
-            <width>170</width>
-            <height>50</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <family>Arial</family>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>切换VR环境</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="VR_nework_check_button">
-          <property name="minimumSize">
-           <size>
-            <width>170</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <family>Arial</family>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>VR网络环境检查</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QPushButton" name="activate_VR_button">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>170</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <family>Arial</family>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>调起VR</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
          <widget class="QPushButton" name="enter_engineering_mode_button">
           <property name="minimumSize">
            <size>
@@ -833,7 +702,7 @@ p, li { white-space: pre-wrap; }
           </property>
          </widget>
         </item>
-        <item row="4" column="0">
+        <item row="1" column="0">
          <widget class="QPushButton" name="upgrade_page_button_2">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -1184,6 +1053,217 @@ p, li { white-space: pre-wrap; }
          </layout>
         </item>
        </layout>
+      </widget>
+      <widget class="QWidget" name="tab_3">
+       <attribute name="title">
+        <string>语音相关</string>
+       </attribute>
+       <widget class="QWidget" name="">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>10</y>
+          <width>491</width>
+          <height>141</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QGroupBox" name="groupBox_2">
+           <property name="title">
+            <string>VR测试</string>
+           </property>
+           <layout class="QFormLayout" name="formLayout_8">
+            <item row="0" column="0">
+             <layout class="QVBoxLayout" name="verticalLayout_2">
+              <item>
+               <widget class="QPushButton" name="switch_vr_env_button">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>50</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>16777215</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Arial</family>
+                  <pointsize>14</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>切换VR环境</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="VR_nework_check_button">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>50</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>16777215</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Arial</family>
+                  <pointsize>14</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>VR网络环境检查</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="activate_VR_button">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>50</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>16777215</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Arial</family>
+                  <pointsize>14</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>调起VR</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="groupBox">
+           <property name="title">
+            <string>车机语音识别原始录音文件操作</string>
+           </property>
+           <layout class="QFormLayout" name="formLayout_9">
+            <item row="0" column="0">
+             <layout class="QVBoxLayout" name="verticalLayout_4">
+              <item>
+               <widget class="QPushButton" name="voice_start_record_button">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>50</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Agency FB</family>
+                  <pointsize>12</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>车机开始录音</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="voice_stop_record_button">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>50</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Agency FB</family>
+                  <pointsize>12</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>停止录音</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="voice_pull_record_file_button">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>50</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Agency FB</family>
+                  <pointsize>12</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>拉取录音文件</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
       </widget>
      </widget>
     </item>

@@ -48,6 +48,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.voice_record_thread = None
         self.file_path = None
         self.PullLogSaveThread = None
         self.install_file_thread = None
@@ -103,13 +104,9 @@ class ADB_Mainwindow(QMainWindow):
         self.adb_uninstall_button.clicked.connect(self.show_uninstall_dialog)  # 卸载应用
         self.adb_pull_file_button.clicked.connect(self.show_pull_file_dialog)  # 拉取文件
         self.reboot_adb_service_button.clicked.connect(self.show_simulate_long_press_dialog)  # 模拟长按
-
         self.adb_install_button.clicked.connect(self.show_install_file_dialog)  # 安装应用
         self.clear_app_cache_button.clicked.connect(self.show_clear_app_cache_dialog)  # 清除应用缓存
         self.app_package_and_activity.clicked.connect(self.get_foreground_package)
-        # self.pull_log_without_clear.clicked.connect(self.show_pull_log_without_clear_dialog)  # 拉取日志（不清除）
-        # self.pull_log_with_clear_button.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
-        # self.simulate_click_button.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
         self.adb_push_file_button.clicked.connect(self.show_push_file_dialog)  # 推送文件
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
         self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
@@ -133,6 +130,63 @@ class ADB_Mainwindow(QMainWindow):
         self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
         self.pull_log_button.clicked.connect(self.pull_log)  # 拉取日志
         self.open_path_buttom.clicked.connect(self.open_path)  # 打开文件所在目录
+        self.voice_start_record_button.clicked.connect(self.voice_start_record)  # 开始语音录制
+        self.voice_stop_record_button.clicked.connect(self.voice_stop_record)  # 停止语音录制
+        self.voice_pull_record_file_button.clicked.connect(self.voice_pull_record_file)  # 拉取录音文件
+
+    def voice_start_record(self):
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        if device_id in devices_id_lst:
+            try:
+                from Function_Moudle.voice_record_thread import VoiceRecordThread
+                self.voice_record_thread = VoiceRecordThread(device_id)
+                self.voice_record_thread.progress_signal.connect(self.textBrowser.append)
+                self.voice_record_thread.record_signal.connect(self.textBrowser.append)
+                self.voice_record_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"启动语音录制线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def voice_stop_record(self):
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        if device_id in devices_id_lst:
+            try:
+                from Function_Moudle.voice_stop_record_thread import VoiceStopRecordThread
+                self.voice_record_thread = VoiceStopRecordThread(device_id)
+                self.voice_record_thread.voice_stop_record_signal.connect(self.textBrowser.append)
+                self.voice_record_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"启动语音录制线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def voice_pull_record_file(self):
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        if device_id in devices_id_lst:
+            # 弹出目录选择弹窗
+            record_file_path = QFileDialog.getExistingDirectory(self, "选择保存目录", os.path.expanduser("~"))
+            if record_file_path is not None:
+                try:
+                    from Function_Moudle.voice_pull_record_file_thread import VoicePullRecordFileThread
+                    self.voice_record_thread = VoicePullRecordFileThread(device_id, record_file_path)
+                    self.voice_record_thread.signal_voice_pull_record_file.connect(self.textBrowser.append)
+                    self.voice_record_thread.start()
+
+                except Exception as e:
+                    self.textBrowser.append(f"<UNK>: {e}")
+            else:
+                self.textBrowser.append("用户取消选择！")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+
 
     def open_path(self):
         # 使用资源管理器打开一个地址
@@ -148,6 +202,8 @@ class ADB_Mainwindow(QMainWindow):
             try:
                 if self.file_path is None:
                     self.file_path = self.inputbox_log_path.text()
+                else:
+                    self.textBrowser.append(f"路径不能为空！")
                 from Function_Moudle.pull_log_thread import PullLogThread
                 self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
                 self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
