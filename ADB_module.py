@@ -131,7 +131,14 @@ class ADB_Mainwindow(QMainWindow):
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
         self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
-        self.pull_log_button.clicked.connect(self.pull_log)
+        self.pull_log_button.clicked.connect(self.pull_log)  # 拉取日志
+        self.open_path_buttom.clicked.connect(self.open_path)  # 打开文件所在目录
+
+    def open_path(self):
+        # 使用资源管理器打开一个地址
+        self.file_path = self.inputbox_log_path.text()
+        if self.file_path is not None:
+            os.startfile(self.file_path)
 
     def pull_log(self):
         device_id = self.get_selected_device()
