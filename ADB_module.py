@@ -48,6 +48,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.file_path = None
         self.PullLogSaveThread = None
         self.install_file_thread = None
         self.simulate_long_press_dialog_thread = None
@@ -130,6 +131,24 @@ class ADB_Mainwindow(QMainWindow):
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
         self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
+        self.pull_log_button.clicked.connect(self.pull_log)
+
+    def pull_log(self):
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        if device_id in devices_id_lst:
+            try:
+                if self.file_path is None:
+                    self.file_path = self.inputbox_log_path.text()
+                from Function_Moudle.pull_log_thread import PullLogThread
+                self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
+                self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
+                self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
+                self.PullLogSaveThread.start()
+                # self.pull_log_button.setText("停止拉取")
+            except Exception as e:
+                self.textBrowser.append(f"启动拉取日志线程失败: {e}")
 
     # 调起资源升级页面
     def open_update_page(self):
@@ -731,9 +750,9 @@ class ADB_Mainwindow(QMainWindow):
                 self.pull_log_button.setText("拉取日志")
             else:
                 #  弹出选择路径的窗口
-                file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", "")
-                if file_path:
-                    self.inputbox_log_path.setText(file_path)
+                self.file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", "")
+                if self.file_path:
+                    self.inputbox_log_path.setText(self.file_path)
                 else:
                     self.textBrowser.append("已取消！")
         else:
