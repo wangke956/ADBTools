@@ -106,11 +106,10 @@ class ADB_Mainwindow(QMainWindow):
         self.adb_install_button.clicked.connect(self.show_install_file_dialog)  # 安装应用
         self.clear_app_cache_button.clicked.connect(self.show_clear_app_cache_dialog)  # 清除应用缓存
         self.app_package_and_activity.clicked.connect(self.get_foreground_package)
-        self.pull_log_without_clear.clicked.connect(self.show_pull_log_without_clear_dialog)  # 拉取日志（不清除）
-        self.pull_log_with_clear_button.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
+        # self.pull_log_without_clear.clicked.connect(self.show_pull_log_without_clear_dialog)  # 拉取日志（不清除）
+        # self.pull_log_with_clear_button.clicked.connect(self.show_pull_log_with_clear_dialog)  # 拉取日志（清除）
         # self.simulate_click_button.clicked.connect(self.show_simulate_click_dialog)  # 模拟点击
         self.adb_push_file_button.clicked.connect(self.show_push_file_dialog)  # 推送文件
-        # self.adbbutton.clicked.connect(self.run_cmd)  # 执行 adb 命令
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
         self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
         self.adb_root_button.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
@@ -592,40 +591,6 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("未连接设备！")
 
-    def show_pull_log_without_clear_dialog(self):
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            self.textBrowser.append("即将开始拉取 log，如需停止，请手动关闭此窗口。")
-            file_path, _ = QFileDialog.getSaveFileName(self, "保存 log", "", "txt Files (*.txt);;All Files (*)")
-            if file_path:
-                self.pull_log_without_clear(file_path, device_id)
-            else:
-                self.textBrowser.append("已取消！")
-        else:
-            self.textBrowser.append("未连接设备！")
-
-    @staticmethod
-    def pull_log_with_clear(file_path, device_id):
-        subprocess.run(f'adb -s {device_id} logcat -c', shell=True)
-        command = f'cmd /k "adb -s {device_id} shell logcat > {file_path}"'
-        process = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
-        while True:
-            if process.poll() is not None:
-                break
-
-    def show_pull_log_with_clear_dialog(self):
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            file_path, _ = QFileDialog.getSaveFileName(self, "保存 log", "", "txt Files (*.txt);;All Files (*)")
-            if file_path:
-                self.pull_log_with_clear(file_path, device_id)
-            else:
-                self.textBrowser.append("已取消！")
-        else:
-            self.textBrowser.append("未连接设备！")
-
     @staticmethod
     def adb_push_file(local_file_path, target_path_on_device, device_id):
         command = f"adb -s {device_id} push {local_file_path} {target_path_on_device}"
@@ -768,13 +733,7 @@ class ADB_Mainwindow(QMainWindow):
                 #  弹出选择路径的窗口
                 file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", "")
                 if file_path:
-                    from Function_Moudle.browse_log_save_path_thread import PullLogSaveThread
-                    self.PullLogSaveThread = PullLogSaveThread(self.d, device_id, file_path)
-                    self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
-                    self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
-                    self.PullLogSaveThread.result_signal.connect(self.textBrowser.append)
-                    self.PullLogSaveThread.start()
-                    self.pull_log_button.setText("停止拉取日志")
+                    self.inputbox_log_path.setText(file_path)
                 else:
                     self.textBrowser.append("已取消！")
         else:
