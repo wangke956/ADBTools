@@ -24,6 +24,11 @@ class AdbRootWrapperThread(QThread):
             if "adbd cannot run as root in production builds" in result.stdout:
                 self.progress_signal.emit(result.stdout)
                 self.progress_signal.emit("该设备无法以root权限运行，请检查设备设置")
+            elif result.stdout is None:
+                self.progress_signal.emit("获取root权限成功")
+
+            elif "already running as root" in result.stdout:
+                self.progress_signal.emit("设备已经以root权限运行")
             else:
                 self.error_signal.emit(f"执行失败: {result.stderr}")
         except subprocess.TimeoutExpired:

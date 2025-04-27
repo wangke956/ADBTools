@@ -521,31 +521,35 @@ class ADB_Mainwindow(QMainWindow):
             self.textBrowser.append("设备未连接！")
 
     def reboot_device(self):
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
+        try:
+            device_id = self.get_selected_device()
+            devices_id_lst = self.get_new_device_lst()
+        
+            if device_id in devices_id_lst:
+                reply = QMessageBox.question(
+                    self,
+                    '确认重启',
+                    '确定要重启设备吗？此操作不可逆！',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
 
-        if device_id in devices_id_lst:
-            reply = QMessageBox.question(
-                self,
-                '确认重启',
-                '确定要重启设备吗？此操作不可逆！',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-
-            if reply == QMessageBox.Yes:
-                try:
-                    from Function_Moudle.reboot_device_thread import RebootDeviceThread
-                    self.reboot_thread = RebootDeviceThread(device_id)
-                    self.reboot_thread.progress_signal.connect(self.textBrowser.append)
-                    self.reboot_thread.error_signal.connect(self.textBrowser.append)
-                    self.reboot_thread.start()
-                except Exception as e:
-                    self.textBrowser.append(f"启动设备重启线程失败: {e}")
+                if reply == QMessageBox.StandardButton.Yes:
+                    try:
+                        from Function_Moudle.reboot_device_thread import RebootDeviceThread
+                        self.reboot_thread = RebootDeviceThread(device_id)
+                        self.reboot_thread.progress_signal.connect(self.textBrowser.append)
+                        self.reboot_thread.error_signal.connect(self.textBrowser.append)
+                        self.reboot_thread.start()
+                    except Exception as e:
+                        import traceback
+                        error_msg = f"启动重启设备线程失败: {e}\n{traceback.format_exc()}"
+                        self.textBrowser.append(error_msg)
+                else:
+                    self.textBrowser.append("用户取消重启操作")
             else:
-                self.textBrowser.append("用户取消重启操作")
-        else:
-            self.textBrowser.append("设备未连接！")
+                self.textBrowser.append("设备未连接！")
+        except Exception as e:
+            self.textBrowser.append(f"启动设备重启线程失败: {e}")
 
     @staticmethod
     def get_screenshot(file_path, device_id):
