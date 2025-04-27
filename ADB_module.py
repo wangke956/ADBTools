@@ -197,12 +197,10 @@ class ADB_Mainwindow(QMainWindow):
     def pull_log(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-
+        self.file_path = self.inputbox_log_path.text()
         if device_id in devices_id_lst:
             try:
                 if self.file_path is None:
-                    self.file_path = self.inputbox_log_path.text()
-                else:
                     self.textBrowser.append(f"路径不能为空！")
                 from Function_Moudle.pull_log_thread import PullLogThread
                 self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
