@@ -1,5 +1,5 @@
 import time
-from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
+from PyQt6.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
 import sys
 import io
 import subprocess
@@ -17,7 +17,7 @@ else:
 # sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 import uiautomator2 as u2
 import os
-from PyQt5 import uic
+from PyQt6 import uic
 
 
 # noinspection SpellCheckingInspection
@@ -77,7 +77,7 @@ class ADB_Mainwindow(QMainWindow):
         # 动态加载ui文件
         uic.loadUi('adbtool.ui', self)
         # 假设这里是初始化UI控件的部分，使用findChild方法获取控件
-        from PyQt5 import QtWidgets
+        from PyQt6 import QtWidgets
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
         # 继续获取其他控件...

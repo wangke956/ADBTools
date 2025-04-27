@@ -1,6 +1,6 @@
 import os
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 
 class InstallFileThread(QThread):
     progress_signal = pyqtSignal(int)

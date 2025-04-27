@@ -1,16 +1,20 @@
 import sys
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtCore import Qt
 import qdarkstyle
 
-QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)  # type: ignore
-QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)  # type: ignore
-
+# QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)  # type: ignore
+# QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)  # type: ignore
+app = QApplication(sys.argv)
+QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+    Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+)
 
 def main():
     try:
         app = QApplication(sys.argv)
-        app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt5'))
+        app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt6'))
         from ADB_module import ADB_Mainwindow
         window = ADB_Mainwindow()
 
