@@ -96,7 +96,7 @@ class ADB_Mainwindow(QMainWindow):
             self.textBrowser.append(f"已连接设备: {self.get_selected_device()}")
         else:
             pass
-        self.ComboxButton.activated[str].connect(self.on_combobox_changed)
+        self.ComboxButton.activated.connect(self.on_combobox_changed)
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb_button.clicked.connect(self.show_input_text_dialog)  # 输入文本
         self.get_screenshot_button.clicked.connect(self.show_screenshot_dialog)  # 截图
