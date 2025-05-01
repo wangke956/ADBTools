@@ -191,8 +191,13 @@ class ADB_Mainwindow(QMainWindow):
     def open_path(self):
         # 使用资源管理器打开一个地址
         self.file_path = self.inputbox_log_path.text()
-        if self.file_path is not None:
-            os.startfile(self.file_path)
+        try:
+            if self.file_path is not None:
+                os.startfile(self.file_path)
+            else:
+                self.textBrowser.append("路径不能为空！")
+        except Exception as e:
+            self.textBrowser.append(f"路径不存在！: {e}")
 
     def pull_log(self):
         device_id = self.get_selected_device()
@@ -202,12 +207,15 @@ class ADB_Mainwindow(QMainWindow):
             try:
                 if self.file_path is None:
                     self.textBrowser.append(f"路径不能为空！")
-                from Function_Moudle.pull_log_thread import PullLogThread
-                self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
-                self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
-                self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
-                self.PullLogSaveThread.start()
-                # self.pull_log_button.setText("停止拉取")
+                elif os.path.exists(self.file_path):
+                    from Function_Moudle.pull_log_thread import PullLogThread
+                    self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
+                    self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
+                    self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
+                    self.PullLogSaveThread.start()
+                    # self.pull_log_button.setText("停止拉取")
+                else:
+                    self.textBrowser.append(f"路径不存在！")
             except Exception as e:
                 self.textBrowser.append(f"启动拉取日志线程失败: {e}")
 
