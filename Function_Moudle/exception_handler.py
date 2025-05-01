@@ -2,7 +2,7 @@ import functools
 import traceback
 from enum import Enum
 from typing import Optional, Type, Union, Callable
-from PyQt5.QtWidgets import QTextBrowser, QMessageBox
+from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import Qt
 
 
@@ -43,8 +43,7 @@ class FileOperationException(ADBToolsException):
 class ExceptionManager:
     """异常管理类"""
     
-    def __init__(self, text_browser: Optional[QTextBrowser] = None, parent=None):
-        self.text_browser = text_browser
+    def __init__(self, parent=None):
         self.parent = parent
         self._error_handlers = {
             DeviceNotConnectedException: self._handle_device_not_connected,
@@ -67,10 +66,6 @@ class ExceptionManager:
             ErrorLevel.CRITICAL: "严重错误"
         }
 
-    def set_text_browser(self, text_browser: QTextBrowser):
-        """设置文本显示控件"""
-        self.text_browser = text_browser
-
     def set_parent(self, parent):
         """设置父窗口，用于显示弹窗"""
         self.parent = parent
@@ -85,10 +80,6 @@ class ExceptionManager:
         
         # 显示错误弹窗
         self._show_error_dialog(error_message, getattr(exc, 'level', ErrorLevel.ERROR))
-        
-        # 同时在文本框中显示
-        if self.text_browser is not None:
-            self._display_error(error_message, getattr(exc, 'level', ErrorLevel.ERROR))
         
         return error_message
 
@@ -105,9 +96,12 @@ class ExceptionManager:
             QMessageBox {
                 background-color: #2b2b2b;
                 color: #ffffff;
+                min-width: 400px;
             }
             QMessageBox QLabel {
                 color: #ffffff;
+                font-size: 12px;
+                padding: 10px;
             }
             QPushButton {
                 background-color: #3b3b3b;
@@ -115,6 +109,7 @@ class ExceptionManager:
                 border: 1px solid #555555;
                 padding: 5px 15px;
                 border-radius: 3px;
+                min-width: 80px;
             }
             QPushButton:hover {
                 background-color: #4b4b4b;
@@ -125,18 +120,6 @@ class ExceptionManager:
         """)
         
         dialog.exec_()
-
-    def _display_error(self, message: str, level: ErrorLevel):
-        """显示错误信息到文本框"""
-        color_map = {
-            ErrorLevel.INFO: "white",
-            ErrorLevel.WARNING: "orange",
-            ErrorLevel.ERROR: "red",
-            ErrorLevel.CRITICAL: "darkred"
-        }
-        color = color_map.get(level, "white")
-        formatted_message = f'<span style="color: {color}">[{level.value}] {message}</span>'
-        self.text_browser.append(formatted_message)
 
     def _handle_device_not_connected(self, exc: DeviceNotConnectedException) -> str:
         return f"设备连接错误: {exc.message}\n\n请检查:\n1. USB连接是否正常\n2. 设备是否已授权\n3. ADB服务是否正常运行"

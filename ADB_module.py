@@ -5,9 +5,9 @@ import io
 import subprocess
 from Function_Moudle.adb_root_wrapper_thread import AdbRootWrapperThread
 from Function_Moudle.exception_handler import (
-    exception_manager, exception_handler, 
-    DeviceNotConnectedException, CommandExecutionException, 
-    FileOperationException
+    exception_manager, exception_handler,
+    DeviceNotConnectedException, CommandExecutionException,
+    FileOperationException, ADBToolsException
 )
 
 if hasattr(sys.stdout, 'buffer'):
@@ -98,14 +98,14 @@ class ADB_Mainwindow(QMainWindow):
         sys.stderr = self.text_edit_output_stream
 
         # 设置异常管理器
-        exception_manager.set_text_browser(self.textBrowser)
         exception_manager.set_parent(self)  # 设置父窗口为当前窗口
 
+        # 初始化设备列表
         if self.refresh_devices():  # 刷新设备列表
-            self.d = u2.connect(self.get_selected_device())
-            self.textBrowser.append(f"已连接设备: {self.get_selected_device()}")
-        else:
-            pass
+            device_id = self.get_selected_device()
+            if device_id:  # 只有在有实际设备ID时才尝试连接
+                self.d = u2.connect(device_id)
+                self.textBrowser.append(f"已连接设备: {device_id}")
         self.ComboxButton.activated[str].connect(self.on_combobox_changed)
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb_button.clicked.connect(self.show_input_text_dialog)  # 输入文本
@@ -145,10 +145,13 @@ class ADB_Mainwindow(QMainWindow):
         self.voice_pull_record_file_button.clicked.connect(self.voice_pull_record_file)  # 拉取录音文件
 
     @exception_handler(show_traceback=True)
-    def voice_start_record(self):
+    def voice_start_record(self, checked=None):
         device_id = self.get_selected_device()
+        if device_id is None:
+            self.textBrowser.append("请先选择一个设备")
+            return
+            
         devices_id_lst = self.get_new_device_lst()
-
         if device_id not in devices_id_lst:
             raise DeviceNotConnectedException()
 
@@ -159,7 +162,7 @@ class ADB_Mainwindow(QMainWindow):
         self.voice_record_thread.start()
 
     @exception_handler(show_traceback=True)
-    def voice_stop_record(self):
+    def voice_stop_record(self, checked=None):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
@@ -172,7 +175,7 @@ class ADB_Mainwindow(QMainWindow):
         self.voice_record_thread.start()
 
     @exception_handler(show_traceback=True)
-    def voice_pull_record_file(self):
+    def voice_pull_record_file(self, checked=None):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
@@ -188,35 +191,120 @@ class ADB_Mainwindow(QMainWindow):
         self.voice_record_thread.signal_voice_pull_record_file.connect(self.textBrowser.append)
         self.voice_record_thread.start()
 
-    @exception_handler(
-        expected_exceptions=(FileNotFoundError, PermissionError, Exception),
-        error_message="打开文件路径失败"
-    )
     def open_path(self):
-        self.file_path = self.inputbox_log_path.text()
-        if not self.file_path:
-            raise FileOperationException("路径不能为空", "open_path")
-        os.startfile(self.file_path)
+        """打开文件所在目录"""
+        try:
+            # 获取路径并去除首尾空格
+            file_path = self.inputbox_log_path.text().strip()
+            
+            # 检查路径是否为空
+            if not file_path:
+                self.textBrowser.append("路径不能为空")
+                return
+            
+            # 规范化路径格式
+            file_path = os.path.normpath(file_path)
+                
+            # 检查路径是否存在
+            if not os.path.exists(file_path):
+                self.textBrowser.append("指定的路径不存在")
+                return
+            
+            # 如果是文件，获取其所在目录
+            if os.path.isfile(file_path):
+                file_path = os.path.dirname(file_path)
+            
+            # 确保是目录
+            if not os.path.isdir(file_path):
+                self.textBrowser.append("指定的路径不是有效的目录")
+                return
+                
+            # 尝试多种方式打开目录
+            success = False
+            error_messages = []
+            
+            # 1. 尝试使用 explorer
+            try:
+                subprocess.run(['explorer', file_path], check=True)
+                success = True
+            except Exception as e:
+                error_messages.append(f"explorer 方式失败: {str(e)}")
+            
+            # 2. 如果 explorer 失败，尝试 os.startfile
+            if not success:
+                try:
+                    os.startfile(file_path)
+                    success = True
+                except Exception as e:
+                    error_messages.append(f"startfile 方式失败: {str(e)}")
+            
+            # 3. 如果前两种都失败，尝试 cmd
+            if not success:
+                try:
+                    subprocess.run(['cmd', '/c', 'start', '', file_path], check=True)
+                    success = True
+                except Exception as e:
+                    error_messages.append(f"cmd 方式失败: {str(e)}")
+            
+            # 如果所有方式都失败，显示详细错误信息
+            if not success:
+                error_msg = "\n".join(error_messages)
+                self.textBrowser.append(f"打开目录失败，已尝试以下方式：\n{error_msg}")
+            
+        except Exception as e:
+            self.textBrowser.append(f"打开目录时发生错误: {str(e)}")
 
     def pull_log(self):
+        """拉取日志"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        self.file_path = self.inputbox_log_path.text()
-        if device_id in devices_id_lst:
-            try:
-                if self.file_path is None:
-                    self.textBrowser.append(f"路径不能为空！")
-                elif os.path.exists(self.file_path):
-                    from Function_Moudle.pull_log_thread import PullLogThread
-                    self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
-                    self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
-                    self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
-                    self.PullLogSaveThread.start()
-                    # self.pull_log_button.setText("停止拉取")
-                else:
-                    self.textBrowser.append(f"路径不存在！")
-            except Exception as e:
-                self.textBrowser.append(f"启动拉取日志线程失败: {e}")
+        self.file_path = self.inputbox_log_path.text().strip()
+
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("未检测到已连接的设备")
+            return
+
+        try:
+            if not self.file_path:
+                self.textBrowser.append("路径不能为空")
+                return
+
+            # 确保目录存在
+            if not os.path.exists(self.file_path):
+                try:
+                    os.makedirs(self.file_path)
+                except Exception as e:
+                    self.textBrowser.append(f"创建目录失败: {str(e)}")
+                    return
+
+            from Function_Moudle.pull_log_thread import PullLogThread
+            self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
+            self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
+            self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
+            self.PullLogSaveThread.start()
+
+        except Exception as e:
+            self.textBrowser.append(f"启动拉取日志线程失败: {str(e)}")
+
+    def browse_log_save_path(self):
+        """浏览并选择日志保存路径"""
+        try:
+            if hasattr(self, 'PullLogSaveThread') and self.PullLogSaveThread and self.PullLogSaveThread.isRunning():
+                self.PullLogSaveThread.stop()
+                self.pull_log_button.setText("拉取日志")
+                return
+
+            # 弹出选择路径的窗口
+            self.file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", "")
+            if self.file_path:
+                # 规范化路径格式
+                self.file_path = os.path.normpath(self.file_path)
+                self.inputbox_log_path.setText(self.file_path)
+            else:
+                self.textBrowser.append("已取消选择路径")
+
+        except Exception as e:
+            self.textBrowser.append(f"选择路径时发生错误: {str(e)}")
 
     # 调起资源升级页面
     def open_update_page(self):
@@ -233,26 +321,45 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动更新页面线程失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
         return
 
+    @exception_handler(show_traceback=True)
     def on_combobox_changed(self, text):
-        self.d = u2.connect(text)
-        if self.d:
-            self.textBrowser.append(f"已连接设备: {text}")
-        else:
-            self.textBrowser.append(f"连接设备 {text} 失败！")
+        """处理设备选择变化"""
+        # 如果是提示文本，不进行连接
+        if text == "请点击刷新设备":
+            return
+            
+        try:
+            self.d = u2.connect(text)
+            if self.d:
+                self.textBrowser.append(f"已连接设备: {text}")
+            else:
+                self.textBrowser.append("未检测到已连接的设备")
+        except Exception as e:
+            self.textBrowser.append(f"连接设备失败: {str(e)}")
 
     def get_selected_device(self):
-        return self.ComboxButton.currentText()  # 返回的类型为str
+        """获取当前选中的设备ID"""
+        device_id = self.ComboxButton.currentText()
+        if device_id == "请点击刷新设备":
+            return None
+        return device_id
 
     @staticmethod
+    @exception_handler(show_traceback=True)
     def get_new_device_lst():  # 静态方法，返回设备ID列表
-        result = subprocess.run("adb devices", shell=True, check=True, capture_output=True,
-                                text=True)  # 执行 adb devices 命令
-        devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-        device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
-        return device_ids
+        try:
+            result = subprocess.run("adb devices", shell=True, check=True, capture_output=True,
+                                    text=True)  # 执行 adb devices 命令
+            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
+            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+            return device_ids
+        except subprocess.CalledProcessError as e:
+            raise CommandExecutionException(str(e), "adb devices")
+        except Exception as e:
+            raise ADBToolsException(f"获取设备列表失败: {str(e)}")
 
     def start_app_action(self):
         device_ids = self.get_new_device_lst()
@@ -275,7 +382,7 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动应用失败: {e}")
         else:
-            self.textBrowser.append("未连接设备！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def as33_cr_enter_engineering_mode(self):
         """AS33_CR进入工程模式"""
@@ -293,7 +400,7 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动工程模式线程失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def mas3e_tt_enter_engineering_mode(self):
         """MZS3E_TT进入工程模式"""
@@ -310,27 +417,26 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动MZS3E_TT工程模式线程失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def enter_engineering_mode(self):
-
         """进入工程模式"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.enter_engineering_mode_thread import enter_engineering_mode_thread
-                self.engineering_thread = enter_engineering_mode_thread(self.d)
-                self.engineering_thread.progress_signal.connect(self.textBrowser.append)
-                self.engineering_thread.result_signal.connect(self.textBrowser.append)
-                self.engineering_thread.error_signal.connect(self.textBrowser.append)
-                self.engineering_thread.start()
-            except Exception as e:
-                self.textBrowser.append(f"启动工程模式线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("未检测到已连接的设备")
+            return
 
+        try:
+            from Function_Moudle.enter_engineering_mode_thread import enter_engineering_mode_thread
+            self.engineering_thread = enter_engineering_mode_thread(self.d)
+            self.engineering_thread.progress_signal.connect(self.textBrowser.append)
+            self.engineering_thread.result_signal.connect(self.textBrowser.append)
+            self.engineering_thread.error_signal.connect(self.textBrowser.append)
+            self.engineering_thread.start()
+        except Exception as e:
+            self.textBrowser.append(f"启动工程模式线程失败: {e}")
 
     def skip_power_limit(self):
         """跳过电源挡位限制"""
@@ -347,7 +453,7 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动跳过电源限制线程失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def list_package(self):
         """获取设备上安装的应用列表"""
@@ -373,7 +479,7 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动应用列表获取线程失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def activate_vr(self):
         """激活VR"""
@@ -391,24 +497,25 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动VR激活线程失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def as33_upgrade_page(self):
         """升级页面"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.as33_upgrade_page_thread import AS33UpgradePageThread
-                self.upgrade_page_thread = AS33UpgradePageThread(self.d)
-                self.upgrade_page_thread.progress_signal.connect(self.textBrowser.append)
-                self.upgrade_page_thread.error_signal.connect(self.textBrowser.append)
-                self.upgrade_page_thread.start()
-            except Exception as e:
-                self.textBrowser.append(f"启动升级页面线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("未检测到已连接的设备")
+            return
+
+        try:
+            from Function_Moudle.as33_upgrade_page_thread import AS33UpgradePageThread
+            self.upgrade_page_thread = AS33UpgradePageThread(self.d)
+            self.upgrade_page_thread.progress_signal.connect(self.textBrowser.append)
+            self.upgrade_page_thread.error_signal.connect(self.textBrowser.append)
+            self.upgrade_page_thread.start()
+        except Exception as e:
+            self.textBrowser.append(f"启动升级页面线程失败: {e}")
 
     def check_vr_network(self):
         """检查VR网络"""
@@ -426,7 +533,7 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"检查VR网络失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def switch_vr_env(self):
         """切换VR环境"""
@@ -444,7 +551,7 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"切换VR环境失败: {e}")
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def scroll_to_bottom(self):
         scrollbar = self.textBrowser.verticalScrollBar()
@@ -462,7 +569,7 @@ class ADB_Mainwindow(QMainWindow):
             self.get_running_app_info_thread.error_signal.connect(self.textBrowser.append)
             self.get_running_app_info_thread.start()
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def view_apk_path_wrapper(self):
         device_id = self.get_selected_device()
@@ -480,108 +587,115 @@ class ADB_Mainwindow(QMainWindow):
                 self.view_apk_thread.error_signal.connect(self.textBrowser.append)
                 self.view_apk_thread.start()
             else:
-                self.textBrowser.append("未连接设备！")
+                self.textBrowser.append("未检测到已连接的设备")
         except Exception as e:
             self.textBrowser.append(f"初始化线程失败: {e}")
 
-    @exception_handler(show_traceback=True)
     def refresh_devices(self):
-        """刷新设备列表并添加到下拉框"""
+        """刷新设备列表"""
         try:
-            # 执行adb devices命令获取设备列表
-            result = subprocess.check_output(['adb', 'devices'], encoding='utf-8')
-            # 解析输出获取设备ID列表
-            lines = result.strip().split('\n')[1:]
-            devices = [line.split('\t')[0] for line in lines if line.strip()]
-            
-            if not devices:
-                raise DeviceNotConnectedException("未检测到已连接的设备")
-            
-            # 清空下拉框
+            devices_id_lst = self.get_new_device_lst()
             self.ComboxButton.clear()
-            # 添加设备到下拉框
-            self.ComboxButton.addItems(devices)
+            
+            if not devices_id_lst:
+                self.ComboxButton.addItem("请点击刷新设备")
+                self.textBrowser.append("未检测到已连接的设备")
+                return False
+                
+            for device_id in devices_id_lst:
+                self.ComboxButton.addItem(device_id)
             return True
             
-        except subprocess.CalledProcessError as e:
-            raise CommandExecutionException(str(e), "adb devices")
+        except Exception as e:
+            self.textBrowser.append(f"刷新设备列表失败: {str(e)}")
+            return False
 
-    @exception_handler(show_traceback=True)
     def adb_root_wrapper(self):
+        """以root权限运行ADB"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
         if device_id not in devices_id_lst:
-            raise DeviceNotConnectedException()
+            self.textBrowser.append("未检测到已连接的设备")
+            return
 
         self.adb_root_thread = AdbRootWrapperThread(device_id)
-        self.adb_root_thread.signal.connect(self.textBrowser.append)
+        self.adb_root_thread.progress_signal.connect(self.textBrowser.append)
+        self.adb_root_thread.error_signal.connect(self.textBrowser.append)
         self.adb_root_thread.start()
 
-    @exception_handler(show_traceback=True)
     def reboot_device(self):
+        """重启设备"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
         if device_id not in devices_id_lst:
-            raise DeviceNotConnectedException()
+            self.textBrowser.append("未检测到已连接的设备")
+            return
 
         try:
             subprocess.check_output(['adb', '-s', device_id, 'reboot'], encoding='utf-8')
             self.textBrowser.append("设备正在重启...")
         except subprocess.CalledProcessError as e:
-            raise CommandExecutionException(str(e), "adb reboot")
+            self.textBrowser.append(f"重启设备失败: {str(e)}")
 
     @staticmethod
-    @exception_handler(show_traceback=True)
     def get_screenshot(file_path, device_id):
-        if not device_id:
-            raise DeviceNotConnectedException()
-            
+        """获取设备截图"""
         try:
+            # 截图并保存到设备
             subprocess.check_output(['adb', '-s', device_id, 'shell', 'screencap', '-p', '/sdcard/screenshot.png'], encoding='utf-8')
+            # 将截图从设备拉取到本地
             subprocess.check_output(['adb', '-s', device_id, 'pull', '/sdcard/screenshot.png', file_path], encoding='utf-8')
+            # 删除设备上的临时截图
             subprocess.check_output(['adb', '-s', device_id, 'shell', 'rm', '/sdcard/screenshot.png'], encoding='utf-8')
+            return True
         except subprocess.CalledProcessError as e:
-            raise CommandExecutionException(str(e), "screenshot operation")
+            return f"截图失败: {str(e)}"
 
-    @exception_handler(show_traceback=True)
     def show_screenshot_dialog(self):
+        """显示截图保存对话框"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
         if device_id not in devices_id_lst:
-            raise DeviceNotConnectedException()
+            self.textBrowser.append("未检测到已连接的设备")
+            return
 
         file_path = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG files (*.png)")[0]
         if file_path:
-            self.get_screenshot(file_path, device_id)
-            self.textBrowser.append(f"截图已保存到: {file_path}")
+            result = self.get_screenshot(file_path, device_id)
+            if result is True:
+                self.textBrowser.append(f"截图已保存到: {file_path}")
+            else:
+                self.textBrowser.append(result)
+        else:
+            self.textBrowser.append("已取消截图操作")
 
     @staticmethod
-    @exception_handler(show_traceback=True)
     def adb_uninstall(package_name, device_id):
-        if not device_id:
-            raise DeviceNotConnectedException()
-            
+        """卸载应用"""
         try:
             result = subprocess.check_output(['adb', '-s', device_id, 'uninstall', package_name], encoding='utf-8')
-            return result
+            return f"卸载成功: {result.strip()}"
         except subprocess.CalledProcessError as e:
-            raise CommandExecutionException(str(e), f"adb uninstall {package_name}")
+            return f"卸载失败: {str(e)}"
 
-    @exception_handler(show_traceback=True)
     def show_uninstall_dialog(self):
+        """显示卸载应用对话框"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
 
         if device_id not in devices_id_lst:
-            raise DeviceNotConnectedException()
+            self.textBrowser.append("未检测到已连接的设备")
+            return
 
         package_name, ok = QInputDialog.getText(self, "卸载应用", "请输入包名:")
         if ok and package_name:
             result = self.adb_uninstall(package_name, device_id)
-            self.textBrowser.append(f"卸载结果: {result}")
+            self.textBrowser.append(result)
+        else:
+            self.textBrowser.append("已取消卸载操作")
 
     @staticmethod
     def adb_pull_file(file_path_on_device, local_path, device_id):
@@ -599,22 +713,23 @@ class ADB_Mainwindow(QMainWindow):
             return f"文件拉取失败: {e}"
 
     def show_pull_file_dialog(self):
+        """显示文件拉取对话框"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            file_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径", "请输入车机上的文件路径:")
-            if ok and file_path_on_device:
-                local_path, _ = QFileDialog.getSaveFileName(self, "保存文件", "", "All Files (*)")
-                if local_path:
-                    # res = self.adb_pull_file(file_path_on_device, local_path, device_id)
-                    res = self.d.pull(file_path_on_device, local_path)
-                    self.textBrowser.append(" ".join(res))
-                else:
-                    self.textBrowser.append("已取消！")
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("未检测到已连接的设备")
+            return
+
+        file_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径", "请输入车机上的文件路径:")
+        if ok and file_path_on_device:
+            local_path, _ = QFileDialog.getSaveFileName(self, "保存文件", "", "All Files (*)")
+            if local_path:
+                res = self.d.pull(file_path_on_device, local_path)
+                self.textBrowser.append(" ".join(res))
             else:
-                self.textBrowser.append("已取消！")
+                self.textBrowser.append("已取消操作")
         else:
-            self.textBrowser.append("未连接设备！")
+            self.textBrowser.append("已取消操作")
 
     @staticmethod
     def adb_install(package_path, device_id):
@@ -633,30 +748,26 @@ class ADB_Mainwindow(QMainWindow):
             except subprocess.CalledProcessError as e:
                 return f"应用安装失败: {e.stderr.strip()}"
         else:
-            return "设备未连接！"
+            return "未检测到已连接的设备"
 
     def show_install_file_dialog(self):
+        """显示应用安装对话框"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            package_path, ok = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
-                                                          "APK Files (*.apk);;All Files (*)")
-            if ok:
-                from Function_Moudle.install_file_thread import InstallFileThread
-                self.install_file_thread = InstallFileThread(self.d, package_path)
-                self.install_file_thread.progress_signal.connect(self.textBrowser.append)
-                self.install_file_thread.signal_status.connect(self.textBrowser.append)
-                self.install_file_thread.start()
-            else:
-                self.textBrowser.append("已取消！")
-            # if package_path:
-            #     res = self.adb_install(package_path, device_id)
-            #     self.textBrowser.append(res)
-            #     self.textBrowser.append("即将开始安装应用，请耐心等待...")
-            # else:
-            #     self.textBrowser.append("已取消！")
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("未检测到已连接的设备")
+            return
+
+        package_path, ok = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
+                                                      "APK Files (*.apk);;All Files (*)")
+        if ok:
+            from Function_Moudle.install_file_thread import InstallFileThread
+            self.install_file_thread = InstallFileThread(self.d, package_path)
+            self.install_file_thread.progress_signal.connect(self.textBrowser.append)
+            self.install_file_thread.signal_status.connect(self.textBrowser.append)
+            self.install_file_thread.start()
         else:
-            self.textBrowser.append("未连接设备！")
+            self.textBrowser.append("已取消操作")
 
     @staticmethod
     def adb_push_file(local_file_path, target_path_on_device, device_id):
@@ -668,22 +779,24 @@ class ADB_Mainwindow(QMainWindow):
             return f"文件推送失败: {e}"
 
     def show_push_file_dialog(self):
+        """显示文件推送对话框"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            local_file_path, _ = QFileDialog.getOpenFileName(self, "选择本地文件", "", "All Files (*)")
-            if local_file_path:
-                target_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径",
-                                                                 "请输入车机上的目标路径:")
-                if ok and target_path_on_device:
-                    res = self.adb_push_file(local_file_path, target_path_on_device, device_id)
-                    self.textBrowser.append(res)
-                else:
-                    self.textBrowser.append("已取消！")
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("未检测到已连接的设备")
+            return
+
+        local_file_path, _ = QFileDialog.getOpenFileName(self, "选择本地文件", "", "All Files (*)")
+        if local_file_path:
+            target_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径",
+                                                             "请输入车机上的目标路径:")
+            if ok and target_path_on_device:
+                res = self.adb_push_file(local_file_path, target_path_on_device, device_id)
+                self.textBrowser.append(res)
             else:
-                self.textBrowser.append("已取消！")
+                self.textBrowser.append("已取消操作")
         else:
-            self.textBrowser.append("未连接设备！")
+            self.textBrowser.append("已取消操作")
 
     @staticmethod
     def simulate_click(x, y, device_id):
@@ -727,7 +840,7 @@ class ADB_Mainwindow(QMainWindow):
             else:
                 self.textBrowser.append("已取消！")
         else:
-            self.textBrowser.append("未连接设备！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def show_force_stop_app_dialog(self):
         try:
@@ -740,7 +853,7 @@ class ADB_Mainwindow(QMainWindow):
                 self.Force_app_thread.error_signal.connect(self.textBrowser.append)
                 self.Force_app_thread.start()
             else:
-                self.textBrowser.append("未连接设备！")
+                self.textBrowser.append("未检测到已连接的设备")
         except Exception as e:
             self.textBrowser.append(f"强制停止应用失败: {e}")
 
@@ -754,7 +867,7 @@ class ADB_Mainwindow(QMainWindow):
             self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
             self.Clear_app_cache_thread.start()
         else:
-            self.textBrowser.append("设备未连接！")
+            self.textBrowser.append("未检测到已连接的设备")
 
     def get_foreground_package(self):
         device_id = self.get_selected_device()
@@ -766,7 +879,7 @@ class ADB_Mainwindow(QMainWindow):
                 self.GetForegroundPackageThread.signal_package.connect(self.textBrowser.append)
                 self.GetForegroundPackageThread.start()
             else:
-                self.textBrowser.append("设备连接失败")
+                self.textBrowser.append("未检测到已连接的设备")
         except Exception as e:
             self.textBrowser.append(f"获取前台正在运行的应用包名失败: {e}")
 
@@ -787,22 +900,4 @@ class ADB_Mainwindow(QMainWindow):
             self.textBrowser.append(f"包名: {package_name}")
         else:
             self.textBrowser.append("未选择APK文件")
-
-
-    def browse_log_save_path(self):
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            if hasattr(self, 'PullLogSaveThread') and self.PullLogSaveThread and self.PullLogSaveThread.isRunning():
-                self.PullLogSaveThread.stop()
-                self.pull_log_button.setText("拉取日志")
-            else:
-                #  弹出选择路径的窗口
-                self.file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", "")
-                if self.file_path:
-                    self.inputbox_log_path.setText(self.file_path)
-                else:
-                    self.textBrowser.append("已取消！")
-        else:
-            self.textBrowser.append("未连接设备！")
                 
