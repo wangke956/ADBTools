@@ -168,21 +168,19 @@ class ADB_Mainwindow(QMainWindow):
     def voice_pull_record_file(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-
+        file_path = self.inputbox_log_path.text()
         if device_id in devices_id_lst:
             # 弹出目录选择弹窗
-            record_file_path = QFileDialog.getExistingDirectory(self, "选择保存目录", os.path.expanduser("~"))
-            if record_file_path is not None:
+            if file_path is not None:
                 try:
                     from Function_Moudle.voice_pull_record_file_thread import VoicePullRecordFileThread
-                    self.voice_record_thread = VoicePullRecordFileThread(device_id, record_file_path)
+                    self.voice_record_thread = VoicePullRecordFileThread(device_id, file_path)
                     self.voice_record_thread.signal_voice_pull_record_file.connect(self.textBrowser.append)
                     self.voice_record_thread.start()
-
                 except Exception as e:
-                    self.textBrowser.append(f"<UNK>: {e}")
+                    self.textBrowser.append(f"启动拉取录音文件线程失败: {e}")
             else:
-                self.textBrowser.append("用户取消选择！")
+                self.textBrowser.append("请选择保存路径！")
         else:
             self.textBrowser.append("设备未连接！")
 

@@ -32,7 +32,7 @@ class PullLogThread(QThread):
 
         # 构建日志文件的完整路径
         log_file = os.path.join(self.file_path, f"log_{current_time}.txt")
-        print(f"日志文件路径: {self.file_path}")
+        # print(f"日志文件路径: {self.file_path}")
         # print(f"日志文件名: {log_file}")
         # log_file = os.path.join(f'"{self.file_path}"', f"log_{current_time}.txt")
         
