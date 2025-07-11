@@ -133,6 +133,24 @@ class ADB_Mainwindow(QMainWindow):
         self.voice_start_record_button.clicked.connect(self.voice_start_record)  # 开始语音录制
         self.voice_stop_record_button.clicked.connect(self.voice_stop_record)  # 停止语音录制
         self.voice_pull_record_file_button.clicked.connect(self.voice_pull_record_file)  # 拉取录音文件
+        self.remove_record_file_button.clicked.connect(self.remove_voice_record_file)  # 删除语音录制文件
+
+    def remove_voice_record_file(self):
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        if self.d is not None:
+            if device_id in devices_id_lst:
+                try:
+                    from Function_Moudle.remove_record_file_thread import RemoveRecordFileThread
+                    self.voice_record_thread = RemoveRecordFileThread(self.d)
+                    self.voice_record_thread.signal_remove_voice_record_file.connect(self.textBrowser.append)
+                    self.voice_record_thread.start()
+                except Exception as e:
+                    self.textBrowser.append(f"启动删除语音录制文件线程失败: {e}")
+            else:
+                self.textBrowser.append("设备未连接！")
+        else:
+            self.textBrowser.append("设备未连接！")
 
     def voice_start_record(self):
         device_id = self.get_selected_device()
