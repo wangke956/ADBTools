@@ -5,13 +5,12 @@ import os
 class VoicePullRecordFileThread(QThread):
     signal_voice_pull_record_file = pyqtSignal(str)
 
-    def __init__(self, device_id, file_path):
+    def __init__(self, device_id, file_path, device_record_file_path):
         super().__init__()
         self.device_id = device_id
         self.record_file_path = file_path
-
         # 设备上的目录路径
-        self.remote_dir_path = '/vr/speech/assistant/files/tmp/audioDump'
+        self.remote_dir_path = device_record_file_path
 
     def run(self):
         if not os.path.exists(self.record_file_path):  # 判断路径是否存在

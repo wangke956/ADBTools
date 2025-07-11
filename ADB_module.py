@@ -93,7 +93,6 @@ class ADB_Mainwindow(QMainWindow):
         sys.stderr = self.text_edit_output_stream
         if self.refresh_devices():  # 刷新设备列表
             self.d = u2.connect(self.get_selected_device())
-            self.textBrowser.append(f"已连接设备: {self.get_selected_device()}")
         else:
             pass
         self.ComboxButton.activated[str].connect(self.on_combobox_changed)
@@ -138,11 +137,12 @@ class ADB_Mainwindow(QMainWindow):
     def remove_voice_record_file(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
+        device_record_file_path = self.device_record_path.text()
         if self.d is not None:
             if device_id in devices_id_lst:
                 try:
                     from Function_Moudle.remove_record_file_thread import RemoveRecordFileThread
-                    self.voice_record_thread = RemoveRecordFileThread(self.d)
+                    self.voice_record_thread = RemoveRecordFileThread(self.d, device_record_file_path)
                     self.voice_record_thread.signal_remove_voice_record_file.connect(self.textBrowser.append)
                     self.voice_record_thread.start()
                 except Exception as e:
@@ -187,12 +187,14 @@ class ADB_Mainwindow(QMainWindow):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         file_path = self.inputbox_log_path.text()
+        device_record_file_path = self.device_record_path.text()
+        # self.textBrowser.append(f"设备录音文件路径: {device_record_file_path}")
         if device_id in devices_id_lst:
             # 弹出目录选择弹窗
             if file_path is not None:
                 try:
                     from Function_Moudle.voice_pull_record_file_thread import VoicePullRecordFileThread
-                    self.voice_record_thread = VoicePullRecordFileThread(device_id, file_path)
+                    self.voice_record_thread = VoicePullRecordFileThread(device_id, file_path, device_record_file_path)
                     self.voice_record_thread.signal_voice_pull_record_file.connect(self.textBrowser.append)
                     self.voice_record_thread.start()
                 except Exception as e:
@@ -521,6 +523,12 @@ class ADB_Mainwindow(QMainWindow):
             device_ids_str = ", ".join(device_ids)
             if device_ids_str:
                 self.textBrowser.append(f"设备列表已刷新：\n{device_ids_str}")
+                self.d = None
+                self.d = u2.connect(device_ids_str)
+                if self.d:
+                    self.textBrowser.append(f"设备连接成功：{device_ids_str}")
+                else:
+                    self.textBrowser.append(f"设备连接失败！")
                 return device_ids  # 返回设备ID列表
             else:
                 self.textBrowser.append(f"未连接设备！")
