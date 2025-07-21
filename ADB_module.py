@@ -524,9 +524,9 @@ class ADB_Mainwindow(QMainWindow):
             if device_ids_str:
                 self.textBrowser.append(f"设备列表已刷新：\n{device_ids_str}")
                 self.d = None
-                self.d = u2.connect(device_ids_str)
+                self.d = u2.connect(self.get_selected_device())
                 if self.d:
-                    self.textBrowser.append(f"设备连接成功：{device_ids_str}")
+                    self.textBrowser.append(f"设备连接成功：{self.get_selected_device()}")
                 else:
                     self.textBrowser.append(f"设备连接失败！")
                 return device_ids  # 返回设备ID列表
