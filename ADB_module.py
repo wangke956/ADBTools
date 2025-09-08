@@ -162,18 +162,23 @@ class ADB_Mainwindow(QMainWindow):
         self.releasenote_dict.update(result_dict)  # 更新暂存字典
         self.releasenote_package_version = result_dict
         # 从字典result_dict中挨个读取packageName并用该包名取设备上获取该包名的版本号
+        true_count = 0
+        false_count = 0
         for i in result_dict.keys():
             if i is not None:
                 app_info = self.d.app_info(i)
                 if app_info is None:
                     break
                 version_name = app_info.get('versionName', '未知版本')
-                if version_name == result_dict[i]:
+                if str(version_name) == str(result_dict[i]):
                     self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
+                    true_count += 1
                     self.textBrowser.append(f"版本号匹配成功！")
                 else:
                     self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
+                    false_count += 1
                     self.textBrowser.append(f"版本号匹配失败！")
+        self.textBrowser.append(f"匹配成功数: {true_count}, 匹配失败数: {false_count}")
 
 
 
