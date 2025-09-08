@@ -48,6 +48,10 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.releasenote_package_version = None
+        self.releasenote_dict = None
+        self.app_version_check_thread = None
+        self.releasenote_file = None
         self.voice_record_thread = None
         self.file_path = None
         self.PullLogSaveThread = None
@@ -133,6 +137,53 @@ class ADB_Mainwindow(QMainWindow):
         self.voice_stop_record_button.clicked.connect(self.voice_stop_record)  # 停止语音录制
         self.voice_pull_record_file_button.clicked.connect(self.voice_pull_record_file)  # 拉取录音文件
         self.remove_record_file_button.clicked.connect(self.remove_voice_record_file)  # 删除语音录制文件
+        self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
+        self.start_check_button.clicked.connect(self.app_version_check)
+
+    def app_version_check(self):
+        # 读取self.releasenote_file表格文件中的B8单元格是否等于packageName
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        if device_id in devices_id_lst:
+            try:
+                from Function_Moudle.app_version_check_thread import AppVersionCheckThread
+                self.releasenote_dict = {}
+                self.app_version_check_thread = AppVersionCheckThread(self.d, self.releasenote_file)
+                self.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
+                self.app_version_check_thread.error_signal.connect(self.textBrowser.append)
+                self.app_version_check_thread.release_note_signal.connect(self.handle_progress)
+                self.app_version_check_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"启动版本检查线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def handle_progress(self, result_dict):
+        self.releasenote_dict.update(result_dict)  # 更新暂存字典
+        self.releasenote_package_version = result_dict
+        # 从字典result_dict中挨个读取packageName并用该包名取设备上获取该包名的版本号
+        for i in result_dict.keys():
+            if i is not None:
+                app_info = self.d.app_info(i)
+                if app_info is None:
+                    break
+                version_name = app_info.get('versionName', '未知版本')
+                if version_name == result_dict[i]:
+                    self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
+                    self.textBrowser.append(f"版本号匹配成功！")
+                else:
+                    self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
+                    self.textBrowser.append(f"版本号匹配失败！")
+
+
+
+    def select_releasenote_excel(self):
+        self.releasenote_file, _ = QFileDialog.getOpenFileName(self, "选择集成清单文件", "", "Excel Files (*.xlsx *.xls)")
+        if self.releasenote_file is not None:
+            # 显示文件名
+            file_name = self.releasenote_file.split('/')[-1]
+            self.releasenote_file_name_view.setText(file_name)
+
 
     def remove_voice_record_file(self):
         device_id = self.get_selected_device()
