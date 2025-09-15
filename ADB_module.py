@@ -312,11 +312,14 @@ class ADB_Mainwindow(QMainWindow):
         return
 
     def on_combobox_changed(self, text):
-        self.d = u2.connect(text)
-        if self.d:
-            self.textBrowser.append(f"已连接设备: {text}")
-        else:
-            self.textBrowser.append(f"连接设备 {text} 失败！")
+        try:
+            self.d = u2.connect(text)
+            if self.d:
+                self.textBrowser.append(f"已连接设备: {text}")
+            else:
+                self.textBrowser.append(f"连接设备 {text} 失败！")
+        except Exception as e:
+            self.textBrowser.append(f"连接设备 {text} 失败！: {e}")
 
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str

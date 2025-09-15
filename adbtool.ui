@@ -1316,7 +1316,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
        <attribute name="title">
         <string>集成版本检查</string>
        </attribute>
-       <widget class="QWidget" name="">
+       <widget class="QWidget" name="layoutWidget">
         <property name="geometry">
          <rect>
           <x>11</x>
