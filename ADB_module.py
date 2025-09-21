@@ -86,15 +86,15 @@ class ADB_Mainwindow(QMainWindow):
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
         # 继续获取其他控件...
         # 添加按钮点击间隔控制和线程锁
-        self._last_click_time = {}
-        self._click_interval = 1.0  # 设置点击间隔为1秒
-        self._thread_locks = {}
+        # self._last_click_time = {}
+        # self._click_interval = 1.0  # 设置点击间隔为1秒
+        # self._thread_locks = {}
         self.d = None
 
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
-        sys.stdout = self.text_edit_output_stream
-        sys.stderr = self.text_edit_output_stream
+        # sys.stdout = self.text_edit_output_stream
+        # sys.stderr = self.text_edit_output_stream
         if self.refresh_devices():  # 刷新设备列表
             self.d = u2.connect(self.get_selected_device())
         else:
