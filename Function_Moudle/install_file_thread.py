@@ -14,6 +14,7 @@ class InstallFileThread(QThread):
     def run(self):
         self.signal_status.emit("正在开始安装...")
         # self.d.app_install(self.package_path)
-        command = "adb install -r " + self.package_path
-        os.system(command)
+        # command = "adb install -r " + self.package_path
+        # os.system(command)
+        self.d.app_install(self.package_path)
         self.signal_status.emit("安装成功！")

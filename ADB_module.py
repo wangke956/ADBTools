@@ -126,8 +126,8 @@ class ADB_Mainwindow(QMainWindow):
         self.skipping_powerlimit_button.clicked.connect(self.skip_power_limit)  # 跳过电源挡位限制
         self.enter_engineering_mode_button.clicked.connect(self.enter_engineering_mode)  # 进入工程模式
         self.upgrade_page_button_2.clicked.connect(self.as33_upgrade_page)  # 打开延峰升级页面
-        self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(
-            self.mas3e_tt_enter_engineering_mode)  # MZS3E_TT进入工程模式
+        # self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(
+        #     self.mas3e_tt_enter_engineering_mode)  # MZS3E_TT进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
         self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
@@ -373,22 +373,22 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("设备未连接！")
 
-    def mas3e_tt_enter_engineering_mode(self):
-        """MZS3E_TT进入工程模式"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.mzs3e_tt_thread import MZS3E_TTEngineeringModeThread
-                self.mzs3ett_thread = MZS3E_TTEngineeringModeThread(self.d)
-                self.mzs3ett_thread.progress_signal.connect(self.textBrowser.append)
-                self.mzs3ett_thread.error_signal.connect(self.textBrowser.append)
-                self.mzs3ett_thread.start()
-            except Exception as e:
-                self.textBrowser.append(f"启动MZS3E_TT工程模式线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
+    # def mas3e_tt_enter_engineering_mode(self):
+    #     """MZS3E_TT进入工程模式"""
+    #     device_id = self.get_selected_device()
+    #     devices_id_lst = self.get_new_device_lst()
+    #
+    #     if device_id in devices_id_lst:
+    #         try:
+    #             from Function_Moudle.mzs3e_tt_thread import MZS3E_TTEngineeringModeThread
+    #             self.mzs3ett_thread = MZS3E_TTEngineeringModeThread(self.d)
+    #             self.mzs3ett_thread.progress_signal.connect(self.textBrowser.append)
+    #             self.mzs3ett_thread.error_signal.connect(self.textBrowser.append)
+    #             self.mzs3ett_thread.start()
+    #         except Exception as e:
+    #             self.textBrowser.append(f"启动MZS3E_TT工程模式线程失败: {e}")
+    #     else:
+    #         self.textBrowser.append("设备未连接！")
 
     def enter_engineering_mode(self):
 
@@ -876,7 +876,8 @@ class ADB_Mainwindow(QMainWindow):
 
     @staticmethod
     def aapt_get_packagen_name(apk_path):
-        command = f"aapt dump badging {apk_path} | findstr name"
+        quoted_apk_path = f'"{apk_path}"'
+        command = f"aapt dump badging {quoted_apk_path} | findstr name"
         try:
             result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
             package_name = result.stdout.strip().split('\'')[1]
