@@ -338,13 +338,11 @@ class ADB_Mainwindow(QMainWindow):
         if device_id in device_ids:
             try:
                 input_text, ok = QInputDialog.getText(self, '输入应用信息',
-                                                      '请输入应用包名和活动名，格式为：包名: com.xxx.xxx, 活动名:.xxx')
+                                                      '请输入应用包名')
                 if ok and input_text:
-                    parts = input_text.split(', ')
-                    package_name = parts[0].split('包名: ')[1]
-                    activity_name = parts[1].split('活动名: ')[1]
+                    package_name = input_text
                     from Function_Moudle.app_action_thread import AppActionThread
-                    self.app_action_thread = AppActionThread(self.d, package_name, activity_name)
+                    self.app_action_thread = AppActionThread(self.d, package_name)
                     self.app_action_thread.progress_signal.connect(self.textBrowser.append)
                     self.app_action_thread.error_signal.connect(self.textBrowser.append)
                     self.app_action_thread.start()
