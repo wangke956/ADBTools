@@ -120,14 +120,10 @@ class ADB_Mainwindow(QMainWindow):
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
         self.switch_vr_env_button.clicked.connect(self.switch_vr_env)  # 切换VR环境
         self.VR_nework_check_button.clicked.connect(self.check_vr_network)  # 检查VR网络
-        self.upgrade_page_button.clicked.connect(self.as33_upgrade_page)  # 打开延峰升级页面
         self.activate_VR_button.clicked.connect(self.activate_vr)  # 激活VR
         self.list_package_button.clicked.connect(self.list_package)
         self.skipping_powerlimit_button.clicked.connect(self.skip_power_limit)  # 跳过电源挡位限制
         self.enter_engineering_mode_button.clicked.connect(self.enter_engineering_mode)  # 进入工程模式
-        self.upgrade_page_button_2.clicked.connect(self.as33_upgrade_page)  # 打开延峰升级页面
-        # self.MZS3E_TT_enter_engineering_mode_button.clicked.connect(
-        #     self.mas3e_tt_enter_engineering_mode)  # MZS3E_TT进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
         self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
@@ -371,22 +367,6 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("设备未连接！")
 
-    # def mas3e_tt_enter_engineering_mode(self):
-    #     """MZS3E_TT进入工程模式"""
-    #     device_id = self.get_selected_device()
-    #     devices_id_lst = self.get_new_device_lst()
-    #
-    #     if device_id in devices_id_lst:
-    #         try:
-    #             from Function_Moudle.mzs3e_tt_thread import MZS3E_TTEngineeringModeThread
-    #             self.mzs3ett_thread = MZS3E_TTEngineeringModeThread(self.d)
-    #             self.mzs3ett_thread.progress_signal.connect(self.textBrowser.append)
-    #             self.mzs3ett_thread.error_signal.connect(self.textBrowser.append)
-    #             self.mzs3ett_thread.start()
-    #         except Exception as e:
-    #             self.textBrowser.append(f"启动MZS3E_TT工程模式线程失败: {e}")
-    #     else:
-    #         self.textBrowser.append("设备未连接！")
 
     def enter_engineering_mode(self):
 
@@ -466,23 +446,6 @@ class ADB_Mainwindow(QMainWindow):
                 self.vr_thread.start()
             except Exception as e:
                 self.textBrowser.append(f"启动VR激活线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
-
-    def as33_upgrade_page(self):
-        """升级页面"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.as33_upgrade_page_thread import AS33UpgradePageThread
-                self.upgrade_page_thread = AS33UpgradePageThread(self.d)
-                self.upgrade_page_thread.progress_signal.connect(self.textBrowser.append)
-                self.upgrade_page_thread.error_signal.connect(self.textBrowser.append)
-                self.upgrade_page_thread.start()
-            except Exception as e:
-                self.textBrowser.append(f"启动升级页面线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
@@ -751,12 +714,6 @@ class ADB_Mainwindow(QMainWindow):
                 self.install_file_thread.start()
             else:
                 self.textBrowser.append("已取消！")
-            # if package_path:
-            #     res = self.adb_install(package_path, device_id)
-            #     self.textBrowser.append(res)
-            #     self.textBrowser.append("即将开始安装应用，请耐心等待...")
-            # else:
-            #     self.textBrowser.append("已取消！")
         else:
             self.textBrowser.append("未连接设备！")
 
