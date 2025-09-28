@@ -48,6 +48,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.pull_files_thread = None
         self.releasenote_package_version = None
         self.releasenote_dict = None
         self.app_version_check_thread = None
@@ -666,20 +667,27 @@ class ADB_Mainwindow(QMainWindow):
     def show_pull_file_dialog(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        if device_id in devices_id_lst:
-            file_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径", "请输入车机上的文件路径:")
-            if ok and file_path_on_device:
-                local_path, _ = QFileDialog.getSaveFileName(self, "保存文件", "", "All Files (*)")
-                if local_path:
-                    # res = self.adb_pull_file(file_path_on_device, local_path, device_id)
-                    res = self.d.pull(file_path_on_device, local_path)
-                    self.textBrowser.append(" ".join(res))
+        try:
+            if device_id in devices_id_lst:
+                file_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径", "请输入车机上的文件路径:")
+                import pathlib
+                file_path = pathlib.Path(file_path_on_device)
+                apk_file_name = pathlib.Path(file_path).name
+                if ok and file_path_on_device:
+                    local_path = QFileDialog.getExistingDirectory(self, "选择文件夹", ".")
+                    if local_path:
+                        from Function_Moudle.pull_files_thread import PullFilesThread
+                        self.pull_files_thread = PullFilesThread(self.d, file_path_on_device, local_path, apk_file_name)
+                        self.pull_files_thread.signal.connect(self.textBrowser.append)
+                        self.pull_files_thread.start()
+                    else:
+                        self.textBrowser.append("已取消！")
                 else:
                     self.textBrowser.append("已取消！")
             else:
-                self.textBrowser.append("已取消！")
-        else:
-            self.textBrowser.append("未连接设备！")
+                self.textBrowser.append("未连接设备！")
+        except Exception as e:
+            self.textBrowser.append(f"初始化线程失败: {e}")
 
     @staticmethod
     def adb_install(package_path, device_id):
