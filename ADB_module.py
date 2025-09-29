@@ -1,26 +1,11 @@
-import time
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
-import sys
 import io
 import subprocess
 from Function_Moudle.adb_root_wrapper_thread import AdbRootWrapperThread
-
-if hasattr(sys.stdout, 'buffer'):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-else:
-    print("sys.stdout does not have a 'buffer' attribute.")
-# sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-if hasattr(sys.stdout, 'buffer'):
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-else:
-    print("sys.stdout does not have a 'buffer' attribute.")
-# sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 import uiautomator2 as u2
 import os
 from PyQt5 import uic
 
-
-# noinspection SpellCheckingInspection
 class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 
     def __init__(self, textbrowser):
@@ -86,17 +71,9 @@ class ADB_Mainwindow(QMainWindow):
         from PyQt5 import QtWidgets
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
-        # 继续获取其他控件...
-        # 添加按钮点击间隔控制和线程锁
-        # self._last_click_time = {}
-        # self._click_interval = 1.0  # 设置点击间隔为1秒
-        # self._thread_locks = {}
         self.d = None
-
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
-        # sys.stdout = self.text_edit_output_stream
-        # sys.stderr = self.text_edit_output_stream
         if self.refresh_devices():  # 刷新设备列表
             self.d = u2.connect(self.get_selected_device())
         else:
@@ -262,8 +239,6 @@ class ADB_Mainwindow(QMainWindow):
                 self.textBrowser.append("请选择保存路径！")
         else:
             self.textBrowser.append("设备未连接！")
-
-
 
     def open_path(self):
         # 使用资源管理器打开一个地址
