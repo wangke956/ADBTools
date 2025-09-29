@@ -630,15 +630,6 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("未连接设备！")
 
-    @staticmethod
-    def adb_uninstall(package_name, device_id):
-        command = f"adb -s {device_id} uninstall {package_name}"
-        try:
-            subprocess.run(command, shell=True, check=True)
-            return f"应用 {package_name} 已卸载"
-        except subprocess.CalledProcessError as e:
-            return f"卸载应用失败: {e}"
-
     def show_uninstall_dialog(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
