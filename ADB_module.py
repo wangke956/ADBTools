@@ -647,21 +647,6 @@ class ADB_Mainwindow(QMainWindow):
         else:
             self.textBrowser.append("未连接设备！")
 
-    @staticmethod
-    def adb_pull_file(file_path_on_device, local_path, device_id):
-        command = f"adb -s {device_id} pull {file_path_on_device} {local_path}"
-        res = subprocess.run(command,
-                             shell=True,
-                             check=True,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
-                             text=True)
-        try:
-            string = res.stdout.strip()
-            return ["文件拉取成功！", string]
-        except subprocess.CalledProcessError as e:
-            return f"文件拉取失败: {e}"
-
     def show_pull_file_dialog(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
