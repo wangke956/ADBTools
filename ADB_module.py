@@ -114,7 +114,21 @@ class ADB_Mainwindow(QMainWindow):
         self.remove_record_file_button.clicked.connect(self.remove_voice_record_file)  # 删除语音录制文件
         self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
         self.start_check_button.clicked.connect(self.app_version_check)
+        self.set_vr_server_timout.clicked.connect(self.set_vr_timeout)
 
+    def set_vr_timeout(self):
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        if device_id in devices_id_lst:
+            try:
+                from Function_Moudle.set_vr_timeout_thread import SetVrTimeoutThread
+                self.mzs3ett_thread = SetVrTimeoutThread(self.d)
+                self.mzs3ett_thread.signal_timeout.connect(self.textBrowser.append)
+                self.mzs3ett_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"启动mzs3ett线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
     def app_version_check(self):
         # 读取self.releasenote_file表格文件中的B8单元格是否等于packageName
         device_id = self.get_selected_device()
