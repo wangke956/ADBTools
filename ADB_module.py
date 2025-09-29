@@ -672,25 +672,6 @@ class ADB_Mainwindow(QMainWindow):
         except Exception as e:
             self.textBrowser.append(f"初始化线程失败: {e}")
 
-    @staticmethod
-    def adb_install(package_path, device_id):
-        devices_id_lst = ADB_Mainwindow.get_new_device_lst()
-        if device_id in devices_id_lst:
-            command = f"adb -s {device_id} install {package_path}"
-            try:
-                res = subprocess.run(command,
-                                     shell=True,
-                                     check=True,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE,
-                                     text=True)
-                time.sleep(8)
-                return f"应用安装成功！{res.stdout.strip()}"
-            except subprocess.CalledProcessError as e:
-                return f"应用安装失败: {e.stderr.strip()}"
-        else:
-            return "设备未连接！"
-
     def show_install_file_dialog(self):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
