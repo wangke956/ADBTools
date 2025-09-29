@@ -48,6 +48,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.devices_screen_thread = None
         self.pull_files_thread = None
         self.releasenote_package_version = None
         self.releasenote_dict = None
@@ -620,9 +621,15 @@ class ADB_Mainwindow(QMainWindow):
         if device_id in devices_id_lst:
             file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
             if file_path:
-                command = f"adb -s {device_id} shell screencap -p /sdcard/screenshot.png && adb -s {device_id} pull /sdcard/screenshot.png {file_path} && adb -s {device_id} shell rm /sdcard/screenshot.png"
-                res = subprocess.run(command, shell=True, check=True)
-                self.textBrowser.append(res.stdout)
+                from Function_Moudle.devices_screen_thread import DevicesScreenThread
+                self.devices_screen_thread = DevicesScreenThread(self.d, file_path)
+                self.devices_screen_thread.signal.connect(self.textBrowser.append)
+                self.devices_screen_thread.start()
+                
+                # command = f"adb -s {device_id} shell screencap -p /sdcard/screenshot.png && adb -s {device_id} pull /sdcard/screenshot.png {file_path} && adb -s {device_id} shell rm /sdcard/screenshot.png"
+                # self.d.screenshot(f"{file_path}")
+                # res = subprocess.run(command, shell=True, check=True)
+                # self.textBrowser.append(res.stdout)
             else:
                 self.textBrowser.append("已取消！")
         else:
