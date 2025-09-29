@@ -192,16 +192,21 @@ class ADB_Mainwindow(QMainWindow):
         devices_id_lst = self.get_new_device_lst()
         device_record_file_path = self.device_record_path.text()
         if self.d is not None:
-            if device_id in devices_id_lst:
-                try:
-                    from Function_Moudle.remove_record_file_thread import RemoveRecordFileThread
-                    self.voice_record_thread = RemoveRecordFileThread(self.d, device_record_file_path)
-                    self.voice_record_thread.signal_remove_voice_record_file.connect(self.textBrowser.append)
-                    self.voice_record_thread.start()
-                except Exception as e:
-                    self.textBrowser.append(f"启动删除语音录制文件线程失败: {e}")
-            else:
-                self.textBrowser.append("设备未连接！")
+            # 弹出弹窗询问用户是否要执行此操作
+            reply = QMessageBox.question(self, '删除语音录制文件', f"是否要删除设备{device_id}的语音录制文件？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                # 启动删除语音录制文件线程
+                if device_id in devices_id_lst:
+                    try:
+                        from Function_Moudle.remove_record_file_thread import RemoveRecordFileThread
+                        self.voice_record_thread = RemoveRecordFileThread(self.d, device_record_file_path)
+                        self.voice_record_thread.signal_remove_voice_record_file.connect(self.textBrowser.append)
+                        self.voice_record_thread.start()
+                    except Exception as e:
+                        self.textBrowser.append(f"启动删除语音录制文件线程失败: {e}")
+                else:
+                    self.textBrowser.append("设备未连接！")
+
         else:
             self.textBrowser.append("设备未连接！")
 
