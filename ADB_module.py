@@ -103,9 +103,9 @@ class ADB_Mainwindow(QMainWindow):
         self.activate_VR_button.clicked.connect(self.activate_vr)  # 激活VR
         self.list_package_button.clicked.connect(self.list_package)
         self.skipping_powerlimit_button.clicked.connect(self.skip_power_limit)  # 跳过电源挡位限制
-        self.enter_engineering_mode_button.clicked.connect(self.enter_engineering_mode)  # 进入工程模式
-        self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering_mode)
-        self.open_update_page_button.clicked.connect(self.open_update_page)  # 打开资源升级页面
+        self.enter_engineering_mode_button.clicked.connect(self.open_engineering_mode)  # 进入工程模式
+        self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering)
+        self.open_update_page_button.clicked.connect(self.open_soimt_update)  # 打开资源升级页面
         self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
         self.pull_log_button.clicked.connect(self.pull_log)  # 拉取日志
         self.open_path_buttom.clicked.connect(self.open_path)  # 打开文件所在目录
@@ -120,6 +120,15 @@ class ADB_Mainwindow(QMainWindow):
 
     def open_yf_page(self):
         self.start_app_action(app_name = "com.yfve.usbupdate")
+
+    def open_soimt_update(self):
+        self.start_app_action(app_name = "com.saicmotor.update")
+
+    def open_engineering_mode(self):
+        self.start_app_action(app_name = "com.saicmotor.hmi.engmode")
+
+    def as33_cr_enter_engineering(self):
+        self.start_app_action(app_name = "com.saicmotor.diag")
 
     def set_vr_timeout(self):
         device_id = self.get_selected_device()
@@ -290,24 +299,6 @@ class ADB_Mainwindow(QMainWindow):
             except Exception as e:
                 self.textBrowser.append(f"启动拉取日志线程失败: {e}")
 
-    # 调起资源升级页面
-    def open_update_page(self):
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.update_thread import UpdateThread
-                self.update_thread = UpdateThread(self.d)
-                self.update_thread.progress_signal.connect(self.textBrowser.append)
-                self.update_thread.error_signal.connect(self.textBrowser.append)
-                self.update_thread.start()
-            except Exception as e:
-                self.textBrowser.append(f"启动更新页面线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
-        return
-
     def on_combobox_changed(self, text):
         try:
             self.d = u2.connect(text)
@@ -359,45 +350,6 @@ class ADB_Mainwindow(QMainWindow):
             pass
         else:
             self.textBrowser.append("未连接设备！")
-
-    def as33_cr_enter_engineering_mode(self):
-        """AS33_CR进入工程模式"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.engineering_mode_thread import EngineeringModeThread
-                self.engineering_thread = EngineeringModeThread(self.d)
-                self.engineering_thread.progress_signal.connect(self.textBrowser.append)
-                self.engineering_thread.result_signal.connect(self.textBrowser.append)
-                self.engineering_thread.error_signal.connect(self.textBrowser.append)
-                self.engineering_thread.start()
-            except Exception as e:
-                self.textBrowser.append(f"启动工程模式线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
-
-
-    def enter_engineering_mode(self):
-
-        """进入工程模式"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.enter_engineering_mode_thread import enter_engineering_mode_thread
-                self.engineering_thread = enter_engineering_mode_thread(self.d)
-                self.engineering_thread.progress_signal.connect(self.textBrowser.append)
-                self.engineering_thread.result_signal.connect(self.textBrowser.append)
-                self.engineering_thread.error_signal.connect(self.textBrowser.append)
-                self.engineering_thread.start()
-            except Exception as e:
-                self.textBrowser.append(f"启动工程模式线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
-
 
     def skip_power_limit(self):
         """跳过电源挡位限制"""

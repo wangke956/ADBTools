@@ -1,7 +1,5 @@
-import os
-
 from PyQt5.QtCore import QThread, pyqtSignal
-
+import subprocess
 class InstallFileThread(QThread):
     progress_signal = pyqtSignal(int)
     signal_status = pyqtSignal(str)
@@ -12,9 +10,14 @@ class InstallFileThread(QThread):
         self.package_path = package_path
 
     def run(self):
-        self.signal_status.emit("正在开始安装...")
-        # self.d.app_install(self.package_path)
-        # command = "adb install -r " + self.package_path
-        # os.system(command)
-        self.d.app_install(self.package_path)
-        self.signal_status.emit("安装成功！")
+        try:
+            self.signal_status.emit("正在开始安装...")
+            result = subprocess.run(
+                ["adb", "install", "-r", self.package_path],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            self.signal_status.emit(result.stdout)
+        except Exception as e:
+            self.signal_status.emit(str(e))
