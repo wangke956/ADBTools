@@ -1086,6 +1086,18 @@ li.checked::marker { content: &quot;\2612&quot;; }
            </item>
            <item>
             <widget class="QPushButton" name="set_vr_server_timout">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>25</height>
+              </size>
+             </property>
              <property name="font">
               <font>
                <pointsize>11</pointsize>

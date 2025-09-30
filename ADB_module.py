@@ -33,6 +33,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 class ADB_Mainwindow(QMainWindow):
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
+        self.app_name = None
         self.devices_screen_thread = None
         self.pull_files_thread = None
         self.releasenote_package_version = None
@@ -115,6 +116,10 @@ class ADB_Mainwindow(QMainWindow):
         self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
         self.start_check_button.clicked.connect(self.app_version_check)
         self.set_vr_server_timout.clicked.connect(self.set_vr_timeout)
+        self.upgrade_page_button.clicked.connect(self.open_yf_page)
+
+    def open_yf_page(self):
+        self.start_app_action(app_name = "com.yfve.usbupdate")
 
     def set_vr_timeout(self):
         device_id = self.get_selected_device()
@@ -324,11 +329,12 @@ class ADB_Mainwindow(QMainWindow):
         device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
         return device_ids
 
-    def start_app_action(self):
+    def start_app_action(self, app_name):
         device_ids = self.get_new_device_lst()
         device_id = self.get_selected_device()
-        if device_id in device_ids:
-            try:
+        self.app_name = app_name
+        try:
+            if not self.app_name:
                 input_text, ok = QInputDialog.getText(self, '输入应用信息',
                                                       '请输入应用包名')
                 if ok and input_text:
@@ -340,8 +346,17 @@ class ADB_Mainwindow(QMainWindow):
                     self.app_action_thread.start()
                 else:
                     self.textBrowser.append("用户取消输入或输入为空")
-            except Exception as e:
-                self.textBrowser.append(f"启动应用失败: {e}")
+            else:
+                package_name = self.app_name
+                from Function_Moudle.app_action_thread import AppActionThread
+                self.app_action_thread = AppActionThread(self.d, package_name)
+                self.app_action_thread.progress_signal.connect(self.textBrowser.append)
+                self.app_action_thread.error_signal.connect(self.textBrowser.append)
+                self.app_action_thread.start()
+        except Exception as e:
+            self.textBrowser.append(f"启动应用失败: {e}")
+        if device_id in device_ids:
+            pass
         else:
             self.textBrowser.append("未连接设备！")
 
