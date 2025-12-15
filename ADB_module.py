@@ -75,10 +75,13 @@ class ADB_Mainwindow(QMainWindow):
         self.d = None
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
-        if self.refresh_devices():  # 刷新设备列表
-            self.d = u2.connect(self.get_selected_device())
-        else:
-            pass
+        try:
+            if self.refresh_devices():  # 刷新设备列表
+                self.d = u2.connect(self.get_selected_device())
+            else:
+                pass
+        except Exception as e:
+            self.textBrowser.append(str(e))
         self.ComboxButton.activated[str].connect(self.on_combobox_changed)
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb_button.clicked.connect(self.show_input_text_dialog)  # 输入文本
@@ -507,7 +510,10 @@ class ADB_Mainwindow(QMainWindow):
             if device_ids_str:
                 self.textBrowser.append(f"设备列表已刷新：\n{device_ids_str}")
                 self.d = None
-                self.d = u2.connect(self.get_selected_device())
+                try:
+                    self.d = u2.connect(self.get_selected_device())
+                except Exception as e:
+                    self.textBrowser.append(f"连接设备失败: {e}")
                 if self.d:
                     self.textBrowser.append(f"设备连接成功：{self.get_selected_device()}")
                 else:
