@@ -14,7 +14,7 @@ class AdbRootWrapperThread(QThread):
     def run(self):
         try:
             self.progress_signal.emit("正在尝试获取root权限...")
-            result = subprocess.run(f"adb -s {self.device_id} root",
+            result = subprocess.run(f"adb -s {self.device_id} root", encoding='utf-8', errors='ignore',
                                     shell=True,
                                     capture_output=True,
                                     text=True,

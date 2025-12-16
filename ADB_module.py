@@ -73,11 +73,29 @@ class ADB_Mainwindow(QMainWindow):
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
         self.d = None
+        self.device_id = None
+        self.connection_mode = None  # 'u2' 或 'adb'
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         try:
             if self.refresh_devices():  # 刷新设备列表
-                self.d = u2.connect(self.get_selected_device())
+                device_id = self.get_selected_device()
+                if device_id and device_id != "请点击刷新设备":
+                    self.device_id = device_id
+                    try:
+                        # 尝试u2连接
+                        self.d = u2.connect(device_id)
+                        if self.d:
+                            self.connection_mode = 'u2'
+                            self.textBrowser.append(f"u2连接成功：{device_id}")
+                        else:
+                            raise Exception("u2连接返回空对象")
+                    except Exception as u2_error:
+                        # u2连接失败，使用ADB模式
+                        self.d = None
+                        self.connection_mode = 'adb'
+                        self.textBrowser.append(f"u2连接失败：{u2_error}")
+                        self.textBrowser.append(f"切换到ADB模式：{device_id}")
             else:
                 pass
         except Exception as e:
@@ -138,8 +156,16 @@ class ADB_Mainwindow(QMainWindow):
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
             try:
-                from Function_Moudle.set_vr_timeout_thread import SetVrTimeoutThread
-                self.mzs3ett_thread = SetVrTimeoutThread(self.d)
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.set_vr_timeout_thread import SetVrTimeoutThread
+                    self.mzs3ett_thread = SetVrTimeoutThread(self.d)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_set_vr_timeout_thread import ADBSetVrTimeoutThread
+                    self.mzs3ett_thread = ADBSetVrTimeoutThread(device_id)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
                 self.mzs3ett_thread.signal_timeout.connect(self.textBrowser.append)
                 self.mzs3ett_thread.start()
             except Exception as e:
@@ -167,23 +193,51 @@ class ADB_Mainwindow(QMainWindow):
     def handle_progress(self, result_dict):
         self.releasenote_dict.update(result_dict)  # 更新暂存字典
         self.releasenote_package_version = result_dict
+        
+        # 检查设备连接
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("设备未连接！")
+            return
+        
         # 从字典result_dict中挨个读取packageName并用该包名取设备上获取该包名的版本号
         true_count = 0
         false_count = 0
         for i in result_dict.keys():
             if i is not None:
-                app_info = self.d.app_info(i)
-                if app_info is None:
-                    break
-                version_name = app_info.get('versionName', '未知版本')
-                if str(version_name) == str(result_dict[i]):
-                    self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
-                    true_count += 1
-                    self.textBrowser.append(f"版本号匹配成功！")
-                else:
-                    self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
+                try:
+                    if self.connection_mode == 'u2':
+                        app_info = self.d.app_info(i)
+                        if app_info is None:
+                            self.textBrowser.append(f"应用 {i} 不存在")
+                            false_count += 1
+                            continue
+                        version_name = app_info.get('versionName', '未知版本')
+                    elif self.connection_mode == 'adb':
+                        # 使用ADB命令获取应用版本信息
+                        from Function_Moudle.adb_utils import get_app_version
+                        version_success, version_info = get_app_version(device_id, i)
+                        if not version_success:
+                            self.textBrowser.append(f"应用 {i} 版本信息获取失败: {version_info}")
+                            false_count += 1
+                            continue
+                        version_name = version_info
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                        
+                    if str(version_name) == str(result_dict[i]):
+                        self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
+                        true_count += 1
+                        self.textBrowser.append(f"版本号匹配成功！")
+                    else:
+                        self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
+                        false_count += 1
+                        self.textBrowser.append(f"版本号匹配失败！")
+                except Exception as e:
+                    self.textBrowser.append(f"获取应用 {i} 信息失败: {e}")
                     false_count += 1
-                    self.textBrowser.append(f"版本号匹配失败！")
         self.textBrowser.append(f"匹配成功数: {true_count}, 匹配失败数: {false_count}")
 
 
@@ -304,20 +358,27 @@ class ADB_Mainwindow(QMainWindow):
 
     def on_combobox_changed(self, text):
         try:
+            self.device_id = text
+            # 尝试u2连接
             self.d = u2.connect(text)
             if self.d:
-                self.textBrowser.append(f"已连接设备: {text}")
+                self.connection_mode = 'u2'
+                self.textBrowser.append(f"u2连接成功：{text}")
             else:
-                self.textBrowser.append(f"连接设备 {text} 失败！")
-        except Exception as e:
-            self.textBrowser.append(f"连接设备 {text} 失败！: {e}")
+                raise Exception("u2连接返回空对象")
+        except Exception as u2_error:
+            # u2连接失败，使用ADB模式
+            self.d = None
+            self.connection_mode = 'adb'
+            self.textBrowser.append(f"u2连接失败：{u2_error}")
+            self.textBrowser.append(f"切换到ADB模式：{text}")
 
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str
 
     @staticmethod
     def get_new_device_lst():  # 静态方法，返回设备ID列表
-        result = subprocess.run("adb devices", shell=True, check=True, capture_output=True,
+        result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, encoding='utf-8', errors='ignore',
                                 text=True)  # 执行 adb devices 命令
         devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
         device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
@@ -333,8 +394,16 @@ class ADB_Mainwindow(QMainWindow):
                                                       '请输入应用包名')
                 if ok and input_text:
                     package_name = input_text
-                    from Function_Moudle.app_action_thread import AppActionThread
-                    self.app_action_thread = AppActionThread(self.d, package_name)
+                    if self.connection_mode == 'u2':
+                        from Function_Moudle.app_action_thread import AppActionThread
+                        self.app_action_thread = AppActionThread(self.d, package_name)
+                    elif self.connection_mode == 'adb':
+                        from Function_Moudle.adb_app_action_thread import ADBAppActionThread
+                        self.app_action_thread = ADBAppActionThread(device_id, package_name)
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
                     self.app_action_thread.progress_signal.connect(self.textBrowser.append)
                     self.app_action_thread.error_signal.connect(self.textBrowser.append)
                     self.app_action_thread.start()
@@ -342,8 +411,16 @@ class ADB_Mainwindow(QMainWindow):
                     self.textBrowser.append("用户取消输入或输入为空")
             else:
                 package_name = self.app_name
-                from Function_Moudle.app_action_thread import AppActionThread
-                self.app_action_thread = AppActionThread(self.d, package_name)
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.app_action_thread import AppActionThread
+                    self.app_action_thread = AppActionThread(self.d, package_name)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_app_action_thread import ADBAppActionThread
+                    self.app_action_thread = ADBAppActionThread(device_id, package_name)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
                 self.app_action_thread.progress_signal.connect(self.textBrowser.append)
                 self.app_action_thread.error_signal.connect(self.textBrowser.append)
                 self.app_action_thread.start()
@@ -379,9 +456,15 @@ class ADB_Mainwindow(QMainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from Function_Moudle.list_package_thread import ListPackageThread
-                # 创建并启动线程
-                self.list_package_thread = ListPackageThread(self.d, findstr)
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.list_package_thread import ListPackageThread
+                    self.list_package_thread = ListPackageThread(self.d, findstr)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_list_package_thread import ADBListPackageThread
+                    self.list_package_thread = ADBListPackageThread(device_id, findstr)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
 
                 # 连接信号
                 self.list_package_thread.progress_signal.connect(self.textBrowser.append)
@@ -404,8 +487,18 @@ class ADB_Mainwindow(QMainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from Function_Moudle.vr_thread import VRActivationThread
-                self.vr_thread = VRActivationThread(device_id)
+                if self.connection_mode == 'u2':
+                    # 使用u2 VR激活
+                    from Function_Moudle.vr_thread import VRActivationThread
+                    self.vr_thread = VRActivationThread(device_id)
+                elif self.connection_mode == 'adb':
+                    # 使用ADB VR激活
+                    from Function_Moudle.adb_vr_thread import ADBVRActivationThread
+                    self.vr_thread = ADBVRActivationThread(device_id)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
                 self.vr_thread.progress_signal.connect(self.textBrowser.append)
                 self.vr_thread.result_signal.connect(self.textBrowser.append)
                 self.vr_thread.error_signal.connect(self.textBrowser.append)
@@ -422,8 +515,16 @@ class ADB_Mainwindow(QMainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from Function_Moudle.check_vr_network_thread import CheckVRNetworkThread
-                self.check_vr_network_thread = CheckVRNetworkThread(self.d)
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.check_vr_network_thread import CheckVRNetworkThread
+                    self.check_vr_network_thread = CheckVRNetworkThread(self.d)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_check_vr_network_thread import ADBCheckVRNetworkThread
+                    self.check_vr_network_thread = ADBCheckVRNetworkThread(device_id)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
                 self.check_vr_network_thread.progress_signal.connect(self.textBrowser.append)
                 self.check_vr_network_thread.result_signal.connect(self.textBrowser.append)
                 self.check_vr_network_thread.error_signal.connect(self.textBrowser.append)
@@ -440,8 +541,16 @@ class ADB_Mainwindow(QMainWindow):
 
         if device_id in devices_id_lst:
             try:
-                from Function_Moudle.switch_vr_env_thread import SwitchVrEnvThread
-                self.check_vr_env_thread = SwitchVrEnvThread(self.d)
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.switch_vr_env_thread import SwitchVrEnvThread
+                    self.check_vr_env_thread = SwitchVrEnvThread(self.d)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_switch_vr_env_thread import ADBSwitchVrEnvThread
+                    self.check_vr_env_thread = ADBSwitchVrEnvThread(device_id)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
                 self.check_vr_env_thread.progress_signal.connect(self.textBrowser.append)
                 self.check_vr_env_thread.result_signal.connect(self.textBrowser.append)
                 self.check_vr_env_thread.error_signal.connect(self.textBrowser.append)
@@ -460,12 +569,23 @@ class ADB_Mainwindow(QMainWindow):
         device_id = self.get_selected_device()  # 获取当前选定的设备ID
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            from Function_Moudle.get_running_app_info_thread import GetRunningAppInfoThread
-            self.get_running_app_info_thread = GetRunningAppInfoThread(self.d)
-            self.get_running_app_info_thread.progress_signal.connect(self.textBrowser.append)
-            self.get_running_app_info_thread.result_signal.connect(self.textBrowser.append)
-            self.get_running_app_info_thread.error_signal.connect(self.textBrowser.append)
-            self.get_running_app_info_thread.start()
+            try:
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.get_running_app_info_thread import GetRunningAppInfoThread
+                    self.get_running_app_info_thread = GetRunningAppInfoThread(self.d)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_get_running_app_info_thread import ADBGetRunningAppInfoThread
+                    self.get_running_app_info_thread = ADBGetRunningAppInfoThread(device_id)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
+                self.get_running_app_info_thread.progress_signal.connect(self.textBrowser.append)
+                self.get_running_app_info_thread.result_signal.connect(self.textBrowser.append)
+                self.get_running_app_info_thread.error_signal.connect(self.textBrowser.append)
+                self.get_running_app_info_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"启动获取运行应用信息线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
@@ -498,7 +618,7 @@ class ADB_Mainwindow(QMainWindow):
         # 刷新设备列表并添加到下拉框
         try:
             # 执行 adb devices 命令
-            result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, text=True)
+            result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
             devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
             device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
             # 清空 ComboxButton 并添加新的设备ID
@@ -510,14 +630,23 @@ class ADB_Mainwindow(QMainWindow):
             if device_ids_str:
                 self.textBrowser.append(f"设备列表已刷新：\n{device_ids_str}")
                 self.d = None
-                try:
-                    self.d = u2.connect(self.get_selected_device())
-                except Exception as e:
-                    self.textBrowser.append(f"连接设备失败: {e}")
-                if self.d:
-                    self.textBrowser.append(f"设备连接成功：{self.get_selected_device()}")
-                else:
-                    self.textBrowser.append(f"设备连接失败！")
+                device_id = self.get_selected_device()
+                if device_id and device_id != "请点击刷新设备":
+                    self.device_id = device_id
+                    try:
+                        # 尝试u2连接
+                        self.d = u2.connect(device_id)
+                        if self.d:
+                            self.connection_mode = 'u2'
+                            self.textBrowser.append(f"u2连接成功：{device_id}")
+                        else:
+                            raise Exception("u2连接返回空对象")
+                    except Exception as u2_error:
+                        # u2连接失败，使用ADB模式
+                        self.d = None
+                        self.connection_mode = 'adb'
+                        self.textBrowser.append(f"u2连接失败：{u2_error}")
+                        self.textBrowser.append(f"切换到ADB模式：{device_id}")
                 return device_ids  # 返回设备ID列表
             else:
                 self.textBrowser.append(f"未连接设备！")
@@ -583,10 +712,20 @@ class ADB_Mainwindow(QMainWindow):
         if device_id in devices_id_lst:
             file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
             if file_path:
-                from Function_Moudle.devices_screen_thread import DevicesScreenThread
-                self.devices_screen_thread = DevicesScreenThread(self.d, file_path)
-                self.devices_screen_thread.signal.connect(self.textBrowser.append)
-                self.devices_screen_thread.start()
+                if self.connection_mode == 'u2':
+                    # 使用u2截图
+                    from Function_Moudle.devices_screen_thread import DevicesScreenThread
+                    self.devices_screen_thread = DevicesScreenThread(self.d, file_path)
+                    self.devices_screen_thread.signal.connect(self.textBrowser.append)
+                    self.devices_screen_thread.start()
+                elif self.connection_mode == 'adb':
+                    # 使用ADB截图
+                    from Function_Moudle.adb_screenshot_thread import ADBScreenshotThread
+                    self.devices_screen_thread = ADBScreenshotThread(device_id, file_path)
+                    self.devices_screen_thread.signal.connect(self.textBrowser.append)
+                    self.devices_screen_thread.start()
+                else:
+                    self.textBrowser.append("设备未连接！")
             else:
                 self.textBrowser.append("已取消！")
         else:
@@ -621,10 +760,21 @@ class ADB_Mainwindow(QMainWindow):
                 if ok and file_path_on_device:
                     local_path = QFileDialog.getExistingDirectory(self, "选择文件夹", ".")
                     if local_path:
-                        from Function_Moudle.pull_files_thread import PullFilesThread
-                        self.pull_files_thread = PullFilesThread(self.d, file_path_on_device, local_path, apk_file_name)
-                        self.pull_files_thread.signal.connect(self.textBrowser.append)
-                        self.pull_files_thread.start()
+                        try:
+                            if self.connection_mode == 'u2':
+                                from Function_Moudle.pull_files_thread import PullFilesThread
+                                self.pull_files_thread = PullFilesThread(self.d, file_path_on_device, local_path, apk_file_name)
+                            elif self.connection_mode == 'adb':
+                                from Function_Moudle.adb_pull_files_thread import ADBPullFilesThread
+                                self.pull_files_thread = ADBPullFilesThread(device_id, file_path_on_device, local_path, apk_file_name)
+                            else:
+                                self.textBrowser.append("设备未连接！")
+                                return
+                            
+                            self.pull_files_thread.signal.connect(self.textBrowser.append)
+                            self.pull_files_thread.start()
+                        except Exception as e:
+                            self.textBrowser.append(f"拉取文件失败: {e}")
                     else:
                         self.textBrowser.append("已取消！")
                 else:
@@ -727,8 +877,16 @@ class ADB_Mainwindow(QMainWindow):
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
-                from Function_Moudle.force_stop_app_thread import ForceStopAppThread
-                self.Force_app_thread = ForceStopAppThread(self.d)
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.force_stop_app_thread import ForceStopAppThread
+                    self.Force_app_thread = ForceStopAppThread(self.d)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_force_stop_app_thread import ADBForceStopAppThread
+                    self.Force_app_thread = ADBForceStopAppThread(device_id)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
                 self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
                 self.Force_app_thread.error_signal.connect(self.textBrowser.append)
                 self.Force_app_thread.start()
@@ -741,11 +899,22 @@ class ADB_Mainwindow(QMainWindow):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
-            self.Clear_app_cache_thread = ClearAppCacheThread(self.d)
-            self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
-            self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
-            self.Clear_app_cache_thread.start()
+            try:
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
+                    self.Clear_app_cache_thread = ClearAppCacheThread(self.d)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_clear_app_cache_thread import ADBClearAppCacheThread
+                    self.Clear_app_cache_thread = ADBClearAppCacheThread(device_id)
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    return
+                
+                self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
+                self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
+                self.Clear_app_cache_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"清除应用缓存失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
@@ -754,8 +923,16 @@ class ADB_Mainwindow(QMainWindow):
         devices_id_lst = self.get_new_device_lst()
         try:
             if device_id in devices_id_lst:
-                from Function_Moudle.get_foreground_package_thread import GetForegroundPackageThread
-                self.GetForegroundPackageThread = GetForegroundPackageThread(self.d)
+                if self.connection_mode == 'u2':
+                    from Function_Moudle.get_foreground_package_thread import GetForegroundPackageThread
+                    self.GetForegroundPackageThread = GetForegroundPackageThread(self.d)
+                elif self.connection_mode == 'adb':
+                    from Function_Moudle.adb_get_foreground_package_thread import ADBGetForegroundPackageThread
+                    self.GetForegroundPackageThread = ADBGetForegroundPackageThread(device_id)
+                else:
+                    self.textBrowser.append("设备连接失败")
+                    return
+                
                 self.GetForegroundPackageThread.signal_package.connect(self.textBrowser.append)
                 self.GetForegroundPackageThread.start()
             else:
@@ -768,7 +945,7 @@ class ADB_Mainwindow(QMainWindow):
         quoted_apk_path = f'"{apk_path}"'
         command = f"aapt dump badging {quoted_apk_path} | findstr name"
         try:
-            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
             package_name = result.stdout.strip().split('\'')[1]
             return package_name
         except subprocess.CalledProcessError as e:
