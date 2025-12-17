@@ -72,6 +72,8 @@ class ADB_Mainwindow(QMainWindow):
         from PyQt5 import QtWidgets
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
+        self.vr_keyevent_combo = self.findChild(QtWidgets.QComboBox, 'vr_keyevent_combo')
+        self.datong_factory_button = self.findChild(QtWidgets.QPushButton, 'datong_factory_button')
         self.d = None
         self.device_id = None
         self.connection_mode = None  # 'u2' 或 'adb'
@@ -138,6 +140,7 @@ class ADB_Mainwindow(QMainWindow):
         self.start_check_button.clicked.connect(self.app_version_check)
         self.set_vr_server_timout.clicked.connect(self.set_vr_timeout)
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
+        self.datong_factory_button.clicked.connect(self.datong_factory_action)  # 拉起中环工厂
 
     def open_yf_page(self):
         self.start_app_action(app_name = "com.yfve.usbupdate")
@@ -150,6 +153,10 @@ class ADB_Mainwindow(QMainWindow):
 
     def as33_cr_enter_engineering(self):
         self.start_app_action(app_name = "com.saicmotor.diag")
+
+    def datong_factory_action(self):
+        """拉起中环工厂应用"""
+        self.start_app_action(app_name = "@com.zhonghuan.factory")
 
     def set_vr_timeout(self):
         device_id = self.get_selected_device()
@@ -487,24 +494,25 @@ class ADB_Mainwindow(QMainWindow):
 
         if device_id in devices_id_lst:
             try:
-                if self.connection_mode == 'u2':
-                    # 使用u2 VR激活
-                    from Function_Moudle.vr_thread import VRActivationThread
-                    self.vr_thread = VRActivationThread(device_id)
-                elif self.connection_mode == 'adb':
-                    # 使用ADB VR激活
-                    from Function_Moudle.adb_vr_thread import ADBVRActivationThread
-                    self.vr_thread = ADBVRActivationThread(device_id)
-                else:
-                    self.textBrowser.append("设备未连接！")
-                    return
+                # 获取下拉选择框的值
+                keyevent_value = self.vr_keyevent_combo.currentText()
+                self.textBrowser.append(f"执行VR唤醒命令: adb shell input keyevent {keyevent_value}")
                 
-                self.vr_thread.progress_signal.connect(self.textBrowser.append)
-                self.vr_thread.result_signal.connect(self.textBrowser.append)
-                self.vr_thread.error_signal.connect(self.textBrowser.append)
-                self.vr_thread.start()
+                if self.connection_mode == 'adb':
+                    # 使用ADB命令执行keyevent
+                    import subprocess
+                    command = f"adb -s {device_id} shell input keyevent {keyevent_value}"
+                    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                    
+                    if result.returncode == 0:
+                        self.textBrowser.append("VR唤醒命令执行成功！")
+                    else:
+                        self.textBrowser.append(f"VR唤醒命令执行失败: {result.stderr}")
+                else:
+                    self.textBrowser.append("当前为u2模式，不支持keyevent命令！")
+                    
             except Exception as e:
-                self.textBrowser.append(f"启动VR激活线程失败: {e}")
+                self.textBrowser.append(f"执行VR唤醒命令失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
