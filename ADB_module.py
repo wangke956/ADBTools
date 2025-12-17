@@ -156,7 +156,7 @@ class ADB_Mainwindow(QMainWindow):
 
     def datong_factory_action(self):
         """拉起中环工厂应用"""
-        self.start_app_action(app_name = "@com.zhonghuan.factory")
+        self.start_app_action(app_name = "com.zhonghuan.factory")
 
     def set_vr_timeout(self):
         device_id = self.get_selected_device()

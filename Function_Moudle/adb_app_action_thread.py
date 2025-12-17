@@ -11,9 +11,23 @@ class ADBAppActionThread(QThread):
         self.device_id = device_id
         self.package_name = package_name
 
+    def _check_app_installed(self):
+        """检查应用是否已安装"""
+        try:
+            command = f"adb -s {self.device_id} shell pm list packages {self.package_name}"
+            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+            return self.package_name in result.stdout
+        except Exception:
+            return False
+
     def _get_main_activity(self):
         """查询应用的默认主Activity"""
         try:
+            # 先检查应用是否安装
+            if not self._check_app_installed():
+                self.error_signal.emit(f"应用 {self.package_name} 未安装")
+                return None
+            
             # 执行adb shell pm dump命令查询应用信息
             command = f"adb -s {self.device_id} shell pm dump {self.package_name}"
             result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
@@ -29,6 +43,9 @@ class ADBAppActionThread(QThread):
             pattern = r'cmp=' + re.escape(self.package_name) + r'/([^\s}]+)'
             matches = re.findall(pattern, output)
             
+            # 清理匹配结果，去除空格
+            cleaned_matches = [match.strip() for match in matches if match.strip()]
+            
             # 查找包含android.intent.action.MAIN的Activity
             for line in output.split('\n'):
                 if 'android.intent.action.MAIN' in line and 'cmp=' in line:
@@ -40,8 +57,8 @@ class ADBAppActionThread(QThread):
                             return cmp_value
             
             # 如果没有找到明确的MAIN Activity，使用第一个匹配的Activity
-            if matches:
-                return f"{self.package_name}/{matches[0]}"
+            if cleaned_matches:
+                return f"{self.package_name}/{cleaned_matches[0]}"
             
             return None
             
