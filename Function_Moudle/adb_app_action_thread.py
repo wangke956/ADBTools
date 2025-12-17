@@ -1,6 +1,37 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 import subprocess
 import re
+import sys
+import os
+
+# 添加项目根目录到Python路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from adb_utils import adb_utils
+except ImportError:
+    # 如果导入失败，创建简单的回退
+    class ADBUtilsFallback:
+        @staticmethod
+        def run_adb_command(command, device_id=None, **kwargs):
+            adb_cmd = "adb"
+            if device_id:
+                full_command = f'{adb_cmd} -s {device_id} {command}'
+            else:
+                full_command = f'{adb_cmd} {command}'
+            
+            default_kwargs = {
+                'shell': True,
+                'capture_output': True,
+                'text': True,
+                'encoding': 'utf-8',
+                'errors': 'ignore'
+            }
+            default_kwargs.update(kwargs)
+            
+            return subprocess.run(full_command, **default_kwargs)
+    
+    adb_utils = ADBUtilsFallback()
 
 class ADBAppActionThread(QThread):
     progress_signal = pyqtSignal(str)
@@ -14,9 +45,14 @@ class ADBAppActionThread(QThread):
     def _check_app_installed(self):
         """检查应用是否已安装"""
         try:
-            command = f"adb -s {self.device_id} shell pm list packages {self.package_name}"
-            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
-            return self.package_name in result.stdout
+            result = adb_utils.run_adb_command(f"shell pm list packages {self.package_name}", self.device_id)
+            
+            # 确保stdout是字符串类型
+            stdout = result.stdout
+            if not isinstance(stdout, str):
+                stdout = str(stdout) if stdout is not None else ""
+            
+            return self.package_name in stdout
         except Exception:
             return False
 
@@ -29,14 +65,21 @@ class ADBAppActionThread(QThread):
                 return None
             
             # 执行adb shell pm dump命令查询应用信息
-            command = f"adb -s {self.device_id} shell pm dump {self.package_name}"
-            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+            result = adb_utils.run_adb_command(f"shell pm dump {self.package_name}", self.device_id)
             
             if result.returncode != 0:
                 return None
             
             # 解析输出，查找主Activity
             output = result.stdout
+            
+            # 确保output是字符串类型
+            if not isinstance(output, str):
+                output = str(output) if output is not None else ""
+            
+            # 如果输出为空，直接返回None
+            if not output:
+                return None
             
             # 查找包含MAIN intent的Activity
             # 使用正则表达式匹配 cmp=包名/Activity 格式
@@ -81,8 +124,7 @@ class ADBAppActionThread(QThread):
                 self.progress_signal.emit("正在启动应用程序...")
                 
                 # 使用完整的包名/Activity启动应用
-                command = f"adb -s {self.device_id} shell am start -n {main_activity}"
-                result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+                result = adb_utils.run_adb_command(f"shell am start -n {main_activity}", self.device_id, check=True)
                 
                 if result.returncode == 0:
                     self.progress_signal.emit("应用启动成功")
@@ -93,8 +135,7 @@ class ADBAppActionThread(QThread):
             else:
                 # 如果没有找到Activity，尝试直接使用包名启动
                 self.progress_signal.emit("未找到主Activity，尝试直接启动...")
-                command = f"adb -s {self.device_id} shell am start -n {self.package_name}"
-                result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+                result = adb_utils.run_adb_command(f"shell am start -n {self.package_name}", self.device_id, check=True)
                 
                 if result.returncode == 0:
                     self.progress_signal.emit("应用启动成功")

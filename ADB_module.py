@@ -141,6 +141,57 @@ class ADB_Mainwindow(QMainWindow):
         self.set_vr_server_timout.clicked.connect(self.set_vr_timeout)
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
         self.datong_factory_button.clicked.connect(self.datong_factory_action)  # 拉起中环工厂
+        
+        # 添加配置菜单
+        self.add_config_menu()
+        
+        # 添加配置按钮（如果UI中有）
+        try:
+            self.config_button = self.findChild(QtWidgets.QPushButton, 'config_button')
+            if self.config_button:
+                self.config_button.clicked.connect(self.open_config_dialog)
+        except:
+            pass
+
+    def add_config_menu(self):
+        """添加配置菜单"""
+        from PyQt5 import QtWidgets
+        menubar = self.menuBar()
+        
+        # 设置菜单
+        settings_menu = menubar.addMenu('设置')
+        
+        # ADB配置
+        adb_config_action = QtWidgets.QAction('ADB配置', self)
+        adb_config_action.triggered.connect(self.open_config_dialog)
+        settings_menu.addAction(adb_config_action)
+        
+        # 分隔线
+        settings_menu.addSeparator()
+        
+        # 关于
+        about_action = QtWidgets.QAction('关于', self)
+        about_action.triggered.connect(self.show_about)
+        settings_menu.addAction(about_action)
+
+    def open_config_dialog(self):
+        """打开配置对话框"""
+        try:
+            from config_dialog import ConfigDialog
+            dialog = ConfigDialog(self)
+            dialog.exec_()
+        except Exception as e:
+            self.textBrowser.append(f"打开配置对话框失败: {e}")
+
+    def show_about(self):
+        """显示关于信息"""
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.about(self, "关于 ADBTools", 
+            "ADBTools v1.0\n\n"
+            "一个功能强大的ADB调试工具\n"
+            "支持多种设备管理功能\n\n"
+            "作者: 王克\n"
+            "GitHub: https://github.com/wangke956/ADBTools")
 
     def open_yf_page(self):
         self.start_app_action(app_name = "com.yfve.usbupdate")
@@ -385,11 +436,25 @@ class ADB_Mainwindow(QMainWindow):
 
     @staticmethod
     def get_new_device_lst():  # 静态方法，返回设备ID列表
-        result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, encoding='utf-8', errors='ignore',
-                                text=True)  # 执行 adb devices 命令
-        devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-        device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
-        return device_ids
+        try:
+            # 导入adb_utils
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from adb_utils import adb_utils
+            
+            result = adb_utils.run_adb_command("devices", check=True)
+            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
+            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+            return device_ids
+        except Exception:
+            # 回退到原来的方法
+            import subprocess
+            result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, encoding='utf-8', errors='ignore',
+                                    text=True)  # 执行 adb devices 命令
+            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
+            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+            return device_ids
 
     def start_app_action(self, app_name):
         device_ids = self.get_new_device_lst()

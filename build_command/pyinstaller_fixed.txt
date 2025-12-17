@@ -1,0 +1,26 @@
+# 修复后的PyInstaller打包命令
+# 包含ADB可执行文件和必要的依赖
+
+# 1. 首先将ADB可执行文件复制到项目目录
+# 从 D:\work_tools\adb-1\adb.exe 复制到当前目录的 tools\ 文件夹
+
+# 2. 打包命令
+pyinstaller --onefile --noconsole ^
+  --add-data "D:\Personal files\ADBTools\.venv\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" ^
+  --add-data "D:\work_tools\adb-1\adb.exe;." ^
+  --add-data "D:\work_tools\adb-1\AdbWinApi.dll;." ^
+  --add-data "D:\work_tools\adb-1\AdbWinUsbApi.dll;." ^
+  --hidden-import=PyQt5 ^
+  --hidden-import=PyQt5.QtCore ^
+  --hidden-import=PyQt5.QtWidgets ^
+  --hidden-import=qdarkstyle ^
+  --hidden-import=uiautomator2 ^
+  main.py
+
+# 或者使用spec文件方式（推荐）：
+# pyinstaller main.spec
+
+# 3. 打包后，将ADB相关文件放在exe同目录下：
+# - adb.exe
+# - AdbWinApi.dll
+# - AdbWinUsbApi.dll
