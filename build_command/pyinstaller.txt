@@ -1,0 +1,2 @@
+pyinstaller --onefile --noconsole --add-data "D:\Personal files\ADBTools\.venv\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" main.py
+D:\Personal files\ADBTools\.venv\Lib\site-packages\uiautomator2\assets\u2.jar

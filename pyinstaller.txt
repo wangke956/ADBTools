@@ -1,2 +1,0 @@
-pyinstaller --onefile --noconsole --add-data "C:\Users\a\AppData\Roaming\Python\Python312\site-packages\uiautomator2\assets\u2.jar";uiautomator2\assets" main.py
-pyuic5 -x backup0.bak.ui -o ADB_mouble.py
