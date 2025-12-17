@@ -877,12 +877,18 @@ class ADB_Mainwindow(QMainWindow):
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
+                # 弹出输入框让用户输入包名
+                package_name, ok = QInputDialog.getText(self, "强制停止应用", "请输入要停止的应用包名：")
+                if not ok or not package_name.strip():
+                    self.textBrowser.append("用户取消输入或输入为空")
+                    return
+                
                 if self.connection_mode == 'u2':
                     from Function_Moudle.force_stop_app_thread import ForceStopAppThread
-                    self.Force_app_thread = ForceStopAppThread(self.d)
+                    self.Force_app_thread = ForceStopAppThread(self.d, package_name.strip())
                 elif self.connection_mode == 'adb':
                     from Function_Moudle.adb_force_stop_app_thread import ADBForceStopAppThread
-                    self.Force_app_thread = ADBForceStopAppThread(device_id)
+                    self.Force_app_thread = ADBForceStopAppThread(device_id, package_name.strip())
                 else:
                     self.textBrowser.append("设备未连接！")
                     return
@@ -899,13 +905,19 @@ class ADB_Mainwindow(QMainWindow):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
+            # 弹出输入框让用户输入包名
+            package_name, ok = QInputDialog.getText(self, "清除应用缓存", "请输入要清除缓存的应用包名：")
+            if not ok or not package_name.strip():
+                self.textBrowser.append("用户取消输入或输入为空")
+                return
+            
             try:
                 if self.connection_mode == 'u2':
                     from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
-                    self.Clear_app_cache_thread = ClearAppCacheThread(self.d)
+                    self.Clear_app_cache_thread = ClearAppCacheThread(self.d, package_name.strip())
                 elif self.connection_mode == 'adb':
                     from Function_Moudle.adb_clear_app_cache_thread import ADBClearAppCacheThread
-                    self.Clear_app_cache_thread = ADBClearAppCacheThread(device_id)
+                    self.Clear_app_cache_thread = ADBClearAppCacheThread(device_id, package_name.strip())
                 else:
                     self.textBrowser.append("设备未连接！")
                     return

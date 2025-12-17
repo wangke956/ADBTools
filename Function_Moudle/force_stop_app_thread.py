@@ -5,14 +5,17 @@ class ForceStopAppThread(QThread):
     progress_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
 
-    def __init__(self, d):
+    def __init__(self, d, package_name=None):
         super().__init__()
         self.d = d
-        self.current_app = self.d.app_current()  # 获取当前正在运行的应用
-        self.package_name = self.current_app['package']
+        self.package_name = package_name
 
     def run(self):
         try:
+            if not self.package_name:
+                self.error_signal.emit("未指定应用包名")
+                return
+                
             self.progress_signal.emit("正在停止应用...")
             self.d.app_stop(self.package_name)
             self.progress_signal.emit("应用停止成功！")
