@@ -1,11 +1,49 @@
-# 修复后的PyInstaller打包命令
-# 包含ADB可执行文件和必要的依赖
+# ================================================
+# ADBTools PyInstaller 详细打包指南
+# ================================================
 
-# 1. 首先将ADB可执行文件复制到项目目录
-# 从 D:\work_tools\adb-1\adb.exe 复制到当前目录的 tools\ 文件夹
+# 一、打包前准备工作
+# --------------------------------------------------
 
-# 2. 打包命令
+# 1. 确保项目依赖已安装
+# 在项目根目录执行：
+# pip install -r requirements.txt
+# 或者手动安装：
+# pip install PyQt5 qdarkstyle uiautomator2 openpyxl pandas
+
+# 2. 准备ADB工具文件
+# 方案A：使用现有路径（推荐）
+# 确保以下ADB文件存在于指定位置：
+# 路径：D:\work_tools\adb-1\
+# 需要的文件：
+#   - adb.exe
+#   - AdbWinApi.dll
+#   - AdbWinUsbApi.dll
+# 注意：打包命令会直接从该路径添加文件
+
+# 方案B：创建项目tools目录（如果需要）
+# 1. 在项目根目录创建 tools\ 文件夹
+# 2. 将ADB文件复制到 tools\ 目录
+# 3. 修改打包命令中的路径为相对路径：
+#    --add-data "tools\adb.exe;."
+#    --add-data "tools\AdbWinApi.dll;."
+#    --add-data "tools\AdbWinUsbApi.dll;."
+
+# 方案C：使用其他路径
+# 如果ADB文件在其他位置，修改打包命令中的路径为实际路径
+
+# 3. 检查UI文件
+# 确保 adbtool.ui 文件存在于项目根目录
+
+# 二、详细打包命令
+# --------------------------------------------------
+
+# 方法1：使用多行命令（推荐，便于阅读和修改）
+# --------------------------------------------------
 pyinstaller --onefile --noconsole ^
+  --name "ADBTools" ^
+  --icon "D:\Personal files\ADBTools\icon.ico" ^
+  --add-data "D:\Personal files\ADBTools\adbtool.ui;." ^
   --add-data "D:\Personal files\ADBTools\.venv\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" ^
   --add-data "D:\work_tools\adb-1\adb.exe;." ^
   --add-data "D:\work_tools\adb-1\AdbWinApi.dll;." ^
@@ -13,14 +51,100 @@ pyinstaller --onefile --noconsole ^
   --hidden-import=PyQt5 ^
   --hidden-import=PyQt5.QtCore ^
   --hidden-import=PyQt5.QtWidgets ^
+  --hidden-import=PyQt5.QtGui ^
   --hidden-import=qdarkstyle ^
   --hidden-import=uiautomator2 ^
+  --hidden-import=openpyxl ^
+  --hidden-import=pandas ^
+  --hidden-import=configparser ^
+  --clean ^
   main.py
 
-# 或者使用spec文件方式（推荐）：
-# pyinstaller main.spec
+# 方法2：使用单行命令
+# --------------------------------------------------
+pyinstaller --onefile --noconsole --name "ADBTools" --icon "D:\Personal files\ADBTools\icon.ico" --add-data "D:\Personal files\ADBTools\adbtool.ui;." --add-data "D:\Personal files\ADBTools\.venv\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" --add-data "D:\work_tools\adb-1\adb.exe;." --add-data "D:\work_tools\adb-1\AdbWinApi.dll;." --add-data "D:\work_tools\adb-1\AdbWinUsbApi.dll;." --hidden-import=PyQt5 --hidden-import=PyQt5.QtCore --hidden-import=PyQt5.QtWidgets --hidden-import=PyQt5.QtGui --hidden-import=qdarkstyle --hidden-import=uiautomator2 --hidden-import=openpyxl --hidden-import=pandas --hidden-import=configparser --clean main.py
 
-# 3. 打包后，将ADB相关文件放在exe同目录下：
-# - adb.exe
-# - AdbWinApi.dll
-# - AdbWinUsbApi.dll
+# 方法3：使用spec文件（最稳定，推荐用于生产环境）
+# --------------------------------------------------
+# 首先生成spec文件：
+# pyi-makespec --onefile --noconsole --name "ADBTools" --icon "icon.ico" --add-data "adbtool.ui;." --add-data ".venv\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" --add-data "D:\work_tools\adb-1\adb.exe;." --add-data "D:\work_tools\adb-1\AdbWinApi.dll;." --add-data "D:\work_tools\adb-1\AdbWinUsbApi.dll;." main.py
+
+# 然后编辑生成的 ADBTools.spec 文件，在 Analysis 部分添加：
+# hiddenimports=['PyQt5', 'PyQt5.QtCore', 'PyQt5.QtWidgets', 'PyQt5.QtGui', 'qdarkstyle', 'uiautomator2', 'openpyxl', 'pandas', 'configparser'],
+
+# 最后打包：
+# pyinstaller ADBTools.spec
+
+# 三、命令参数详解
+# --------------------------------------------------
+
+# --onefile              : 打包成单个exe文件
+# --noconsole            : 不显示控制台窗口（GUI程序）
+# --name "ADBTools"      : 指定输出exe文件名
+# --icon "icon.ico"      : 设置程序图标（需要准备icon.ico文件）
+# --add-data "源路径;目标路径" : 添加额外文件到打包中
+# --hidden-import=模块名  : 显式导入PyInstaller可能漏掉的模块
+# --clean                : 清理临时文件
+
+# 四、打包后文件结构
+# --------------------------------------------------
+
+# 打包完成后，在 dist\ 目录下会生成：
+#   ADBTools.exe          # 主程序
+# 需要手动复制到exe同目录的文件：
+#   - adb.exe            # ADB可执行文件
+#   - AdbWinApi.dll      # ADB Windows API
+#   - AdbWinUsbApi.dll   # ADB USB API
+#   - adbtool.ui         # UI文件（已包含在exe中，但建议保留备份）
+
+# 五、常见问题解决
+# --------------------------------------------------
+
+# 1. 如果打包失败，检查：
+#   - 所有依赖是否已安装
+#   - 文件路径是否正确
+#   - 是否有足够的磁盘空间
+
+# 2. 如果运行时缺少模块，添加对应的 --hidden-import 参数
+
+# 3. 如果spec文件打包失败，检查：
+#   - 是否有重复的参数（如hiddenimports出现两次）
+#   - 语法是否正确
+#   - 文件路径是否存在
+
+# 4. 如果ADB功能不正常，确保：
+#   - ADB相关文件已正确添加到打包中
+#   - 打包后ADB文件在exe同目录
+
+# 5. 如果UI文件加载失败，检查：
+#   - adbtool.ui是否已通过 --add-data 添加
+#   - 运行时路径是否正确
+
+# 6. 常见spec文件错误：
+#   - SyntaxError: keyword argument repeated: hiddenimports
+#     解决方案：删除重复的hiddenimports参数，只保留一个
+#   - FileNotFoundError: [Errno 2] No such file or directory
+#     解决方案：检查datas中的文件路径是否正确
+#   - ModuleNotFoundError: No module named 'xxx'
+#     解决方案：在hiddenimports中添加缺失的模块
+
+# 六、快速打包脚本
+# --------------------------------------------------
+
+# 可以创建 build.bat 文件，内容如下：
+# @echo off
+# echo 正在打包ADBTools...
+# pyinstaller --onefile --noconsole --name "ADBTools" --icon "icon.ico" --add-data "adbtool.ui;." --add-data ".venv\Lib\site-packages\uiautomator2\assets\u2.jar;uiautomator2\assets" --add-data "D:\work_tools\adb-1\adb.exe;." --add-data "D:\work_tools\adb-1\AdbWinApi.dll;." --add-data "D:\work_tools\adb-1\AdbWinUsbApi.dll;." --hidden-import=PyQt5 --hidden-import=PyQt5.QtCore --hidden-import=PyQt5.QtWidgets --hidden-import=PyQt5.QtGui --hidden-import=qdarkstyle --hidden-import=uiautomator2 --hidden-import=openpyxl --hidden-import=pandas --hidden-import=configparser --clean main.py
+# echo 打包完成！输出文件在 dist\ADBTools.exe
+# pause
+
+# 七、验证打包结果
+# --------------------------------------------------
+
+# 1. 运行 dist\ADBTools.exe 测试基本功能
+# 2. 测试ADB设备连接
+# 3. 测试uiautomator2功能
+# 4. 测试UI界面所有功能
+# 5. 测试配置文件读写
+
+# 注意：首次运行可能需要一些时间解压资源文件

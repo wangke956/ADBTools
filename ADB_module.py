@@ -80,26 +80,8 @@ class ADB_Mainwindow(QMainWindow):
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         try:
-            if self.refresh_devices():  # 刷新设备列表
-                device_id = self.get_selected_device()
-                if device_id and device_id != "请点击刷新设备":
-                    self.device_id = device_id
-                    try:
-                        # 尝试u2连接
-                        self.d = u2.connect(device_id)
-                        if self.d:
-                            self.connection_mode = 'u2'
-                            self.textBrowser.append(f"u2连接成功：{device_id}")
-                        else:
-                            raise Exception("u2连接返回空对象")
-                    except Exception as u2_error:
-                        # u2连接失败，使用ADB模式
-                        self.d = None
-                        self.connection_mode = 'adb'
-                        self.textBrowser.append(f"u2连接失败：{u2_error}")
-                        self.textBrowser.append(f"切换到ADB模式：{device_id}")
-            else:
-                pass
+            # 刷新设备列表（refresh_devices方法内部会尝试u2连接）
+            self.refresh_devices()
         except Exception as e:
             self.textBrowser.append(str(e))
         self.ComboxButton.activated[str].connect(self.on_combobox_changed)
@@ -416,11 +398,16 @@ class ADB_Mainwindow(QMainWindow):
 
     def on_combobox_changed(self, text):
         try:
-            self.device_id = text
+            # 检查是否已经连接到相同的设备
+            if self.d and self.connection_mode == 'u2' and text == self.device_id:
+                # 已经连接到该设备，无需重新连接
+                return
+            
             # 尝试u2连接
             self.d = u2.connect(text)
             if self.d:
                 self.connection_mode = 'u2'
+                self.device_id = text
                 self.textBrowser.append(f"u2连接成功：{text}")
             else:
                 raise Exception("u2连接返回空对象")
@@ -428,6 +415,7 @@ class ADB_Mainwindow(QMainWindow):
             # u2连接失败，使用ADB模式
             self.d = None
             self.connection_mode = 'adb'
+            self.device_id = text
             self.textBrowser.append(f"u2连接失败：{u2_error}")
             self.textBrowser.append(f"切换到ADB模式：{text}")
 
@@ -699,27 +687,31 @@ class ADB_Mainwindow(QMainWindow):
             for device_id in device_ids:
                 self.ComboxButton.addItem(device_id)
             # 将设备ID列表转换为字符串并更新到textBrowser
-            device_ids_str = ", ".join(device_ids)
+            device_ids_str = "\n".join(device_ids)
             if device_ids_str:
-                self.textBrowser.append(f"设备列表已刷新：\n{device_ids_str}")
-                self.d = None
+                self.textBrowser.append(f"设备列表已刷新：")
+                self.textBrowser.append(device_ids_str)
+                
+                # 只在有设备时尝试连接
                 device_id = self.get_selected_device()
                 if device_id and device_id != "请点击刷新设备":
                     self.device_id = device_id
-                    try:
-                        # 尝试u2连接
-                        self.d = u2.connect(device_id)
-                        if self.d:
-                            self.connection_mode = 'u2'
-                            self.textBrowser.append(f"u2连接成功：{device_id}")
-                        else:
-                            raise Exception("u2连接返回空对象")
-                    except Exception as u2_error:
-                        # u2连接失败，使用ADB模式
-                        self.d = None
-                        self.connection_mode = 'adb'
-                        self.textBrowser.append(f"u2连接失败：{u2_error}")
-                        self.textBrowser.append(f"切换到ADB模式：{device_id}")
+                    # 检查是否已经连接过（避免重复连接）
+                    if not self.d or self.connection_mode != 'u2':
+                        try:
+                            # 尝试u2连接
+                            self.d = u2.connect(device_id)
+                            if self.d:
+                                self.connection_mode = 'u2'
+                                self.textBrowser.append(f"u2连接成功：{device_id}")
+                            else:
+                                raise Exception("u2连接返回空对象")
+                        except Exception as u2_error:
+                            # u2连接失败，使用ADB模式
+                            self.d = None
+                            self.connection_mode = 'adb'
+                            self.textBrowser.append(f"u2连接失败：{u2_error}")
+                            self.textBrowser.append(f"切换到ADB模式：{device_id}")
                 return device_ids  # 返回设备ID列表
             else:
                 self.textBrowser.append(f"未连接设备！")
@@ -950,27 +942,63 @@ class ADB_Mainwindow(QMainWindow):
             device_id = self.get_selected_device()
             devices_id_lst = self.get_new_device_lst()
             if device_id in devices_id_lst:
-                # 弹出输入框让用户输入包名
-                package_name, ok = QInputDialog.getText(self, "强制停止应用", "请输入要停止的应用包名：")
-                if not ok or not package_name.strip():
-                    self.textBrowser.append("用户取消输入或输入为空")
-                    return
-                
                 if self.connection_mode == 'u2':
-                    from Function_Moudle.force_stop_app_thread import ForceStopAppThread
-                    self.Force_app_thread = ForceStopAppThread(self.d, package_name.strip())
+                    # u2连接成功，自动获取当前前台app并强制停止
+                    try:
+                        # 获取当前前台应用信息
+                        current_app = self.d.app_current()
+                        if current_app and 'package' in current_app:
+                            package_name = current_app['package']
+                            self.textBrowser.append(f"检测到当前前台应用: {package_name}")
+                            self.textBrowser.append(f"开始强制停止 {package_name}...")
+                            
+                            from Function_Moudle.force_stop_app_thread import ForceStopAppThread
+                            self.Force_app_thread = ForceStopAppThread(self.d, package_name)
+                            
+                            self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
+                            self.Force_app_thread.error_signal.connect(self.textBrowser.append)
+                            self.Force_app_thread.start()
+                        else:
+                            self.textBrowser.append("无法获取当前前台应用信息，请手动输入包名")
+                            # 回退到手动输入
+                            self._show_force_stop_input_dialog(device_id)
+                    except Exception as u2_error:
+                        self.textBrowser.append(f"u2获取前台应用失败: {u2_error}")
+                        # 回退到手动输入
+                        self._show_force_stop_input_dialog(device_id)
+                        
                 elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_force_stop_app_thread import ADBForceStopAppThread
-                    self.Force_app_thread = ADBForceStopAppThread(device_id, package_name.strip())
+                    # ADB模式，需要用户输入包名
+                    self._show_force_stop_input_dialog(device_id)
                 else:
                     self.textBrowser.append("设备未连接！")
                     return
-                
-                self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
-                self.Force_app_thread.error_signal.connect(self.textBrowser.append)
-                self.Force_app_thread.start()
             else:
                 self.textBrowser.append("未连接设备！")
+        except Exception as e:
+            self.textBrowser.append(f"强制停止应用失败: {e}")
+    
+    def _show_force_stop_input_dialog(self, device_id):
+        """显示强制停止应用输入对话框（用于ADB模式或u2失败时）"""
+        package_name, ok = QInputDialog.getText(self, "强制停止应用", "请输入要停止的应用包名：")
+        if not ok or not package_name.strip():
+            self.textBrowser.append("用户取消输入或输入为空")
+            return
+        
+        try:
+            if self.connection_mode == 'u2':
+                from Function_Moudle.force_stop_app_thread import ForceStopAppThread
+                self.Force_app_thread = ForceStopAppThread(self.d, package_name.strip())
+            elif self.connection_mode == 'adb':
+                from Function_Moudle.adb_force_stop_app_thread import ADBForceStopAppThread
+                self.Force_app_thread = ADBForceStopAppThread(device_id, package_name.strip())
+            else:
+                self.textBrowser.append("设备未连接！")
+                return
+            
+            self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
+            self.Force_app_thread.error_signal.connect(self.textBrowser.append)
+            self.Force_app_thread.start()
         except Exception as e:
             self.textBrowser.append(f"强制停止应用失败: {e}")
 
@@ -978,30 +1006,67 @@ class ADB_Mainwindow(QMainWindow):
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         if device_id in devices_id_lst:
-            # 弹出输入框让用户输入包名
-            package_name, ok = QInputDialog.getText(self, "清除应用缓存", "请输入要清除缓存的应用包名：")
-            if not ok or not package_name.strip():
-                self.textBrowser.append("用户取消输入或输入为空")
-                return
-            
             try:
                 if self.connection_mode == 'u2':
-                    from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
-                    self.Clear_app_cache_thread = ClearAppCacheThread(self.d, package_name.strip())
+                    # u2连接成功，自动获取当前前台app并清除缓存
+                    try:
+                        # 获取当前前台应用信息
+                        current_app = self.d.app_current()
+                        if current_app and 'package' in current_app:
+                            package_name = current_app['package']
+                            self.textBrowser.append(f"检测到当前前台应用: {package_name}")
+                            self.textBrowser.append(f"开始清除 {package_name} 的缓存...")
+                            
+                            from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
+                            self.Clear_app_cache_thread = ClearAppCacheThread(self.d, package_name)
+                            
+                            self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
+                            self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
+                            self.Clear_app_cache_thread.start()
+                        else:
+                            self.textBrowser.append("无法获取当前前台应用信息，请手动输入包名")
+                            # 回退到手动输入
+                            self._show_clear_cache_input_dialog(device_id)
+                    except Exception as u2_error:
+                        self.textBrowser.append(f"u2获取前台应用失败: {u2_error}")
+                        # 回退到手动输入
+                        self._show_clear_cache_input_dialog(device_id)
+                        
                 elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_clear_app_cache_thread import ADBClearAppCacheThread
-                    self.Clear_app_cache_thread = ADBClearAppCacheThread(device_id, package_name.strip())
+                    # ADB模式，需要用户输入包名
+                    self._show_clear_cache_input_dialog(device_id)
                 else:
                     self.textBrowser.append("设备未连接！")
                     return
-                
-                self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
-                self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
-                self.Clear_app_cache_thread.start()
+                    
             except Exception as e:
                 self.textBrowser.append(f"清除应用缓存失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
+    
+    def _show_clear_cache_input_dialog(self, device_id):
+        """显示清除缓存输入对话框（用于ADB模式或u2失败时）"""
+        package_name, ok = QInputDialog.getText(self, "清除应用缓存", "请输入要清除缓存的应用包名：")
+        if not ok or not package_name.strip():
+            self.textBrowser.append("用户取消输入或输入为空")
+            return
+        
+        try:
+            if self.connection_mode == 'u2':
+                from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
+                self.Clear_app_cache_thread = ClearAppCacheThread(self.d, package_name.strip())
+            elif self.connection_mode == 'adb':
+                from Function_Moudle.adb_clear_app_cache_thread import ADBClearAppCacheThread
+                self.Clear_app_cache_thread = ADBClearAppCacheThread(device_id, package_name.strip())
+            else:
+                self.textBrowser.append("设备未连接！")
+                return
+            
+            self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
+            self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
+            self.Clear_app_cache_thread.start()
+        except Exception as e:
+            self.textBrowser.append(f"清除应用缓存失败: {e}")
 
     def get_foreground_package(self):
         device_id = self.get_selected_device()
