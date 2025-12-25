@@ -78,6 +78,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_factory_button = self.findChild(QtWidgets.QPushButton, 'datong_factory_button')
         self.datong_verity_button = self.findChild(QtWidgets.QPushButton, 'datong_verity_button')
         self.datong_batch_install_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_button')
+        self.datong_batch_install_test_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_test_button')
         self.d = None
         self.device_id = None
         self.connection_mode = None  # 'u2' 或 'adb'
@@ -129,6 +130,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_factory_button.clicked.connect(self.datong_factory_action)  # 拉起中环工厂
         self.datong_verity_button.clicked.connect(self.datong_verity_action)  # 禁用并启用verity校验
         self.datong_batch_install_button.clicked.connect(self.datong_batch_install_action)  # 批量安装APK文件
+        self.datong_batch_install_test_button.clicked.connect(self.datong_batch_install_test_action)  # 测试批量安装功能
         
         # 添加配置菜单
         self.add_config_menu()
@@ -327,6 +329,87 @@ class ADB_Mainwindow(QMainWindow):
                     
             except Exception as e:
                 self.textBrowser.append(f"启动批量安装线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def datong_batch_install_test_action(self):
+        """测试批量安装功能 - 打印所有流程中的值和命令"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出文件夹选择框
+                from PyQt5.QtWidgets import QFileDialog, QMessageBox
+                folder_path = QFileDialog.getExistingDirectory(
+                    self,
+                    "选择APK文件夹（测试模式）",
+                    "",  # 默认路径为空
+                    QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+                )
+                
+                if not folder_path:
+                    self.textBrowser.append("用户取消选择文件夹")
+                    return
+                
+                # 检查文件夹是否存在
+                import os
+                if not os.path.exists(folder_path):
+                    self.textBrowser.append(f"文件夹不存在: {folder_path}")
+                    return
+                
+                if not os.path.isdir(folder_path):
+                    self.textBrowser.append(f"路径不是文件夹: {folder_path}")
+                    return
+                
+                # 弹出确认对话框
+                reply = QMessageBox.question(
+                    self, 
+                    '确认测试批量安装',
+                    f'是否要在设备 {device_id} 上测试批量安装功能？\n\n'
+                    f'文件夹路径: {folder_path}\n\n'
+                    '注意：\n'
+                    '1. 此功能仅用于测试，不会实际安装任何APK\n'
+                    '2. 将打印所有流程中的值、命令和状态\n'
+                    '3. 用于验证逻辑是否正确，防止误操作损坏设备',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 创建测试线程
+                    from Function_Moudle.adb_batch_install_test_thread import ADBBatchInstallTestThread
+                    
+                    if self.connection_mode == 'u2':
+                        self.batch_install_test_thread = ADBBatchInstallTestThread(
+                            device_id, 
+                            folder_path,
+                            connection_mode='u2',
+                            u2_device=self.d
+                        )
+                    elif self.connection_mode == 'adb':
+                        self.batch_install_test_thread = ADBBatchInstallTestThread(
+                            device_id, 
+                            folder_path,
+                            connection_mode='adb'
+                        )
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
+                    # 连接信号
+                    self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
+                    self.batch_install_test_thread.error_signal.connect(self.textBrowser.append)
+                    self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
+                    self.batch_install_test_thread.debug_signal.connect(self.textBrowser.append)
+                    
+                    # 启动线程
+                    self.batch_install_test_thread.start()
+                else:
+                    self.textBrowser.append("用户取消测试")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"启动批量安装测试线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 

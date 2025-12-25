@@ -37,6 +37,12 @@ class ConfigManager:
             "level": "INFO",  # DEBUG/INFO/WARNING/ERROR
             "file": "adbtools.log",  # 日志文件
             "max_size": 10485760,  # 最大10MB
+        },
+        "batch_install": {
+            "special_packages": [
+                "@com.saicmotor.voiceservice",
+                "@com.saicmotor.adapterservice"
+            ]
         }
     }
     
@@ -80,6 +86,14 @@ class ConfigManager:
         else:
             print(f"配置文件不存在，创建默认配置: {config_path}")
             self._create_default_config()
+    
+    def reload_config(self) -> None:
+        """重新加载配置文件"""
+        print(f"重新加载配置文件...")
+        # 重置为默认配置
+        self.config = self.DEFAULT_CONFIG.copy()
+        # 重新加载
+        self.load_config()
     
     def save_config(self) -> bool:
         """保存配置文件"""

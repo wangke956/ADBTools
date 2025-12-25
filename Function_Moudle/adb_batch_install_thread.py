@@ -33,6 +33,23 @@ except ImportError:
     
     adb_utils = ADBUtilsFallback()
 
+# 导入配置管理器
+try:
+    from config_manager import config_manager
+except ImportError:
+    # 如果导入失败，创建简单的回退配置
+    class ConfigManagerFallback:
+        def get(self, key, default=None):
+            # 默认的特殊包名列表
+            if key == "batch_install.special_packages":
+                return [
+                    "@com.saicmotor.voiceservice",
+                    "@com.saicmotor.adapterservice"
+                ]
+            return default
+    
+    config_manager = ConfigManagerFallback()
+
 
 class ADBBatchInstallThread(QThread):
     """批量安装APK文件的线程"""
@@ -59,11 +76,11 @@ class ADBBatchInstallThread(QThread):
         self.connection_mode = connection_mode
         self.u2_device = u2_device
         
-        # 特殊处理的包名
-        self.special_packages = [
+        # 从配置文件读取特殊处理的包名
+        self.special_packages = config_manager.get("batch_install.special_packages", [
             "@com.saicmotor.voiceservice",
             "@com.saicmotor.adapterservice"
-        ]
+        ])
 
     def _execute_adb_command(self, command):
         """执行ADB命令"""
