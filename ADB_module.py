@@ -65,6 +65,8 @@ class ADB_Mainwindow(QMainWindow):
         self.input_keyevent_287_thread = None
         self.engineering_thread = None
         self.app_action_thread = None
+        self.verity_thread = None
+        self.batch_install_thread = None
 
         # 动态加载ui文件
         uic.loadUi('adbtool.ui', self)
@@ -74,6 +76,8 @@ class ADB_Mainwindow(QMainWindow):
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
         self.vr_keyevent_combo = self.findChild(QtWidgets.QComboBox, 'vr_keyevent_combo')
         self.datong_factory_button = self.findChild(QtWidgets.QPushButton, 'datong_factory_button')
+        self.datong_verity_button = self.findChild(QtWidgets.QPushButton, 'datong_verity_button')
+        self.datong_batch_install_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_button')
         self.d = None
         self.device_id = None
         self.connection_mode = None  # 'u2' 或 'adb'
@@ -123,6 +127,8 @@ class ADB_Mainwindow(QMainWindow):
         self.set_vr_server_timout.clicked.connect(self.set_vr_timeout)
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
         self.datong_factory_button.clicked.connect(self.datong_factory_action)  # 拉起中环工厂
+        self.datong_verity_button.clicked.connect(self.datong_verity_action)  # 禁用并启用verity校验
+        self.datong_batch_install_button.clicked.connect(self.datong_batch_install_action)  # 批量安装APK文件
         
         # 添加配置菜单
         self.add_config_menu()
@@ -190,6 +196,139 @@ class ADB_Mainwindow(QMainWindow):
     def datong_factory_action(self):
         """拉起中环工厂应用"""
         self.start_app_action(app_name = "com.zhonghuan.factory")
+
+    def datong_verity_action(self):
+        """执行adb enable-verity和adb disable-verity命令"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出确认对话框
+                from PyQt5.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self, 
+                    '确认执行verity命令',
+                    f'是否要在设备 {device_id} 上执行adb disable-verity和adb enable-verity命令？\n\n'
+                    '注意：执行此操作可能需要设备重启才能生效。',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 根据连接模式创建相应的线程
+                    if self.connection_mode == 'u2':
+                        from Function_Moudle.adb_verity_thread import ADBVerityThread
+                        self.verity_thread = ADBVerityThread(
+                            device_id, 
+                            connection_mode='u2',
+                            u2_device=self.d
+                        )
+                    elif self.connection_mode == 'adb':
+                        from Function_Moudle.adb_verity_thread import ADBVerityThread
+                        self.verity_thread = ADBVerityThread(
+                            device_id, 
+                            connection_mode='adb'
+                        )
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
+                    # 连接信号
+                    self.verity_thread.progress_signal.connect(self.textBrowser.append)
+                    self.verity_thread.error_signal.connect(self.textBrowser.append)
+                    self.verity_thread.result_signal.connect(self.textBrowser.append)
+                    
+                    # 启动线程
+                    self.verity_thread.start()
+                else:
+                    self.textBrowser.append("用户取消执行verity命令")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"启动verity命令线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def datong_batch_install_action(self):
+        """批量安装APK文件"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出文件夹选择框
+                from PyQt5.QtWidgets import QFileDialog, QMessageBox
+                folder_path = QFileDialog.getExistingDirectory(
+                    self,
+                    "选择APK文件夹",
+                    "",  # 默认路径为空
+                    QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+                )
+                
+                if not folder_path:
+                    self.textBrowser.append("用户取消选择文件夹")
+                    return
+                
+                # 检查文件夹是否存在
+                import os
+                if not os.path.exists(folder_path):
+                    self.textBrowser.append(f"文件夹不存在: {folder_path}")
+                    return
+                
+                if not os.path.isdir(folder_path):
+                    self.textBrowser.append(f"路径不是文件夹: {folder_path}")
+                    return
+                
+                # 弹出确认对话框
+                reply = QMessageBox.question(
+                    self, 
+                    '确认批量安装',
+                    f'是否要在设备 {device_id} 上批量安装文件夹中的APK文件？\n\n'
+                    f'文件夹路径: {folder_path}\n\n'
+                    '注意：\n'
+                    '1. 对于普通APK文件，将执行adb install操作\n'
+                    '2. 对于@com.saicmotor.voiceservice和@com.saicmotor.adapterservice包名的APK，\n'
+                    '   将先获取安装路径，然后执行adb push操作\n'
+                    '3. 操作可能需要较长时间，请耐心等待',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 根据连接模式创建相应的线程
+                    if self.connection_mode == 'u2':
+                        from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
+                        self.batch_install_thread = ADBBatchInstallThread(
+                            device_id, 
+                            folder_path,
+                            connection_mode='u2',
+                            u2_device=self.d
+                        )
+                    elif self.connection_mode == 'adb':
+                        from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
+                        self.batch_install_thread = ADBBatchInstallThread(
+                            device_id, 
+                            folder_path,
+                            connection_mode='adb'
+                        )
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
+                    # 连接信号
+                    self.batch_install_thread.progress_signal.connect(self.textBrowser.append)
+                    self.batch_install_thread.error_signal.connect(self.textBrowser.append)
+                    self.batch_install_thread.result_signal.connect(self.textBrowser.append)
+                    
+                    # 启动线程
+                    self.batch_install_thread.start()
+                else:
+                    self.textBrowser.append("用户取消批量安装")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"启动批量安装线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
 
     def set_vr_timeout(self):
         device_id = self.get_selected_device()
