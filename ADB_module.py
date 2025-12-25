@@ -549,20 +549,32 @@ class ADB_Mainwindow(QMainWindow):
             try:
                 # 获取下拉选择框的值
                 keyevent_value = self.vr_keyevent_combo.currentText()
-                self.textBrowser.append(f"执行VR唤醒命令: adb shell input keyevent {keyevent_value}")
                 
-                if self.connection_mode == 'adb':
-                    # 使用ADB命令执行keyevent
-                    import subprocess
-                    command = f"adb -s {device_id} shell input keyevent {keyevent_value}"
-                    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                    
-                    if result.returncode == 0:
-                        self.textBrowser.append("VR唤醒命令执行成功！")
-                    else:
-                        self.textBrowser.append(f"VR唤醒命令执行失败: {result.stderr}")
+                # 使用线程执行命令
+                from Function_Moudle.activate_vr_thread import ActivateVrThread
+                
+                if self.connection_mode == 'u2' and self.d:
+                    # u2模式使用press_keycode方法
+                    self.activate_vr_thread = ActivateVrThread(
+                        device_id, 
+                        keyevent_value, 
+                        connection_mode='u2',
+                        u2_device=self.d
+                    )
+                elif self.connection_mode == 'adb':
+                    # ADB模式使用keyevent命令
+                    self.activate_vr_thread = ActivateVrThread(
+                        device_id, 
+                        keyevent_value, 
+                        connection_mode='adb'
+                    )
                 else:
-                    self.textBrowser.append("当前为u2模式，不支持keyevent命令！")
+                    self.textBrowser.append("设备连接失败或模式不支持！")
+                    return
+                
+                self.activate_vr_thread.progress_signal.connect(self.textBrowser.append)
+                self.activate_vr_thread.error_signal.connect(self.textBrowser.append)
+                self.activate_vr_thread.start()
                     
             except Exception as e:
                 self.textBrowser.append(f"执行VR唤醒命令失败: {e}")
@@ -676,49 +688,47 @@ class ADB_Mainwindow(QMainWindow):
     #     subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
 
     def refresh_devices(self):
-        # 刷新设备列表并添加到下拉框
+        # 使用线程刷新设备列表
         try:
-            # 执行 adb devices 命令
-            result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
-            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
-            # 清空 ComboxButton 并添加新的设备ID
-            self.ComboxButton.clear()
-            for device_id in device_ids:
-                self.ComboxButton.addItem(device_id)
-            # 将设备ID列表转换为字符串并更新到textBrowser
-            device_ids_str = "\n".join(device_ids)
-            if device_ids_str:
-                self.textBrowser.append(f"设备列表已刷新：")
-                self.textBrowser.append(device_ids_str)
-                
-                # 只在有设备时尝试连接
-                device_id = self.get_selected_device()
-                if device_id and device_id != "请点击刷新设备":
-                    self.device_id = device_id
-                    # 检查是否已经连接过（避免重复连接）
-                    if not self.d or self.connection_mode != 'u2':
-                        try:
-                            # 尝试u2连接
-                            self.d = u2.connect(device_id)
-                            if self.d:
-                                self.connection_mode = 'u2'
-                                self.textBrowser.append(f"u2连接成功：{device_id}")
-                            else:
-                                raise Exception("u2连接返回空对象")
-                        except Exception as u2_error:
-                            # u2连接失败，使用ADB模式
-                            self.d = None
-                            self.connection_mode = 'adb'
-                            self.textBrowser.append(f"u2连接失败：{u2_error}")
-                            self.textBrowser.append(f"切换到ADB模式：{device_id}")
-                return device_ids  # 返回设备ID列表
-            else:
-                self.textBrowser.append(f"未连接设备！")
-                return device_ids  # 返回设备ID列表
-        except subprocess.CalledProcessError as e:
-            self.textBrowser.append(f"刷新设备列表失败: {e}")
-            return []  # 返回空列表表示刷新失败
+            from Function_Moudle.refresh_devices_thread import RefreshDevicesThread
+            self.refresh_devices_thread = RefreshDevicesThread()
+            self.refresh_devices_thread.progress_signal.connect(self.textBrowser.append)
+            self.refresh_devices_thread.devices_signal.connect(self._handle_refreshed_devices)
+            self.refresh_devices_thread.error_signal.connect(self.textBrowser.append)
+            self.refresh_devices_thread.start()
+        except Exception as e:
+            self.textBrowser.append(f"启动刷新线程失败: {e}")
+    
+    def _handle_refreshed_devices(self, device_ids):
+        """处理刷新后的设备列表（在主线程中执行）"""
+        # 清空 ComboxButton 并添加新的设备ID
+        self.ComboxButton.clear()
+        for device_id in device_ids:
+            self.ComboxButton.addItem(device_id)
+        
+        if device_ids:
+            # 只在有设备时尝试连接
+            device_id = self.get_selected_device()
+            if device_id and device_id != "请点击刷新设备":
+                self.device_id = device_id
+                # 检查是否已经连接过（避免重复连接）
+                if not self.d or self.connection_mode != 'u2':
+                    try:
+                        # 尝试u2连接
+                        self.d = u2.connect(device_id)
+                        if self.d:
+                            self.connection_mode = 'u2'
+                            self.textBrowser.append(f"u2连接成功：{device_id}")
+                        else:
+                            raise Exception("u2连接返回空对象")
+                    except Exception as u2_error:
+                        # u2连接失败，使用ADB模式
+                        self.d = None
+                        self.connection_mode = 'adb'
+                        self.textBrowser.append(f"u2连接失败：{u2_error}")
+                        self.textBrowser.append(f"切换到ADB模式：{device_id}")
+        else:
+            self.textBrowser.append(f"未连接设备！")
 
     def adb_root_wrapper(self):
         device_id = self.get_selected_device()
@@ -1104,8 +1114,14 @@ class ADB_Mainwindow(QMainWindow):
     def aapt_getpackage_name_dilog(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "选择APK文件", "", "APK文件 (*.apk)")
         if file_path:
-            package_name = self.aapt_get_packagen_name(file_path)
-            self.textBrowser.append(f"包名: {package_name}")
+            try:
+                from Function_Moudle.aapt_get_package_name_thread import AaptGetPackageNameThread
+                self.aapt_thread = AaptGetPackageNameThread(file_path)
+                self.aapt_thread.result_signal.connect(self.textBrowser.append)
+                self.aapt_thread.error_signal.connect(self.textBrowser.append)
+                self.aapt_thread.start()
+            except Exception as e:
+                self.textBrowser.append(f"启动aapt线程失败: {e}")
         else:
             self.textBrowser.append("未选择APK文件")
 
