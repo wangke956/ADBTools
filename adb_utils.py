@@ -129,6 +129,85 @@ class ADBUtils:
             return MockResult()
     
     @classmethod
+    def run_adb_command_realtime(cls, command, device_id=None, output_callback=None, **kwargs):
+        """
+        执行ADB命令并实时输出
+        
+        Args:
+            command: ADB命令
+            device_id: 设备ID
+            output_callback: 输出回调函数，接收字符串参数
+            **kwargs: 其他subprocess参数
+        
+        Returns:
+            subprocess.CompletedProcess对象
+        """
+        adb_path = cls.get_adb_path()
+        
+        # 构建完整命令
+        if device_id:
+            full_command = f'"{adb_path}" -s {device_id} {command}'
+        else:
+            full_command = f'"{adb_path}" {command}'
+        
+        # 设置默认参数
+        default_kwargs = {
+            'shell': True,
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.STDOUT,  # 将stderr合并到stdout
+            'text': True,
+            'encoding': 'utf-8',
+            'errors': 'ignore',
+            'bufsize': 1,  # 行缓冲
+            'universal_newlines': True
+        }
+        default_kwargs.update(kwargs)
+        
+        try:
+            if output_callback:
+                # 实时输出模式
+                process = subprocess.Popen(
+                    full_command,
+                    **{k: v for k, v in default_kwargs.items() if k not in ['capture_output']}
+                )
+                
+                # 实时读取输出
+                output_lines = []
+                while True:
+                    line = process.stdout.readline()
+                    if not line and process.poll() is not None:
+                        break
+                    if line:
+                        line = line.rstrip('\n')
+                        output_lines.append(line)
+                        output_callback(line)
+                
+                # 等待进程结束
+                returncode = process.wait()
+                
+                # 创建结果对象
+                class RealtimeResult:
+                    def __init__(self):
+                        self.returncode = returncode
+                        self.stdout = '\n'.join(output_lines)
+                        self.stderr = ""
+                
+                return RealtimeResult()
+            else:
+                # 非实时模式，使用原来的方法
+                return cls.run_adb_command(command, device_id, **kwargs)
+                
+        except Exception as e:
+            # 创建模拟的subprocess结果对象
+            class MockResult:
+                def __init__(self):
+                    self.returncode = 1
+                    self.stdout = ""
+                    self.stderr = str(e)
+            
+            return MockResult()
+    
+    @classmethod
     def check_adb_available(cls):
         """检查ADB是否可用"""
         try:

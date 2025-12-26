@@ -59,6 +59,7 @@ class ADBBatchInstallThread(QThread):
     result_signal = pyqtSignal(str)
     file_progress_signal = pyqtSignal(str, str)  # (文件名, 状态)
     overall_progress_signal = pyqtSignal(int, int)  # (当前进度, 总文件数)
+    realtime_output_signal = pyqtSignal(str)  # 实时输出信号
 
     def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None):
         """
@@ -82,10 +83,27 @@ class ADBBatchInstallThread(QThread):
             "@com.saicmotor.adapterservice"
         ])
 
-    def _execute_adb_command(self, command):
-        """执行ADB命令"""
+    def _execute_adb_command(self, command, realtime=False):
+        """执行ADB命令
+        
+        Args:
+            command: ADB命令
+            realtime: 是否实时输出，默认为False
+        """
         try:
-            result = adb_utils.run_adb_command(command, self.device_id)
+            if realtime:
+                # 实时输出模式
+                def output_callback(line):
+                    self.realtime_output_signal.emit(line)
+                
+                result = adb_utils.run_adb_command_realtime(
+                    command, 
+                    self.device_id,
+                    output_callback=output_callback
+                )
+            else:
+                # 普通模式
+                result = adb_utils.run_adb_command(command, self.device_id)
             return result
         except Exception as e:
             self.error_signal.emit(f"执行ADB命令失败: {str(e)}")
@@ -101,12 +119,17 @@ class ADBBatchInstallThread(QThread):
             self.error_signal.emit(f"执行u2命令失败: {str(e)}")
             return None
 
-    def _execute_command(self, command):
-        """根据连接模式执行命令"""
+    def _execute_command(self, command, realtime=False):
+        """根据连接模式执行命令
+        
+        Args:
+            command: 命令
+            realtime: 是否实时输出，默认为False
+        """
         if self.connection_mode == 'u2' and self.u2_device:
             return self._execute_u2_command(command)
         else:
-            return self._execute_adb_command(command)
+            return self._execute_adb_command(command, realtime=realtime)
 
     def _get_apk_package_name(self, apk_path):
         """获取APK文件的包名"""
@@ -145,8 +168,13 @@ class ADBBatchInstallThread(QThread):
     def _get_package_install_path(self, package_name):
         """获取包名的安装路径"""
         try:
+            command = f"shell pm path {package_name}"
+            
+            # 显示要执行的adb命令
+            self.progress_signal.emit(f"执行命令: adb -s {self.device_id} {command}")
+            
             # 执行adb shell pm path <包名> 命令
-            result = self._execute_command(f"shell pm path {package_name}")
+            result = self._execute_command(command)
             
             if result is None:
                 return None
@@ -156,14 +184,19 @@ class ADBBatchInstallThread(QThread):
             else:
                 output = result.stdout.strip() if hasattr(result, 'stdout') else str(result).strip()
             
+            # 显示完整的返回结果
+            self.progress_signal.emit(f"命令返回: {output}")
+            
             # 解析路径，格式通常是：package:/data/app/包名-xxx/base.apk
             # 我们需要提取目录部分
             if output.startswith("package:"):
                 apk_path = output.replace("package:", "").strip()
                 # 获取目录路径（去掉文件名）
                 dir_path = os.path.dirname(apk_path)
+                self.progress_signal.emit(f"解析出的安装路径: {dir_path}")
                 return dir_path
             else:
+                self.progress_signal.emit(f"未找到包 {package_name} 的安装路径")
                 return None
                 
         except Exception as e:
@@ -174,7 +207,13 @@ class ADBBatchInstallThread(QThread):
         """安装APK文件"""
         try:
             quoted_apk_path = f'"{apk_path}"'
-            result = self._execute_command(f"install -r {quoted_apk_path}")
+            command = f"install -r {quoted_apk_path}"
+            
+            # 显示要执行的adb命令
+            self.progress_signal.emit(f"执行命令: adb -s {self.device_id} {command}")
+            
+            # 使用实时输出执行命令
+            result = self._execute_command(command, realtime=True)
             
             if result is None:
                 return False
@@ -184,7 +223,11 @@ class ADBBatchInstallThread(QThread):
             else:
                 output = result.stdout.strip() if hasattr(result, 'stdout') else str(result)
             
+            # 显示完整的返回结果
+            self.progress_signal.emit(f"命令返回: {output}")
+            
             if "Success" in output or "success" in output.lower():
+                self.progress_signal.emit("安装成功！")
                 return True
             else:
                 self.error_signal.emit(f"安装失败: {output}")
@@ -198,7 +241,13 @@ class ADBBatchInstallThread(QThread):
         """将APK文件push到指定路径"""
         try:
             quoted_apk_path = f'"{apk_path}"'
-            result = self._execute_command(f"push {quoted_apk_path} {target_path}")
+            command = f"push {quoted_apk_path} {target_path}"
+            
+            # 显示要执行的adb命令
+            self.progress_signal.emit(f"执行命令: adb -s {self.device_id} {command}")
+            
+            # 使用实时输出执行命令
+            result = self._execute_command(command, realtime=True)
             
             if result is None:
                 return False
@@ -208,7 +257,11 @@ class ADBBatchInstallThread(QThread):
             else:
                 output = result.stdout.strip() if hasattr(result, 'stdout') else str(result)
             
+            # 显示完整的返回结果
+            self.progress_signal.emit(f"命令返回: {output}")
+            
             if "pushed" in output.lower() or "success" in output.lower():
+                self.progress_signal.emit("push成功！")
                 return True
             else:
                 self.error_signal.emit(f"push失败: {output}")

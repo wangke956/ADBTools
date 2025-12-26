@@ -321,6 +321,7 @@ class ADB_Mainwindow(QMainWindow):
                     self.batch_install_thread.progress_signal.connect(self.textBrowser.append)
                     self.batch_install_thread.error_signal.connect(self.textBrowser.append)
                     self.batch_install_thread.result_signal.connect(self.textBrowser.append)
+                    self.batch_install_thread.realtime_output_signal.connect(self.textBrowser.append)
                     
                     # 启动线程
                     self.batch_install_thread.start()
