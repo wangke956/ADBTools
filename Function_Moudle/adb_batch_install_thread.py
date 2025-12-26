@@ -61,7 +61,7 @@ class ADBBatchInstallThread(QThread):
     overall_progress_signal = pyqtSignal(int, int)  # (当前进度, 总文件数)
     realtime_output_signal = pyqtSignal(str)  # 实时输出信号
 
-    def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None):
+    def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None, allow_downgrade=False):
         """
         初始化线程
         
@@ -70,12 +70,14 @@ class ADBBatchInstallThread(QThread):
             folder_path: 文件夹路径
             connection_mode: 连接模式 ('u2' 或 'adb')
             u2_device: u2设备对象（仅当connection_mode='u2'时使用）
+            allow_downgrade: 是否允许降级安装，默认为False
         """
         super(ADBBatchInstallThread, self).__init__()
         self.device_id = device_id
         self.folder_path = folder_path
         self.connection_mode = connection_mode
         self.u2_device = u2_device
+        self.allow_downgrade = allow_downgrade
         
         # 从配置文件读取特殊处理的包名
         self.special_packages = config_manager.get("batch_install.special_packages", [
@@ -203,11 +205,23 @@ class ADBBatchInstallThread(QThread):
             self.error_signal.emit(f"获取包安装路径失败: {str(e)}")
             return None
 
-    def _install_apk(self, apk_path):
-        """安装APK文件"""
+    def _install_apk(self, apk_path, allow_downgrade=False):
+        """安装APK文件
+        
+        Args:
+            apk_path: APK文件路径
+            allow_downgrade: 是否允许降级安装，默认为False
+        """
         try:
             quoted_apk_path = f'"{apk_path}"'
-            command = f"install -r {quoted_apk_path}"
+            
+            # 构建安装命令
+            if allow_downgrade:
+                command = f"install -r -d {quoted_apk_path}"
+                self.progress_signal.emit("使用降级安装模式 (-r -d)")
+            else:
+                command = f"install -r {quoted_apk_path}"
+                self.progress_signal.emit("使用普通安装模式 (-r)")
             
             # 显示要执行的adb命令
             self.progress_signal.emit(f"执行命令: adb -s {self.device_id} {command}")
@@ -352,7 +366,7 @@ class ADBBatchInstallThread(QThread):
                     if install_path is None:
                         self.progress_signal.emit(f"  无法获取安装路径，尝试普通安装")
                         # 如果无法获取路径，回退到普通安装
-                        success = self._install_apk(apk_path)
+                        success = self._install_apk(apk_path, self.allow_downgrade)
                     else:
                         self.progress_signal.emit(f"  安装路径: {install_path}")
                         # 执行push操作
@@ -360,7 +374,7 @@ class ADBBatchInstallThread(QThread):
                 else:
                     self.progress_signal.emit(f"  执行普通安装")
                     # 执行普通安装
-                    success = self._install_apk(apk_path)
+                    success = self._install_apk(apk_path, self.allow_downgrade)
                 
                 # 更新文件状态
                 if success:

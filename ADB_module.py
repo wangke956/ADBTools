@@ -281,22 +281,49 @@ class ADB_Mainwindow(QMainWindow):
                     self.textBrowser.append(f"路径不是文件夹: {folder_path}")
                     return
                 
-                # 弹出确认对话框
-                reply = QMessageBox.question(
-                    self, 
-                    '确认批量安装',
-                    f'是否要在设备 {device_id} 上批量安装文件夹中的APK文件？\n\n'
-                    f'文件夹路径: {folder_path}\n\n'
-                    '注意：\n'
-                    '1. 对于普通APK文件，将执行adb install操作\n'
-                    '2. 对于@com.saicmotor.voiceservice和@com.saicmotor.adapterservice包名的APK，\n'
-                    '   将先获取安装路径，然后执行adb push操作\n'
-                    '3. 操作可能需要较长时间，请耐心等待',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
+                # 创建自定义对话框询问是否允许降级安装
+                from PyQt5.QtWidgets import QCheckBox, QVBoxLayout, QDialog, QDialogButtonBox, QLabel
                 
-                if reply == QMessageBox.Yes:
+                class BatchInstallDialog(QDialog):
+                    def __init__(self, parent=None, device_id="", folder_path=""):
+                        super().__init__(parent)
+                        self.setWindowTitle('确认批量安装')
+                        
+                        layout = QVBoxLayout()
+                        
+                        # 添加说明标签
+                        info_label = QLabel(
+                            f'是否要在设备 {device_id} 上批量安装文件夹中的APK文件？\n\n'
+                            f'文件夹路径: {folder_path}\n\n'
+                            '注意：\n'
+                            '1. 对于普通APK文件，将执行adb install操作\n'
+                            '2. 对于@com.saicmotor.voiceservice和@com.saicmotor.adapterservice包名的APK，\n'
+                            '   将先获取安装路径，然后执行adb push操作\n'
+                            '3. 操作可能需要较长时间，请耐心等待'
+                        )
+                        layout.addWidget(info_label)
+                        
+                        # 添加降级安装复选框
+                        self.allow_downgrade_checkbox = QCheckBox("允许降级安装 (使用 -d 参数)")
+                        self.allow_downgrade_checkbox.setToolTip("勾选此项将允许安装版本号低于当前已安装版本的APK")
+                        layout.addWidget(self.allow_downgrade_checkbox)
+                        
+                        # 添加按钮
+                        button_box = QDialogButtonBox(QDialogButtonBox.Yes | QDialogButtonBox.No)
+                        button_box.accepted.connect(self.accept)
+                        button_box.rejected.connect(self.reject)
+                        layout.addWidget(button_box)
+                        
+                        self.setLayout(layout)
+                
+                # 显示对话框
+                dialog = BatchInstallDialog(self, device_id, folder_path)
+                result = dialog.exec_()
+                
+                if result == QDialog.Accepted:
+                    # 获取用户选择的降级安装选项
+                    allow_downgrade = dialog.allow_downgrade_checkbox.isChecked()
+                    
                     # 根据连接模式创建相应的线程
                     if self.connection_mode == 'u2':
                         from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
@@ -304,14 +331,16 @@ class ADB_Mainwindow(QMainWindow):
                             device_id, 
                             folder_path,
                             connection_mode='u2',
-                            u2_device=self.d
+                            u2_device=self.d,
+                            allow_downgrade=allow_downgrade
                         )
                     elif self.connection_mode == 'adb':
                         from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
                         self.batch_install_thread = ADBBatchInstallThread(
                             device_id, 
                             folder_path,
-                            connection_mode='adb'
+                            connection_mode='adb',
+                            allow_downgrade=allow_downgrade
                         )
                     else:
                         self.textBrowser.append("设备未连接！")
