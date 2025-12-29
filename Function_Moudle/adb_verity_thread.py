@@ -108,22 +108,7 @@ class ADBVerityThread(QThread):
     def _execute_verity_commands(self):
         """执行verity命令序列"""
         try:
-            # 1. 先执行adb disable-verity
-            self.progress_signal.emit("正在执行adb disable-verity...")
-            disable_result = self._execute_command("disable-verity")
-            
-            if disable_result is None:
-                self.error_signal.emit("执行adb disable-verity失败")
-                return False
-            
-            if self.connection_mode == 'u2':
-                disable_output = str(disable_result)
-            else:
-                disable_output = disable_result.stdout.strip() if hasattr(disable_result, 'stdout') else str(disable_result)
-            
-            self.progress_signal.emit(f"adb disable-verity执行结果: {disable_output}")
-            
-            # 2. 执行adb enable-verity
+            # 1. 执行adb enable-verity
             self.progress_signal.emit("正在执行adb enable-verity...")
             enable_result = self._execute_command("enable-verity")
             
@@ -137,6 +122,22 @@ class ADBVerityThread(QThread):
                 enable_output = enable_result.stdout.strip() if hasattr(enable_result, 'stdout') else str(enable_result)
             
             self.progress_signal.emit(f"adb enable-verity执行结果: {enable_output}")
+
+            # 2. 先执行adb disable-verity
+            self.progress_signal.emit("正在执行adb disable-verity...")
+            disable_result = self._execute_command("disable-verity")
+
+            if disable_result is None:
+                self.error_signal.emit("执行adb disable-verity失败")
+                return False
+
+            if self.connection_mode == 'u2':
+                disable_output = str(disable_result)
+            else:
+                disable_output = disable_result.stdout.strip() if hasattr(disable_result, 'stdout') else str(
+                    disable_result)
+
+            self.progress_signal.emit(f"adb disable-verity执行结果: {disable_output}")
             
             return True
         except Exception as e:
