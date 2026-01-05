@@ -40,12 +40,18 @@ except ImportError:
     # 如果导入失败，创建简单的回退配置
     class ConfigManagerFallback:
         def get(self, key, default=None):
-            # 默认的特殊包名列表
+            # 默认的特殊包名配置
             if key == "batch_install.special_packages":
-                return [
-                    "@com.saicmotor.voiceservice",
-                    "@com.saicmotor.adapterservice"
-                ]
+                return {
+                    "@com.saicmotor.voiceservice": {
+                        "delete_before_push": False,
+                        "description": "voiceservice包，只push不删除"
+                    },
+                    "@com.saicmotor.adapterservice": {
+                        "delete_before_push": True,
+                        "description": "adapterservice包，先删除再push"
+                    }
+                }
             return default
     
     config_manager = ConfigManagerFallback()
@@ -75,11 +81,17 @@ class ADBBatchInstallTestThread(QThread):
         self.connection_mode = connection_mode
         self.u2_device = u2_device
         
-        # 从配置文件读取特殊处理的包名
-        self.special_packages = config_manager.get("batch_install.special_packages", [
-            "@com.saicmotor.voiceservice",
-            "@com.saicmotor.adapterservice"
-        ])
+        # 从配置文件读取特殊处理的包名配置
+        self.special_packages_config = config_manager.get("batch_install.special_packages", {
+            "@com.saicmotor.voiceservice": {
+                "delete_before_push": False,
+                "description": "voiceservice包，只push不删除"
+            },
+            "@com.saicmotor.adapterservice": {
+                "delete_before_push": True,
+                "description": "adapterservice包，先删除再push"
+            }
+        })
 
     def _print_debug_info(self, title, info_dict):
         """打印调试信息"""
@@ -170,7 +182,11 @@ class ADBBatchInstallTestThread(QThread):
             return None
 
     def _get_package_install_path(self, package_name):
-        """获取包名的安装路径 - 测试模式"""
+        """获取包名的安装路径和文件名 - 测试模式
+        
+        Returns:
+            tuple: (完整apk路径, apk文件名) 或 None
+        """
         try:
             # 模拟执行adb shell pm path <包名> 命令
             command = f"shell pm path {package_name}"
@@ -189,13 +205,13 @@ class ADBBatchInstallTestThread(QThread):
             self.debug_signal.emit(f"[获取安装路径] 命令输出: {output}")
             
             # 解析路径，格式通常是：package:/data/app/包名-xxx/base.apk
-            # 我们需要提取目录部分
             if output.startswith("package:"):
                 apk_path = output.replace("package:", "").strip()
-                # 获取目录路径（去掉文件名）
-                dir_path = os.path.dirname(apk_path)
-                self.debug_signal.emit(f"[获取安装路径] 解析出的目录路径: {dir_path}")
-                return dir_path
+                # 获取文件名
+                apk_filename = os.path.basename(apk_path)
+                self.debug_signal.emit(f"[获取安装路径] 解析出的完整路径: {apk_path}")
+                self.debug_signal.emit(f"[获取安装路径] APK文件名: {apk_filename}")
+                return (apk_path, apk_filename)
             else:
                 self.debug_signal.emit(f"[获取安装路径] 输出格式不正确")
                 return None
@@ -346,31 +362,57 @@ class ADBBatchInstallTestThread(QThread):
                 
                 self.debug_signal.emit(f"[步骤1] 包名: {package_name}")
                 
-                # 检查是否为特殊包名
-                is_special = False
-                for special_package in self.special_packages:
-                    if package_name == special_package.replace("@", ""):
-                        is_special = True
+                # 检查是否为特殊包名，并获取配置信息
+                special_config = None
+                for config_key, config_value in self.special_packages_config.items():
+                    if package_name == config_key.replace("@", ""):
+                        special_config = config_value
                         break
                 
-                if is_special:
+                if special_config:
                     self.debug_signal.emit(f"[步骤2] 检测到特殊包名: {package_name}")
                     special_count += 1
                     
-                    # 获取安装路径
-                    self.debug_signal.emit(f"[步骤3] 获取安装路径...")
-                    install_path = self._get_package_install_path(package_name)
+                    # 从配置中获取是否删除原文件
+                    delete_before_push = special_config.get("delete_before_push", False)
+                    description = special_config.get("description", "")
                     
-                    if install_path is None:
+                    self.debug_signal.emit(f"[步骤2] 配置说明: {description}")
+                    self.debug_signal.emit(f"[步骤2] 删除原文件: {'是' if delete_before_push else '否'}")
+                    
+                    # 获取安装路径和文件名
+                    self.debug_signal.emit(f"[步骤3] 获取安装路径和文件名...")
+                    install_info = self._get_package_install_path(package_name)
+                    
+                    if install_info is None:
                         self.debug_signal.emit(f"[步骤3] 无法获取安装路径，将回退到普通安装")
                         # 如果无法获取路径，回退到普通安装
                         self.debug_signal.emit(f"[步骤4] 执行普通安装...")
                         success = self._simulate_install_apk(apk_path)
                     else:
-                        self.debug_signal.emit(f"[步骤3] 安装路径: {install_path}")
-                        # 执行push操作
-                        self.debug_signal.emit(f"[步骤4] 执行push操作...")
-                        success = self._simulate_push_apk_to_path(apk_path, install_path)
+                        device_apk_path, device_apk_filename = install_info
+                        self.debug_signal.emit(f"[步骤3] 设备APK路径: {device_apk_path}")
+                        self.debug_signal.emit(f"[步骤3] 设备APK文件名: {device_apk_filename}")
+                        
+                        # 根据配置决定是否删除原文件
+                        if delete_before_push:
+                            # 模拟删除设备上的apk文件
+                            self.debug_signal.emit(f"[步骤4] 模拟删除设备上的APK文件...")
+                            self.debug_signal.emit(f"[步骤4] 将执行命令: adb -s {self.device_id} shell rm -f {device_apk_path}")
+                            
+                            # 模拟push操作，使用原文件名
+                            target_dir = os.path.dirname(device_apk_path)
+                            target_path = f"{target_dir}/{device_apk_filename}"
+                            self.debug_signal.emit(f"[步骤5] 模拟push操作，使用原文件名...")
+                            self.debug_signal.emit(f"[步骤5] 目标路径: {target_path}")
+                            success = self._simulate_push_apk_to_path(apk_path, target_path)
+                        else:
+                            # 不删除原文件，直接push
+                            target_dir = os.path.dirname(device_apk_path)
+                            target_path = f"{target_dir}/{device_apk_filename}"
+                            self.debug_signal.emit(f"[步骤4] 模拟push操作（不删除原文件）...")
+                            self.debug_signal.emit(f"[步骤4] 目标路径: {target_path}")
+                            success = self._simulate_push_apk_to_path(apk_path, target_path)
                 else:
                     self.debug_signal.emit(f"[步骤2] 普通包名，执行普通安装")
                     # 执行普通安装
@@ -388,8 +430,9 @@ class ADBBatchInstallTestThread(QThread):
                 # 打印文件处理总结
                 file_summary = {
                     "包名": package_name,
-                    "是否为特殊包": "是" if is_special else "否",
-                    "操作类型": "push" if is_special else "install",
+                    "是否为特殊包": "是" if special_config else "否",
+                    "是否删除原文件": "是" if (special_config and special_config.get("delete_before_push", False)) else "否",
+                    "操作类型": "push" if special_config else "install",
                     "模拟结果": "成功" if success else "失败"
                 }
                 self._print_debug_info(f"文件处理完成 - {file_name}", file_summary)

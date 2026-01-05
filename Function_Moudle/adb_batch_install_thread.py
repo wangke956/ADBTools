@@ -40,12 +40,18 @@ except ImportError:
     # 如果导入失败，创建简单的回退配置
     class ConfigManagerFallback:
         def get(self, key, default=None):
-            # 默认的特殊包名列表
+            # 默认的特殊包名配置
             if key == "batch_install.special_packages":
-                return [
-                    "@com.saicmotor.voiceservice",
-                    "@com.saicmotor.adapterservice"
-                ]
+                return {
+                    "@com.saicmotor.voiceservice": {
+                        "delete_before_push": False,
+                        "description": "voiceservice包，只push不删除"
+                    },
+                    "@com.saicmotor.adapterservice": {
+                        "delete_before_push": True,
+                        "description": "adapterservice包，先删除再push"
+                    }
+                }
             return default
     
     config_manager = ConfigManagerFallback()
@@ -79,11 +85,17 @@ class ADBBatchInstallThread(QThread):
         self.u2_device = u2_device
         self.allow_downgrade = allow_downgrade
         
-        # 从配置文件读取特殊处理的包名
-        self.special_packages = config_manager.get("batch_install.special_packages", [
-            "@com.saicmotor.voiceservice",
-            "@com.saicmotor.adapterservice"
-        ])
+        # 从配置文件读取特殊处理的包名配置
+        self.special_packages_config = config_manager.get("batch_install.special_packages", {
+            "@com.saicmotor.voiceservice": {
+                "delete_before_push": False,
+                "description": "voiceservice包，只push不删除"
+            },
+            "@com.saicmotor.adapterservice": {
+                "delete_before_push": True,
+                "description": "adapterservice包，先删除再push"
+            }
+        })
 
     def _execute_adb_command(self, command, realtime=False):
         """执行ADB命令
@@ -168,7 +180,11 @@ class ADBBatchInstallThread(QThread):
             return None
 
     def _get_package_install_path(self, package_name):
-        """获取包名的安装路径"""
+        """获取包名的安装路径和文件名
+        
+        Returns:
+            tuple: (完整apk路径, apk文件名) 或 None
+        """
         try:
             command = f"shell pm path {package_name}"
             
@@ -190,13 +206,13 @@ class ADBBatchInstallThread(QThread):
             self.progress_signal.emit(f"命令返回: {output}")
             
             # 解析路径，格式通常是：package:/data/app/包名-xxx/base.apk
-            # 我们需要提取目录部分
             if output.startswith("package:"):
                 apk_path = output.replace("package:", "").strip()
-                # 获取目录路径（去掉文件名）
-                dir_path = os.path.dirname(apk_path)
-                self.progress_signal.emit(f"解析出的安装路径: {dir_path}")
-                return dir_path
+                # 获取文件名
+                apk_filename = os.path.basename(apk_path)
+                self.progress_signal.emit(f"解析出的安装路径: {apk_path}")
+                self.progress_signal.emit(f"APK文件名: {apk_filename}")
+                return (apk_path, apk_filename)
             else:
                 self.progress_signal.emit(f"未找到包 {package_name} 的安装路径")
                 return None
@@ -285,6 +301,43 @@ class ADBBatchInstallThread(QThread):
             self.error_signal.emit(f"push APK时发生错误: {str(e)}")
             return False
 
+    def _delete_device_apk(self, apk_path):
+        """删除设备上的APK文件"""
+        try:
+            command = f"shell rm -f {apk_path}"
+            
+            # 显示要执行的adb命令
+            self.progress_signal.emit(f"执行命令: adb -s {self.device_id} {command}")
+            
+            # 执行删除命令
+            result = self._execute_command(command)
+            
+            if result is None:
+                return False
+            
+            if self.connection_mode == 'u2':
+                output = str(result)
+            else:
+                output = result.stdout.strip() if hasattr(result, 'stdout') else str(result)
+            
+            # 显示完整的返回结果
+            self.progress_signal.emit(f"命令返回: {output}")
+            
+            # 检查是否删除成功
+            if "No such file or directory" in output:
+                self.progress_signal.emit(f"文件不存在: {apk_path}")
+                return True  # 文件不存在也算成功
+            elif "Permission denied" in output:
+                self.error_signal.emit(f"权限不足，无法删除文件: {apk_path}")
+                return False
+            else:
+                self.progress_signal.emit("删除成功！")
+                return True
+                
+        except Exception as e:
+            self.error_signal.emit(f"删除设备APK时发生错误: {str(e)}")
+            return False
+
     def _scan_apk_files(self):
         """扫描文件夹下的所有APK文件"""
         apk_files = []
@@ -349,28 +402,63 @@ class ADBBatchInstallThread(QThread):
                 
                 self.progress_signal.emit(f"  包名: {package_name}")
                 
-                # 检查是否为特殊包名
-                is_special = False
-                for special_package in self.special_packages:
-                    if package_name == special_package.replace("@", ""):
-                        is_special = True
+                # 检查是否为特殊包名，并获取配置信息
+                special_config = None
+                for config_key, config_value in self.special_packages_config.items():
+                    if package_name == config_key.replace("@", ""):
+                        special_config = config_value
                         break
                 
-                if is_special:
-                    self.progress_signal.emit(f"  检测到特殊包名，执行push操作")
+                if special_config:
                     special_count += 1
                     
-                    # 获取安装路径
-                    install_path = self._get_package_install_path(package_name)
+                    # 从配置中获取是否删除原文件
+                    delete_before_push = special_config.get("delete_before_push", False)
+                    description = special_config.get("description", "")
                     
-                    if install_path is None:
+                    self.progress_signal.emit(f"  检测到特殊包名: {package_name}")
+                    if description:
+                        self.progress_signal.emit(f"  配置说明: {description}")
+                    self.progress_signal.emit(f"  删除原文件: {'是' if delete_before_push else '否'}")
+                    
+                    # 获取安装路径和文件名
+                    install_info = self._get_package_install_path(package_name)
+                    
+                    if install_info is None:
                         self.progress_signal.emit(f"  无法获取安装路径，尝试普通安装")
                         # 如果无法获取路径，回退到普通安装
                         success = self._install_apk(apk_path, self.allow_downgrade)
                     else:
-                        self.progress_signal.emit(f"  安装路径: {install_path}")
-                        # 执行push操作
-                        success = self._push_apk_to_path(apk_path, install_path)
+                        device_apk_path, device_apk_filename = install_info
+                        self.progress_signal.emit(f"  设备APK路径: {device_apk_path}")
+                        self.progress_signal.emit(f"  设备APK文件名: {device_apk_filename}")
+                        
+                        # 根据配置决定是否删除原文件
+                        if delete_before_push:
+                            self.progress_signal.emit(f"  步骤1: 删除设备上的APK文件")
+                            delete_success = self._delete_device_apk(device_apk_path)
+                            
+                            if not delete_success:
+                                self.progress_signal.emit(f"  删除设备APK失败，尝试普通安装")
+                                success = self._install_apk(apk_path, self.allow_downgrade)
+                            else:
+                                # 2. 将本地apk push到设备，使用原文件名
+                                # 获取目标路径（目录路径）
+                                target_dir = os.path.dirname(device_apk_path)
+                                target_path = f"{target_dir}/{device_apk_filename}"
+                                
+                                self.progress_signal.emit(f"  步骤2: 将本地APK push到设备")
+                                self.progress_signal.emit(f"  目标路径: {target_path}")
+                                success = self._push_apk_to_path(apk_path, target_path)
+                        else:
+                            # 不删除原文件，直接push
+                            # 获取目标路径（目录路径）
+                            target_dir = os.path.dirname(device_apk_path)
+                            target_path = f"{target_dir}/{device_apk_filename}"
+                            
+                            self.progress_signal.emit(f"  执行push操作（不删除原文件）")
+                            self.progress_signal.emit(f"  目标路径: {target_path}")
+                            success = self._push_apk_to_path(apk_path, target_path)
                 else:
                     self.progress_signal.emit(f"  执行普通安装")
                     # 执行普通安装

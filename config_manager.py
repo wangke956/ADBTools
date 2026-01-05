@@ -39,10 +39,16 @@ class ConfigManager:
             "max_size": 10485760,  # 最大10MB
         },
         "batch_install": {
-            "special_packages": [
-                "@com.saicmotor.voiceservice",
-                "@com.saicmotor.adapterservice"
-            ]
+            "special_packages": {
+                "@com.saicmotor.voiceservice": {
+                    "delete_before_push": False,
+                    "description": "voiceservice包，只push不删除"
+                },
+                "@com.saicmotor.adapterservice": {
+                    "delete_before_push": True,
+                    "description": "adapterservice包，先删除再push"
+                }
+            }
         }
     }
     

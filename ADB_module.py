@@ -297,9 +297,14 @@ class ADB_Mainwindow(QMainWindow):
                             f'文件夹路径: {folder_path}\n\n'
                             '注意：\n'
                             '1. 对于普通APK文件，将执行adb install操作\n'
-                            '2. 对于@com.saicmotor.voiceservice和@com.saicmotor.adapterservice包名的APK，\n'
-                            '   将先获取安装路径，然后执行adb push操作\n'
-                            '3. 操作可能需要较长时间，请耐心等待'
+                            '2. 对于特殊包名的APK（如@com.saicmotor.adapterservice、@com.saicmotor.voiceservice）：\n'
+                            '   - 先执行adb shell pm path查询安装路径\n'
+                            '   - 根据配置文件决定是否删除原文件\n'
+                            '   - 将本地apk push到原路径，保持原文件名不变\n'
+                            '3. 当前配置的特殊包名处理方式：\n'
+                            '   - @com.saicmotor.adapterservice：删除原文件后推送\n'
+                            '   - @com.saicmotor.voiceservice：直接推送（不删除）\n'
+                            '4. 操作可能需要较长时间，请耐心等待'
                         )
                         layout.addWidget(info_label)
                         
