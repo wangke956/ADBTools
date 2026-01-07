@@ -205,6 +205,7 @@ class ADBDisableVerityThread(QThread):
             
             if result is None:
                 self.error_signal.emit("执行adb disable-verity失败")
+                self.result_signal.emit("adb disable-verity执行失败")
                 return
             
             if self.connection_mode == 'u2':
@@ -212,10 +213,18 @@ class ADBDisableVerityThread(QThread):
             else:
                 output = result.stdout.strip() if hasattr(result, 'stdout') else str(result)
             
-            self.result_signal.emit(f"adb disable-verity执行完成！\n执行结果: {output}")
+            # 检查执行结果
+            success_keywords = ['success', '成功', 'enabled', 'disabled', 'verity', '完成']
+            is_success = any(keyword.lower() in output.lower() for keyword in success_keywords) or output == ""
+            
+            if is_success:
+                self.result_signal.emit(f"adb disable-verity执行成功！\n执行结果: {output}")
+            else:
+                self.result_signal.emit(f"adb disable-verity执行完成\n执行结果: {output}")
             
         except Exception as e:
             self.error_signal.emit(f"执行adb disable-verity时发生错误: {str(e)}")
+            self.result_signal.emit("adb disable-verity执行失败")
 
 
 class ADBEnableVerityThread(QThread):
@@ -253,6 +262,7 @@ class ADBEnableVerityThread(QThread):
             
             if result is None:
                 self.error_signal.emit("执行adb enable-verity失败")
+                self.result_signal.emit("adb enable-verity执行失败")
                 return
             
             if self.connection_mode == 'u2':
@@ -260,7 +270,15 @@ class ADBEnableVerityThread(QThread):
             else:
                 output = result.stdout.strip() if hasattr(result, 'stdout') else str(result)
             
-            self.result_signal.emit(f"adb enable-verity执行完成！\n执行结果: {output}")
+            # 检查执行结果
+            success_keywords = ['success', '成功', 'enabled', 'disabled', 'verity', '完成']
+            is_success = any(keyword.lower() in output.lower() for keyword in success_keywords) or output == ""
+            
+            if is_success:
+                self.result_signal.emit(f"adb enable-verity执行成功！\n执行结果: {output}")
+            else:
+                self.result_signal.emit(f"adb enable-verity执行完成\n执行结果: {output}")
             
         except Exception as e:
             self.error_signal.emit(f"执行adb enable-verity时发生错误: {str(e)}")
+            self.result_signal.emit("adb enable-verity执行失败")

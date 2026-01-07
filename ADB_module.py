@@ -76,7 +76,8 @@ class ADB_Mainwindow(QMainWindow):
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
         self.vr_keyevent_combo = self.findChild(QtWidgets.QComboBox, 'vr_keyevent_combo')
         self.datong_factory_button = self.findChild(QtWidgets.QPushButton, 'datong_factory_button')
-        self.datong_verity_button = self.findChild(QtWidgets.QPushButton, 'datong_verity_button')
+        self.datong_disable_verity_button = self.findChild(QtWidgets.QPushButton, 'datong_disable_verity_button')
+        self.datong_enable_verity_button = self.findChild(QtWidgets.QPushButton, 'datong_enable_verity_button')
         self.datong_batch_install_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_button')
         self.datong_batch_install_test_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_test_button')
         self.d = None
@@ -128,7 +129,8 @@ class ADB_Mainwindow(QMainWindow):
         self.set_vr_server_timout.clicked.connect(self.set_vr_timeout)
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
         self.datong_factory_button.clicked.connect(self.datong_factory_action)  # 拉起中环工厂
-        self.datong_verity_button.clicked.connect(self.datong_verity_action)  # 禁用并启用verity校验
+        self.datong_disable_verity_button.clicked.connect(self.datong_disable_verity_action)  # 禁用verity校验 (adb disable-verity)
+        self.datong_enable_verity_button.clicked.connect(self.datong_enable_verity_action)  # 启用verity校验 (adb enable-verity)
         self.datong_batch_install_button.clicked.connect(self.datong_batch_install_action)  # 批量安装APK文件
         self.datong_batch_install_test_button.clicked.connect(self.datong_batch_verify_version_action)  # 验证批量推包版本号
         
@@ -250,6 +252,160 @@ class ADB_Mainwindow(QMainWindow):
                 self.textBrowser.append(f"启动verity命令线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
+
+    def datong_disable_verity_action(self):
+        """执行adb disable-verity命令"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出确认对话框
+                from PyQt5.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self, 
+                    '确认执行adb disable-verity',
+                    f'是否要在设备 {device_id} 上执行adb disable-verity命令？\n\n'
+                    '注意：\n'
+                    '1. 此操作将禁用设备的verity校验\n'
+                    '2. 执行成功后需要将主机断电重启才能生效\n'
+                    '3. 请确保已保存所有工作',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 根据连接模式创建相应的线程
+                    if self.connection_mode == 'u2':
+                        from Function_Moudle.adb_verity_thread import ADBDisableVerityThread
+                        self.disable_verity_thread = ADBDisableVerityThread(
+                            device_id, 
+                            connection_mode='u2',
+                            u2_device=self.d
+                        )
+                    elif self.connection_mode == 'adb':
+                        from Function_Moudle.adb_verity_thread import ADBDisableVerityThread
+                        self.disable_verity_thread = ADBDisableVerityThread(
+                            device_id, 
+                            connection_mode='adb'
+                        )
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
+                    # 连接信号
+                    self.disable_verity_thread.progress_signal.connect(self.textBrowser.append)
+                    self.disable_verity_thread.error_signal.connect(self.textBrowser.append)
+                    self.disable_verity_thread.result_signal.connect(self.handle_disable_verity_result)
+                    
+                    # 启动线程
+                    self.disable_verity_thread.start()
+                else:
+                    self.textBrowser.append("用户取消执行adb disable-verity命令")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"启动adb disable-verity命令线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def handle_disable_verity_result(self, result_message):
+        """处理adb disable-verity执行结果"""
+        self.textBrowser.append(result_message)
+        
+        # 检查是否执行成功
+        if "执行完成" in result_message or "成功" in result_message:
+            # 弹出成功提示对话框
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                'adb disable-verity执行成功',
+                'adb disable-verity命令执行成功！\n\n'
+                '重要提示：\n'
+                '请将主机断电重启以使更改生效。\n\n'
+                '操作步骤：\n'
+                '1. 关闭所有应用程序\n'
+                '2. 断开设备连接\n'
+                '3. 关闭主机电源\n'
+                '4. 等待10秒后重新启动主机',
+                QMessageBox.Ok
+            )
+
+    def datong_enable_verity_action(self):
+        """执行adb enable-verity命令"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出确认对话框
+                from PyQt5.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self, 
+                    '确认执行adb enable-verity',
+                    f'是否要在设备 {device_id} 上执行adb enable-verity命令？\n\n'
+                    '注意：\n'
+                    '1. 此操作将启用设备的verity校验\n'
+                    '2. 执行成功后需要将主机断电重启才能生效\n'
+                    '3. 请确保已保存所有工作',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 根据连接模式创建相应的线程
+                    if self.connection_mode == 'u2':
+                        from Function_Moudle.adb_verity_thread import ADBEnableVerityThread
+                        self.enable_verity_thread = ADBEnableVerityThread(
+                            device_id, 
+                            connection_mode='u2',
+                            u2_device=self.d
+                        )
+                    elif self.connection_mode == 'adb':
+                        from Function_Moudle.adb_verity_thread import ADBEnableVerityThread
+                        self.enable_verity_thread = ADBEnableVerityThread(
+                            device_id, 
+                            connection_mode='adb'
+                        )
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
+                    # 连接信号
+                    self.enable_verity_thread.progress_signal.connect(self.textBrowser.append)
+                    self.enable_verity_thread.error_signal.connect(self.textBrowser.append)
+                    self.enable_verity_thread.result_signal.connect(self.handle_enable_verity_result)
+                    
+                    # 启动线程
+                    self.enable_verity_thread.start()
+                else:
+                    self.textBrowser.append("用户取消执行adb enable-verity命令")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"启动adb enable-verity命令线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def handle_enable_verity_result(self, result_message):
+        """处理adb enable-verity执行结果"""
+        self.textBrowser.append(result_message)
+        
+        # 检查是否执行成功
+        if "执行完成" in result_message or "成功" in result_message:
+            # 弹出成功提示对话框
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                'adb enable-verity执行成功',
+                'adb enable-verity命令执行成功！\n\n'
+                '重要提示：\n'
+                '请将主机断电重启以使更改生效。\n\n'
+                '操作步骤：\n'
+                '1. 关闭所有应用程序\n'
+                '2. 断开设备连接\n'
+                '3. 关闭主机电源\n'
+                '4. 等待10秒后重新启动主机',
+                QMessageBox.Ok
+            )
 
     def datong_batch_install_action(self):
         """批量安装APK文件"""

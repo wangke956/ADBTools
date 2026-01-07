@@ -729,8 +729,8 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>221</width>
-          <height>241</height>
+          <width>301</width>
+          <height>191</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_datong">
@@ -760,7 +760,7 @@ p, li { white-space: pre-wrap; }
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="datong_verity_button">
+          <widget class="QPushButton" name="datong_enable_verity_button">
            <property name="minimumSize">
             <size>
              <width>200</width>
@@ -780,7 +780,32 @@ p, li { white-space: pre-wrap; }
             </font>
            </property>
            <property name="text">
-            <string>禁用并启用verity校验</string>
+            <string>启用verity校验 (adb enable-verity)</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="datong_disable_verity_button">
+           <property name="minimumSize">
+            <size>
+             <width>200</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>50</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <family>Arial Rounded MT Bold</family>
+             <pointsize>12</pointsize>
+            </font>
+           </property>
+           <property name="text">
+            <string>禁用verity校验 (adb disable-verity)</string>
            </property>
           </widget>
          </item>
@@ -1103,7 +1128,7 @@ p, li { white-space: pre-wrap; }
         <property name="title">
          <string>VR测试</string>
         </property>
-        <widget class="QWidget" name="">
+        <widget class="QWidget" name="layoutWidget">
          <property name="geometry">
           <rect>
            <x>11</x>
