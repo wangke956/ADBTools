@@ -31,6 +31,9 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 
 # noinspection DuplicatedCode,SpellCheckingInspection
 class ADB_Mainwindow(QMainWindow):
+    # 软件版本常量
+    VERSION = "1.0"
+    
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
         self.app_name = None
@@ -158,6 +161,11 @@ class ADB_Mainwindow(QMainWindow):
         adb_config_action.triggered.connect(self.open_config_dialog)
         settings_menu.addAction(adb_config_action)
         
+        # 检查更新
+        check_update_action = QtWidgets.QAction('检查更新', self)
+        check_update_action.triggered.connect(self.check_for_updates)
+        settings_menu.addAction(check_update_action)
+        
         # 分隔线
         settings_menu.addSeparator()
         
@@ -179,11 +187,111 @@ class ADB_Mainwindow(QMainWindow):
         """显示关于信息"""
         from PyQt5.QtWidgets import QMessageBox
         QMessageBox.about(self, "关于 ADBTools", 
-            "ADBTools v1.0\n\n"
+            f"ADBTools v{self.VERSION}\n\n"
             "一个功能强大的ADB调试工具\n"
             "支持多种设备管理功能\n\n"
             "作者: 王克\n"
             "GitHub: https://github.com/wangke956/ADBTools")
+
+    def check_for_updates(self):
+        """检查更新"""
+        try:
+            from Function_Moudle.check_update_thread import CheckUpdateThread
+            
+            # 创建检查更新线程
+            self.check_update_thread = CheckUpdateThread(current_version=self.VERSION)
+            
+            # 连接信号
+            self.check_update_thread.progress_signal.connect(self.textBrowser.append)
+            self.check_update_thread.error_signal.connect(self.textBrowser.append)
+            self.check_update_thread.update_available_signal.connect(self.handle_update_available)
+            self.check_update_thread.no_update_signal.connect(self.handle_no_update)
+            self.check_update_thread.check_failed_signal.connect(self.handle_check_failed)
+            
+            # 启动线程
+            self.check_update_thread.start()
+            
+            self.textBrowser.append("正在检查更新，请稍候...")
+            
+        except ImportError as e:
+            self.textBrowser.append(f"无法导入检查更新模块: {e}")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "检查更新失败", 
+                f"无法启动检查更新功能:\n\n{str(e)}\n\n请确保requests库已安装。")
+        except Exception as e:
+            self.textBrowser.append(f"启动检查更新失败: {e}")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "检查更新失败", 
+                f"启动检查更新时发生错误:\n\n{str(e)}")
+
+    def handle_update_available(self, update_info):
+        """处理有更新可用的信号"""
+        from PyQt5.QtWidgets import QMessageBox
+        
+        current_version = update_info.get('current_version', '未知')
+        latest_version = update_info.get('latest_version', '未知')
+        release_name = update_info.get('release_name', '')
+        release_body = update_info.get('release_body', '')
+        download_url = update_info.get('download_url', 'https://github.com/wangke956/ADBTools')
+        is_fallback = update_info.get('is_fallback', False)
+        
+        # 构建消息
+        if is_fallback:
+            message = f"GitHub仓库信息\n\n"
+            message += f"当前版本: v{current_version}\n"
+            message += f"仓库状态: 尚未创建发布版本\n\n"
+        else:
+            message = f"发现新版本！\n\n"
+            message += f"当前版本: v{current_version}\n"
+            message += f"最新版本: v{latest_version}\n\n"
+        
+        if release_name:
+            message += f"名称: {release_name}\n\n"
+        
+        if release_body:
+            # 限制更新说明的长度
+            if len(release_body) > 500:
+                release_body = release_body[:500] + "..."
+            message += f"说明:\n{release_body}\n\n"
+        
+        message += f"GitHub地址: {download_url}\n\n"
+        
+        if is_fallback:
+            message += "此仓库尚未创建发布版本。是否要打开浏览器访问GitHub仓库？"
+        else:
+            message += "是否要打开浏览器访问下载页面？"
+        
+        # 显示更新提示对话框
+        title = "GitHub仓库信息" if is_fallback else "发现新版本"
+        reply = QMessageBox.information(
+            self,
+            title,
+            message,
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        
+        if reply == QMessageBox.Yes:
+            # 打开浏览器
+            import webbrowser
+            try:
+                webbrowser.open(download_url)
+            except Exception as e:
+                self.textBrowser.append(f"打开浏览器失败: {e}")
+                QMessageBox.warning(self, "打开浏览器失败", 
+                    f"无法打开浏览器访问页面:\n\n{str(e)}\n\n请手动访问: {download_url}")
+
+    def handle_no_update(self, message):
+        """处理无更新的信号"""
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(self, "检查更新", message)
+
+    def handle_check_failed(self, error_message):
+        """处理检查更新失败的信号"""
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.warning(self, "检查更新失败", 
+            f"检查更新时发生错误:\n\n{error_message}\n\n"
+            "请检查网络连接后重试。")
 
     def open_yf_page(self):
         self.start_app_action(app_name = "com.yfve.usbupdate")
