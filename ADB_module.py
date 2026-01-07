@@ -32,7 +32,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 # noinspection DuplicatedCode,SpellCheckingInspection
 class ADB_Mainwindow(QMainWindow):
     # 软件版本常量
-    VERSION = "1.0"
+    VERSION = "1.2"
     
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
@@ -232,8 +232,9 @@ class ADB_Mainwindow(QMainWindow):
         latest_version = update_info.get('latest_version', '未知')
         release_name = update_info.get('release_name', '')
         release_body = update_info.get('release_body', '')
-        download_url = update_info.get('download_url', 'https://github.com/wangke956/ADBTools')
+        html_url = update_info.get('html_url', 'https://github.com/wangke956/ADBTools')
         is_fallback = update_info.get('is_fallback', False)
+        setup_file = update_info.get('setup_file')
         
         # 构建消息
         if is_fallback:
@@ -250,36 +251,151 @@ class ADB_Mainwindow(QMainWindow):
         
         if release_body:
             # 限制更新说明的长度
-            if len(release_body) > 500:
-                release_body = release_body[:500] + "..."
+            if len(release_body) > 300:
+                release_body = release_body[:300] + "..."
             message += f"说明:\n{release_body}\n\n"
         
-        message += f"GitHub地址: {download_url}\n\n"
+        # 添加安装文件信息
+        if setup_file and not is_fallback:
+            file_name = setup_file.get('name', '未知文件')
+            file_size = setup_file.get('size', 0)
+            
+            # 格式化文件大小
+            def format_size(size):
+                if size < 1024:
+                    return f"{size} B"
+                elif size < 1024 * 1024:
+                    return f"{size/1024:.1f} KB"
+                elif size < 1024 * 1024 * 1024:
+                    return f"{size/(1024*1024):.1f} MB"
+                else:
+                    return f"{size/(1024*1024*1024):.1f} GB"
+                    
+            size_str = format_size(file_size)
+            message += f"安装文件: {file_name} ({size_str})\n\n"
+        
+        message += f"GitHub地址: {html_url}\n\n"
         
         if is_fallback:
             message += "此仓库尚未创建发布版本。是否要打开浏览器访问GitHub仓库？"
+            
+            # 显示更新提示对话框
+            title = "GitHub仓库信息"
+            reply = QMessageBox.information(
+                self,
+                title,
+                message,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                # 打开浏览器
+                import webbrowser
+                try:
+                    webbrowser.open(html_url)
+                except Exception as e:
+                    self.textBrowser.append(f"打开浏览器失败: {e}")
+                    QMessageBox.warning(self, "打开浏览器失败", 
+                        f"无法打开浏览器访问页面:\n\n{str(e)}\n\n请手动访问: {html_url}")
         else:
-            message += "是否要打开浏览器访问下载页面？"
-        
-        # 显示更新提示对话框
-        title = "GitHub仓库信息" if is_fallback else "发现新版本"
-        reply = QMessageBox.information(
-            self,
-            title,
-            message,
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes
-        )
-        
-        if reply == QMessageBox.Yes:
-            # 打开浏览器
-            import webbrowser
-            try:
-                webbrowser.open(download_url)
-            except Exception as e:
-                self.textBrowser.append(f"打开浏览器失败: {e}")
-                QMessageBox.warning(self, "打开浏览器失败", 
-                    f"无法打开浏览器访问页面:\n\n{str(e)}\n\n请手动访问: {download_url}")
+            # 有安装文件可用，提供更多选项
+            if setup_file:
+                # 创建自定义对话框
+                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+                
+                dialog = QDialog(self)
+                dialog.setWindowTitle("发现新版本")
+                dialog.setMinimumWidth(400)
+                
+                layout = QVBoxLayout()
+                
+                # 消息标签
+                msg_label = QLabel(message)
+                msg_label.setWordWrap(True)
+                layout.addWidget(msg_label)
+                
+                # 按钮布局
+                button_layout = QHBoxLayout()
+                
+                # 自动下载并安装按钮
+                auto_download_btn = QPushButton("自动下载并安装")
+                auto_download_btn.clicked.connect(lambda: self._start_auto_download(update_info, dialog))
+                
+                # 手动下载按钮
+                manual_download_btn = QPushButton("手动下载")
+                manual_download_btn.clicked.connect(lambda: self._open_browser(html_url, dialog))
+                
+                # 取消按钮
+                cancel_btn = QPushButton("取消")
+                cancel_btn.clicked.connect(dialog.reject)
+                
+                button_layout.addWidget(auto_download_btn)
+                button_layout.addWidget(manual_download_btn)
+                button_layout.addWidget(cancel_btn)
+                
+                layout.addLayout(button_layout)
+                dialog.setLayout(layout)
+                
+                dialog.exec_()
+            else:
+                # 没有安装文件，只有手动下载选项
+                message += "是否要打开浏览器访问下载页面？"
+                
+                reply = QMessageBox.information(
+                    self,
+                    "发现新版本",
+                    message,
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    self._open_browser(html_url)
+
+    def _open_browser(self, url, dialog=None):
+        """打开浏览器"""
+        import webbrowser
+        try:
+            webbrowser.open(url)
+            if dialog:
+                dialog.accept()
+        except Exception as e:
+            self.textBrowser.append(f"打开浏览器失败: {e}")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "打开浏览器失败", 
+                f"无法打开浏览器访问页面:\n\n{str(e)}\n\n请手动访问: {url}")
+            if dialog:
+                dialog.reject()
+                
+    def _start_auto_download(self, update_info, dialog=None):
+        """启动自动下载"""
+        try:
+            from Function_Moudle.download_dialog import DownloadDialog
+            
+            # 创建下载对话框
+            download_dialog = DownloadDialog(self, update_info)
+            
+            if dialog:
+                dialog.accept()
+                
+            # 显示下载对话框
+            download_dialog.exec_()
+            
+        except ImportError as e:
+            self.textBrowser.append(f"无法导入下载模块: {e}")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "自动下载失败", 
+                f"无法启动自动下载功能:\n\n{str(e)}\n\n请尝试手动下载。")
+            if dialog:
+                dialog.reject()
+        except Exception as e:
+            self.textBrowser.append(f"启动自动下载失败: {e}")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "自动下载失败", 
+                f"启动自动下载时发生错误:\n\n{str(e)}")
+            if dialog:
+                dialog.reject()
 
     def handle_no_update(self, message):
         """处理无更新的信号"""
