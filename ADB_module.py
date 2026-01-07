@@ -1467,16 +1467,36 @@ class ADB_Mainwindow(QMainWindow):
     #     subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
 
     def refresh_devices(self):
+        """刷新设备列表（多线程执行，避免阻塞主界面）"""
+        # 检查是否已经有刷新线程在运行
+        if hasattr(self, 'refresh_devices_thread') and self.refresh_devices_thread.isRunning():
+            self.textBrowser.append("刷新设备列表线程正在运行，请稍候...")
+            return
+        
         # 使用线程刷新设备列表
         try:
             from Function_Moudle.refresh_devices_thread import RefreshDevicesThread
             self.refresh_devices_thread = RefreshDevicesThread()
+            
+            # 连接信号
             self.refresh_devices_thread.progress_signal.connect(self.textBrowser.append)
             self.refresh_devices_thread.devices_signal.connect(self._handle_refreshed_devices)
             self.refresh_devices_thread.error_signal.connect(self.textBrowser.append)
+            
+            # 连接线程完成信号
+            self.refresh_devices_thread.finished.connect(self._on_refresh_thread_finished)
+            
+            # 启动线程
             self.refresh_devices_thread.start()
+            self.textBrowser.append("开始刷新设备列表...")
+            
         except Exception as e:
             self.textBrowser.append(f"启动刷新线程失败: {e}")
+    
+    def _on_refresh_thread_finished(self):
+        """刷新线程完成后的清理工作"""
+        self.textBrowser.append("设备列表刷新完成")
+        # 可以在这里添加其他清理工作
     
     def _handle_refreshed_devices(self, device_ids):
         """处理刷新后的设备列表（在主线程中执行）"""
@@ -1492,22 +1512,45 @@ class ADB_Mainwindow(QMainWindow):
                 self.device_id = device_id
                 # 检查是否已经连接过（避免重复连接）
                 if not self.d or self.connection_mode != 'u2':
-                    try:
-                        # 尝试u2连接
-                        self.d = u2.connect(device_id)
-                        if self.d:
-                            self.connection_mode = 'u2'
-                            self.textBrowser.append(f"u2连接成功：{device_id}")
-                        else:
-                            raise Exception("u2连接返回空对象")
-                    except Exception as u2_error:
-                        # u2连接失败，使用ADB模式
-                        self.d = None
-                        self.connection_mode = 'adb'
-                        self.textBrowser.append(f"u2连接失败：{u2_error}")
-                        self.textBrowser.append(f"切换到ADB模式：{device_id}")
+                    # 使用单独的线程尝试u2连接，避免阻塞主界面
+                    self._try_u2_connection_in_thread(device_id)
+                else:
+                    self.textBrowser.append(f"已使用u2模式连接到设备: {device_id}")
         else:
-            self.textBrowser.append(f"未连接设备！")
+            self.textBrowser.append("未检测到任何设备")
+    
+    def _try_u2_connection_in_thread(self, device_id):
+        """在单独的线程中尝试u2连接"""
+        try:
+            from Function_Moudle.u2_connect_thread import U2ConnectThread
+            self.u2_connect_thread = U2ConnectThread(device_id)
+            
+            # 连接信号
+            self.u2_connect_thread.progress_signal.connect(self.textBrowser.append)
+            self.u2_connect_thread.error_signal.connect(self.textBrowser.append)
+            self.u2_connect_thread.connected_signal.connect(self._handle_u2_connection_result)
+            
+            # 启动线程
+            self.u2_connect_thread.start()
+            
+        except Exception as e:
+            self.textBrowser.append(f"启动u2连接线程失败: {e}")
+            # 回退到ADB模式
+            self.d = None
+            self.connection_mode = 'adb'
+            self.textBrowser.append(f"使用ADB模式: {device_id}")
+    
+    def _handle_u2_connection_result(self, u2_device, device_id):
+        """处理u2连接结果"""
+        if u2_device:
+            self.d = u2_device
+            self.connection_mode = 'u2'
+            self.textBrowser.append(f"u2连接成功: {device_id}")
+        else:
+            # u2连接失败，使用ADB模式
+            self.d = None
+            self.connection_mode = 'adb'
+            self.textBrowser.append(f"u2连接失败，使用ADB模式: {device_id}")
 
     def adb_root_wrapper(self):
         device_id = self.get_selected_device()

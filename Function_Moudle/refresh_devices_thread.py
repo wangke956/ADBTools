@@ -1,8 +1,26 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 import subprocess
-import uiautomator2 as u2
+import sys
+import os
+
+# 添加项目根目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+try:
+    from adb_utils import ADBUtils
+except ImportError:
+    # 如果直接导入失败，尝试相对导入
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("adb_utils", os.path.join(project_root, "adb_utils.py"))
+    adb_utils_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(adb_utils_module)
+    ADBUtils = adb_utils_module.ADBUtils
 
 class RefreshDevicesThread(QThread):
+    """刷新设备列表线程（多线程执行，避免阻塞主界面）"""
     progress_signal = pyqtSignal(str)
     devices_signal = pyqtSignal(list)  # 发送设备列表
     error_signal = pyqtSignal(str)
@@ -12,35 +30,54 @@ class RefreshDevicesThread(QThread):
         self.device_ids = []
         
     def run(self):
+        """执行刷新设备列表操作"""
         try:
             self.progress_signal.emit("正在刷新设备列表...")
             
-            # 执行 adb devices 命令
-            result = subprocess.run(
-                "adb devices", 
-                shell=True, 
-                check=True, 
-                capture_output=True, 
-                text=True, 
-                encoding='utf-8', 
-                errors='ignore'
+            # 使用项目统一的ADB工具类执行命令
+            result = ADBUtils.run_adb_command(
+                command="devices",
+                timeout=10  # 设置10秒超时
             )
             
-            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+            if result.returncode != 0:
+                self.error_signal.emit(f"ADB命令执行失败: {result.stderr}")
+                self.devices_signal.emit([])
+                return
+            
+            # 解析设备列表
+            output = result.stdout.strip()
+            if not output:
+                self.progress_signal.emit("ADB命令返回空结果")
+                self.devices_signal.emit([])
+                return
+            
+            # 解析设备列表输出
+            lines = output.split('\n')
+            device_ids = []
+            
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith("List of devices"):
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1] in ["device", "offline"]:
+                        device_ids.append(parts[0])
             
             self.device_ids = device_ids
             
             if device_ids:
+                device_count = len(device_ids)
                 device_ids_str = "\n".join(device_ids)
-                self.progress_signal.emit(f"设备列表已刷新：")
+                self.progress_signal.emit(f"找到 {device_count} 个设备：")
                 self.progress_signal.emit(device_ids_str)
                 self.devices_signal.emit(device_ids)
             else:
-                self.progress_signal.emit("未检测到任何设备")
+                self.progress_signal.emit("未检测到任何已连接的设备")
                 self.devices_signal.emit([])
                 
-        except subprocess.CalledProcessError as e:
-            self.error_signal.emit(f"ADB命令执行失败: {e}")
+        except subprocess.TimeoutExpired:
+            self.error_signal.emit("刷新设备列表超时，请检查ADB连接")
+            self.devices_signal.emit([])
         except Exception as e:
             self.error_signal.emit(f"刷新设备列表时发生错误: {str(e)}")
+            self.devices_signal.emit([])
