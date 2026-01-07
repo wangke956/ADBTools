@@ -830,7 +830,7 @@ p, li { white-space: pre-wrap; }
             </font>
            </property>
            <property name="text">
-            <string>测试批量安装功能</string>
+            <string>验证批量推包版本号</string>
            </property>
           </widget>
          </item>

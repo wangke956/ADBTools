@@ -130,7 +130,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_factory_button.clicked.connect(self.datong_factory_action)  # 拉起中环工厂
         self.datong_verity_button.clicked.connect(self.datong_verity_action)  # 禁用并启用verity校验
         self.datong_batch_install_button.clicked.connect(self.datong_batch_install_action)  # 批量安装APK文件
-        self.datong_batch_install_test_button.clicked.connect(self.datong_batch_install_test_action)  # 测试批量安装功能
+        self.datong_batch_install_test_button.clicked.connect(self.datong_batch_verify_version_action)  # 验证批量推包版本号
         
         # 添加配置菜单
         self.add_config_menu()
@@ -445,6 +445,89 @@ class ADB_Mainwindow(QMainWindow):
                     
             except Exception as e:
                 self.textBrowser.append(f"启动批量安装测试线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def datong_batch_verify_version_action(self):
+        """验证批量推包版本号 - 检查APK文件版本号与设备中版本号是否一致"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出文件夹选择框
+                from PyQt5.QtWidgets import QFileDialog, QMessageBox
+                folder_path = QFileDialog.getExistingDirectory(
+                    self,
+                    "选择APK文件夹（验证版本号）",
+                    "",  # 默认路径为空
+                    QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+                )
+                
+                if not folder_path:
+                    self.textBrowser.append("用户取消选择文件夹")
+                    return
+                
+                # 检查文件夹是否存在
+                import os
+                if not os.path.exists(folder_path):
+                    self.textBrowser.append(f"文件夹不存在: {folder_path}")
+                    return
+                
+                if not os.path.isdir(folder_path):
+                    self.textBrowser.append(f"路径不是文件夹: {folder_path}")
+                    return
+                
+                # 弹出确认对话框
+                reply = QMessageBox.question(
+                    self, 
+                    '确认验证版本号',
+                    f'是否要在设备 {device_id} 上验证批量推包版本号？\n\n'
+                    f'文件夹路径: {folder_path}\n\n'
+                    '功能说明：\n'
+                    '1. 扫描文件夹内所有APK文件\n'
+                    '2. 提取每个APK的包名和版本号\n'
+                    '3. 在设备上查询对应包名的版本号\n'
+                    '4. 对比APK版本号和设备版本号\n'
+                    '5. 显示验证结果（成功/失败）',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 创建验证线程
+                    from Function_Moudle.adb_batch_verify_version_thread import ADBBatchVerifyVersionThread
+                    
+                    if self.connection_mode == 'u2':
+                        self.batch_verify_version_thread = ADBBatchVerifyVersionThread(
+                            device_id, 
+                            folder_path,
+                            connection_mode='u2',
+                            u2_device=self.d
+                        )
+                    elif self.connection_mode == 'adb':
+                        self.batch_verify_version_thread = ADBBatchVerifyVersionThread(
+                            device_id, 
+                            folder_path,
+                            connection_mode='adb'
+                        )
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
+                    # 连接信号
+                    self.batch_verify_version_thread.progress_signal.connect(self.textBrowser.append)
+                    self.batch_verify_version_thread.error_signal.connect(self.textBrowser.append)
+                    self.batch_verify_version_thread.result_signal.connect(self.textBrowser.append)
+                    self.batch_verify_version_thread.verify_result_signal.connect(self.textBrowser.append)
+                    
+                    # 启动线程
+                    self.batch_verify_version_thread.start()
+                else:
+                    self.textBrowser.append("用户取消验证")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"启动批量验证版本号线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
