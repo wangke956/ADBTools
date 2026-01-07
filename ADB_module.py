@@ -136,6 +136,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_enable_verity_button.clicked.connect(self.datong_enable_verity_action)  # 启用verity校验 (adb enable-verity)
         self.datong_batch_install_button.clicked.connect(self.datong_batch_install_action)  # 批量安装APK文件
         self.datong_batch_install_test_button.clicked.connect(self.datong_batch_verify_version_action)  # 验证批量推包版本号
+        self.datong_input_password_button.clicked.connect(self.datong_input_password_action)  # 一键输入密码
         
         # 添加配置菜单
         self.add_config_menu()
@@ -908,6 +909,64 @@ class ADB_Mainwindow(QMainWindow):
                     
             except Exception as e:
                 self.textBrowser.append(f"启动批量验证版本号线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def datong_input_password_action(self):
+        """一键输入密码 Kfs73p940a"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出确认对话框
+                from PyQt5.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self, 
+                    '确认输入密码',
+                    f'是否要在设备 {device_id} 上输入密码？\n\n'
+                    f'密码: Kfs73p940a\n\n'
+                    '注意：\n'
+                    '1. 此操作将模拟键盘输入密码\n'
+                    '2. 请确保设备当前处于输入框焦点状态\n'
+                    '3. 密码将作为普通文本输入',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 根据连接模式创建相应的线程
+                    if self.connection_mode == 'u2':
+                        from Function_Moudle.datong_input_password_thread import DatongInputPasswordThread
+                        self.input_password_thread = DatongInputPasswordThread(
+                            device_id, 
+                            password="Kfs73p940a",
+                            connection_mode='u2',
+                            u2_device=self.d
+                        )
+                    elif self.connection_mode == 'adb':
+                        from Function_Moudle.datong_input_password_thread import DatongInputPasswordThread
+                        self.input_password_thread = DatongInputPasswordThread(
+                            device_id, 
+                            password="Kfs73p940a",
+                            connection_mode='adb'
+                        )
+                    else:
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
+                    # 连接信号
+                    self.input_password_thread.progress_signal.connect(self.textBrowser.append)
+                    self.input_password_thread.error_signal.connect(self.textBrowser.append)
+                    self.input_password_thread.result_signal.connect(self.textBrowser.append)
+                    
+                    # 启动线程
+                    self.input_password_thread.start()
+                else:
+                    self.textBrowser.append("用户取消输入密码")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"启动密码输入线程失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
