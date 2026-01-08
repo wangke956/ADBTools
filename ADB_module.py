@@ -5,6 +5,7 @@ from Function_Moudle.adb_root_wrapper_thread import AdbRootWrapperThread
 import uiautomator2 as u2
 import os
 from PyQt5 import uic
+from adb_utils import adb_utils
 
 class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 
@@ -83,6 +84,8 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_enable_verity_button = self.findChild(QtWidgets.QPushButton, 'datong_enable_verity_button')
         self.datong_batch_install_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_button')
         self.datong_batch_install_test_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_test_button')
+        self.datong_input_password_button = self.findChild(QtWidgets.QPushButton, 'datong_input_password_button')
+        self.datong_open_telenav_engineering_button = self.findChild(QtWidgets.QPushButton, 'datong_open_telenav_engineering_button')
         self.d = None
         self.device_id = None
         self.connection_mode = None  # 'u2' 或 'adb'
@@ -137,6 +140,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_batch_install_button.clicked.connect(self.datong_batch_install_action)  # 批量安装APK文件
         self.datong_batch_install_test_button.clicked.connect(self.datong_batch_verify_version_action)  # 验证批量推包版本号
         self.datong_input_password_button.clicked.connect(self.datong_input_password_action)  # 一键输入密码
+        self.datong_open_telenav_engineering_button.clicked.connect(self.datong_open_telenav_engineering_action)  # 打开泰维地图工程模式
         
         # 添加配置菜单
         self.add_config_menu()
@@ -967,6 +971,48 @@ class ADB_Mainwindow(QMainWindow):
                     
             except Exception as e:
                 self.textBrowser.append(f"启动密码输入线程失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+
+    def datong_open_telenav_engineering_action(self):
+        """打开泰维地图工程模式"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst:
+            try:
+                # 弹出确认对话框
+                from PyQt5.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self, 
+                    '确认打开泰维地图工程模式',
+                    f'是否要在设备 {device_id} 上打开泰维地图工程模式？\n\n'
+                    '命令: adb shell am start -n com.telenav.app.arp/com.telenav.arp.module.secret.SecretScreenActivity\n\n'
+                    '注意：此操作将尝试启动泰维地图的工程模式界面',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    self.textBrowser.append("正在打开泰维地图工程模式...")
+                    
+                    # 执行adb命令
+                    command = "shell am start -n com.telenav.app.arp/com.telenav.arp.module.secret.SecretScreenActivity"
+                    result = adb_utils.run_adb_command(command, device_id)
+                    
+                    if result.returncode == 0:
+                        self.textBrowser.append("泰维地图工程模式已成功启动")
+                        if result.stdout and result.stdout.strip():
+                            self.textBrowser.append(f"输出: {result.stdout.strip()}")
+                    else:
+                        self.textBrowser.append(f"打开泰维地图工程模式失败: {result.stderr}")
+                        if result.stdout and result.stdout.strip():
+                            self.textBrowser.append(f"输出: {result.stdout.strip()}")
+                else:
+                    self.textBrowser.append("用户取消打开泰维地图工程模式")
+                    
+            except Exception as e:
+                self.textBrowser.append(f"打开泰维地图工程模式失败: {e}")
         else:
             self.textBrowser.append("设备未连接！")
 
