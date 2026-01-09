@@ -5,6 +5,9 @@ from Function_Moudle.adb_root_wrapper_thread import AdbRootWrapperThread
 import uiautomator2 as u2
 import os
 from PyQt5 import uic
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtGui import QFont, QResizeEvent
+from PyQt5.QtWidgets import QMainWindow, QApplication, QSizePolicy, QPushButton, QWidget, QComboBox
 from adb_utils import adb_utils
 
 class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
@@ -152,6 +155,32 @@ class ADB_Mainwindow(QMainWindow):
                 self.config_button.clicked.connect(self.open_config_dialog)
         except:
             pass
+        
+        # 窗口缩放功能初始化
+        self.init_window_scaling()
+        
+        # 设置窗口标题包含版本号
+        self.setWindowTitle(f"ADBTools v{self.VERSION}")
+
+    def init_window_scaling(self):
+        """初始化窗口缩放功能"""
+        # 存储原始窗口大小作为基准
+        self.original_size = QSize(584, 601)  # UI文件中定义的原始大小
+        self.current_size = self.size()
+        
+        # 存储需要调整字体的控件类型
+        self.scalable_widget_types = ['QPushButton', 'QLabel', 'QComboBox', 'QTabWidget', 'QTextBrowser']
+        
+        # 基础字体大小（对应原始窗口大小）
+        self.base_font_size = 11  # 基础字体大小（从9增加到11）
+        
+        # 设置窗口缩放策略
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 获取中央部件并设置缩放策略
+        central_widget = self.centralWidget()
+        if central_widget:
+            central_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def add_config_menu(self):
         """添加配置菜单"""
@@ -2010,4 +2039,132 @@ class ADB_Mainwindow(QMainWindow):
                     self.textBrowser.append("已取消！")
         else:
             self.textBrowser.append("未连接设备！")
+    
+    # ============================================
+    # 窗口缩放功能相关方法
+    # ============================================
+    
+    def resizeEvent(self, event):
+        """重写窗口缩放事件"""
+        super().resizeEvent(event)
+        
+        # 更新当前窗口大小
+        self.current_size = self.size()
+        
+        # 计算缩放比例
+        width_ratio = self.current_size.width() / self.original_size.width()
+        height_ratio = self.current_size.height() / self.original_size.height()
+        
+        # 使用较小的缩放比例，避免过度缩放
+        scale_ratio = min(width_ratio, height_ratio)
+        
+        # 限制缩放范围在0.8到1.5之间
+        scale_ratio = max(0.8, min(1.5, scale_ratio))
+        
+        # 调整字体大小
+        self.adjust_font_sizes(scale_ratio)
+        
+        # 调整控件大小
+        self.adjust_widget_sizes(scale_ratio)
+    
+    def adjust_font_sizes(self, scale_ratio):
+        """根据缩放比例调整字体大小"""
+        try:
+            # 计算新的字体大小
+            new_font_size = max(1, int(self.base_font_size * scale_ratio))
+            
+            # 获取所有子控件
+            all_widgets = self.findChildren(QWidget)
+            
+            for widget in all_widgets:
+                widget_type = widget.__class__.__name__
                 
+                # 只调整特定类型的控件字体
+                if widget_type in self.scalable_widget_types:
+                    current_font = widget.font()
+                    
+                    # 根据控件类型设置不同的字体大小
+                    if widget_type == 'QTextBrowser':
+                        # 文本浏览器使用稍小的字体
+                        font_size = max(8, int(new_font_size * 0.9))
+                    elif widget_type == 'QPushButton':
+                        # 按钮使用标准字体大小
+                        font_size = new_font_size
+                    elif widget_type == 'QTabWidget':
+                        # 标签页使用标准字体大小
+                        font_size = new_font_size
+                    else:
+                        # 其他控件使用标准字体大小
+                        font_size = new_font_size
+                    
+                    current_font.setPointSize(font_size)
+                    widget.setFont(current_font)
+                    
+        except Exception as e:
+            # 字体调整失败时不中断程序
+            print(f"调整字体大小时出错: {e}")
+    
+    def adjust_widget_sizes(self, scale_ratio):
+        """根据缩放比例调整控件最小/最大尺寸"""
+        try:
+            # 获取所有按钮控件
+            buttons = self.findChildren(QPushButton)
+            
+            for button in buttons:
+                button_name = button.objectName()
+                button_text = button.text()
+                
+                # 对于刷新设备按钮，使用更保守的缩放
+                if button_name == 'RefreshButton':
+                    # 刷新按钮保持相对固定的大小
+                    button.setMinimumSize(120, 30)
+                    button.setMaximumSize(300, 50)
+                else:
+                    # 获取当前的最小尺寸
+                    current_min_size = button.minimumSize()
+                    if current_min_size.width() > 0 and current_min_size.height() > 0:
+                        # 计算新的最小尺寸
+                        new_min_width = int(current_min_size.width() * scale_ratio)
+                        new_min_height = int(current_min_size.height() * scale_ratio)
+                        
+                        # 为长文字按钮设置更大的最小宽度
+                        if len(button_text) > 10:  # 文字长度超过10个字符
+                            # 根据文字长度调整最小宽度
+                            text_length_factor = len(button_text) / 10.0
+                            new_min_width = max(new_min_width, int(120 * text_length_factor * scale_ratio))
+                        
+                        # 确保最小宽度足够显示文字
+                        new_min_width = max(new_min_width, 80)  # 最小80像素
+                        new_min_height = max(new_min_height, 25)  # 最小25像素
+                        
+                        # 设置新的最小尺寸
+                        button.setMinimumSize(new_min_width, new_min_height)
+                    
+                    # 获取当前的最大尺寸
+                    current_max_size = button.maximumSize()
+                    if current_max_size.width() < 16777215 and current_max_size.height() < 16777215:
+                        # 计算新的最大尺寸
+                        new_max_width = int(current_max_size.width() * scale_ratio)
+                        new_max_height = int(current_max_size.height() * scale_ratio)
+                        
+                        # 设置新的最大尺寸
+                        button.setMaximumSize(new_max_width, new_max_height)
+            
+            # 处理ComboBox控件
+            comboboxes = self.findChildren(QComboBox)
+            for combobox in comboboxes:
+                combobox_name = combobox.objectName()
+                
+                if combobox_name == 'ComboxButton':
+                    # 设备选择下拉框保持合理的最大宽度
+                    combobox.setMinimumSize(150, 30)
+                    combobox.setMaximumSize(500, 50)
+                    
+        except Exception as e:
+            # 控件大小调整失败时不中断程序
+            print(f"调整控件大小时出错: {e}")
+    
+    def update_scaling_settings(self):
+        """更新缩放设置（可用于配置对话框）"""
+        # 这里可以添加从配置文件读取缩放设置的逻辑
+        pass
