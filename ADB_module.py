@@ -35,8 +35,16 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 
 # noinspection DuplicatedCode,SpellCheckingInspection
 class ADB_Mainwindow(QMainWindow):
-    # 软件版本常量
-    VERSION = "1.4"
+    # 软件版本 - 从全局配置管理器获取
+    @property
+    def VERSION(self):
+        """获取软件版本号"""
+        try:
+            from config_manager import config_manager
+            return config_manager.get_version()
+        except ImportError:
+            # 如果config_manager不可用，返回默认版本
+            return "1.5.0"
     
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
@@ -181,6 +189,38 @@ class ADB_Mainwindow(QMainWindow):
         central_widget = self.centralWidget()
         if central_widget:
             central_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 初始化大通页面布局
+        self.init_datong_layout()
+    
+    def init_datong_layout(self):
+        """初始化大通页面布局"""
+        try:
+            from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+            
+            # 查找大通页面的布局容器
+            layout_widget = self.findChild(QWidget, "layoutWidget")
+            if layout_widget:
+                # 移除固定几何尺寸，改用布局管理
+                layout_widget.setGeometry(0, 0, 0, 0)  # 清除固定尺寸
+                
+                # 获取或创建布局
+                layout = layout_widget.layout()
+                if not layout:
+                    layout = QVBoxLayout(layout_widget)
+                    layout_widget.setLayout(layout)
+                
+                # 设置布局的边距和间距
+                layout.setContentsMargins(10, 10, 10, 10)
+                layout.setSpacing(8)
+                
+                # 设置布局容器的尺寸策略
+                layout_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                
+                print("大通页面布局初始化完成")
+                
+        except Exception as e:
+            print(f"初始化大通页面布局时出错: {e}")
 
     def add_config_menu(self):
         """添加配置菜单"""
@@ -2119,6 +2159,33 @@ class ADB_Mainwindow(QMainWindow):
                     # 刷新按钮保持相对固定的大小
                     button.setMinimumSize(120, 30)
                     button.setMaximumSize(300, 50)
+                # 对于大通页面所有按钮，使用更灵活的自适应尺寸
+                elif button_name in [
+                    'datong_factory_button',
+                    'datong_enable_verity_button',
+                    'datong_disable_verity_button', 
+                    'datong_batch_install_button',
+                    'datong_batch_install_test_button',
+                    'datong_input_password_button',
+                    'datong_open_telenav_engineering_button'
+                ]:
+                    # 大通页面按钮使用灵活的自适应尺寸
+                    # 根据文字长度设置不同的最小宽度
+                    text_length = len(button_text)
+                    if text_length <= 8:  # 短文字
+                        min_width = 120
+                    elif text_length <= 15:  # 中等长度文字
+                        min_width = 160
+                    else:  # 长文字
+                        min_width = 200
+                    
+                    button.setMinimumSize(min_width, 35)
+                    button.setMaximumSize(350, 60)
+                    
+                    # 设置灵活的尺寸策略
+                    from PyQt5.QtWidgets import QSizePolicy
+                    size_policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                    button.setSizePolicy(size_policy)
                 else:
                     # 获取当前的最小尺寸
                     current_min_size = button.minimumSize()
@@ -2159,10 +2226,43 @@ class ADB_Mainwindow(QMainWindow):
                     # 设备选择下拉框保持合理的最大宽度
                     combobox.setMinimumSize(150, 30)
                     combobox.setMaximumSize(500, 50)
+            
+            # 特别处理大通页面布局容器
+            self.adjust_datong_layout(scale_ratio)
                     
         except Exception as e:
             # 控件大小调整失败时不中断程序
             print(f"调整控件大小时出错: {e}")
+    
+    def adjust_datong_layout(self, scale_ratio):
+        """调整大通页面布局容器大小"""
+        try:
+            from PyQt5.QtWidgets import QWidget
+            
+            # 查找大通页面的布局容器
+            layout_widget = self.findChild(QWidget, "layoutWidget")
+            if layout_widget:
+                # 获取原始布局容器尺寸（从UI文件中读取的原始尺寸）
+                original_width = 301
+                original_height = 235
+                
+                # 计算新的尺寸
+                new_width = int(original_width * scale_ratio)
+                new_height = int(original_height * scale_ratio)
+                
+                # 确保最小尺寸
+                new_width = max(new_width, 280)  # 稍微小于原始宽度，给按钮留出边距
+                new_height = max(new_height, 280)  # 增加高度以容纳所有按钮
+                
+                # 设置固定尺寸（resize方法）
+                layout_widget.resize(new_width, new_height)
+                
+                # 更新布局
+                layout_widget.updateGeometry()
+                
+        except Exception as e:
+            # 布局调整失败时不中断程序
+            print(f"调整大通页面布局时出错: {e}")
     
     def update_scaling_settings(self):
         """更新缩放设置（可用于配置对话框）"""

@@ -11,6 +11,13 @@ class ConfigManager:
     """配置文件管理器"""
     
     DEFAULT_CONFIG = {
+        # 版本配置 - 全局版本号定义
+        "version": {
+            "major": 1,
+            "minor": 6,
+            "patch": 0,
+            "build": 0,
+        },
         "adb": {
             "search_paths": [
                 "adb",  # 系统PATH
@@ -71,7 +78,7 @@ class ConfigManager:
             return os.path.join(exe_dir, self.config_file)
         
         # 否则放在项目根目录
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.abspath(__file__))
         return os.path.join(project_root, self.config_file)
     
     def load_config(self) -> None:
@@ -214,6 +221,52 @@ class ConfigManager:
     def is_auto_detect_adb(self) -> bool:
         """是否自动检测ADB"""
         return self.get("adb.auto_detect", True)
+    
+    # 版本号相关方法
+    def get_version(self) -> str:
+        """获取完整版本号 (格式: 主版本.次版本.修订号)"""
+        major = self.get("version.major", 1)
+        minor = self.get("version.minor", 0)
+        patch = self.get("version.patch", 0)
+        return f"{major}.{minor}.{patch}"
+    
+    def get_file_version(self) -> str:
+        """获取文件版本号 (格式: 主版本.次版本.修订号.构建号)"""
+        major = self.get("version.major", 1)
+        minor = self.get("version.minor", 0)
+        patch = self.get("version.patch", 0)
+        build = self.get("version.build", 0)
+        return f"{major}.{minor}.{patch}.{build}"
+    
+    def get_version_parts(self) -> dict:
+        """获取版本号的各个部分"""
+        return {
+            "major": self.get("version.major", 1),
+            "minor": self.get("version.minor", 0),
+            "patch": self.get("version.patch", 0),
+            "build": self.get("version.build", 0),
+            "version": self.get_version(),
+            "file_version": self.get_file_version()
+        }
+    
+    def set_version(self, major: int, minor: int, patch: int, build: int = 0) -> bool:
+        """设置版本号
+        
+        Args:
+            major: 主版本号
+            minor: 次版本号
+            patch: 修订号
+            build: 构建号 (可选)
+            
+        Returns:
+            是否成功
+        """
+        success = True
+        success = success and self.set("version.major", major)
+        success = success and self.set("version.minor", minor)
+        success = success and self.set("version.patch", patch)
+        success = success and self.set("version.build", build)
+        return success
 
 
 # 全局配置管理器实例
