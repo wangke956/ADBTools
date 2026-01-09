@@ -36,7 +36,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
 # noinspection DuplicatedCode,SpellCheckingInspection
 class ADB_Mainwindow(QMainWindow):
     # 软件版本常量
-    VERSION = "1.3"
+    VERSION = "1.4"
     
     def __init__(self, parent=None):
         super(ADB_Mainwindow, self).__init__(parent)
