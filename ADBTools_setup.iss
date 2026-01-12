@@ -2,7 +2,7 @@
 ; 用于打包 build_nuitka 文件夹内容
 
 #define MyAppName "ADBTools"
-#define MyAppVersion "1.6.1"
+#define MyAppVersion "1.6.2"
 #define MyAppPublisher "Your Company"
 #define MyAppURL "https://example.com/"
 #define MyAppExeName "ADBTools_nuitka.exe"

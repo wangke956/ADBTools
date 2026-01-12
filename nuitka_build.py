@@ -181,46 +181,7 @@ def get_nuitka_command(build_type="onefile"):
     return cmd
 
 
-def copy_adb_tools(dist_path):
-    """复制ADB工具文件到分发目录"""
-    print("复制ADB工具文件...")
-    
-    adb_files = [
-        ("adb.exe", "ADB工具主程序"),
-        ("AdbWinApi.dll", "ADB API DLL"),
-        ("AdbWinUsbApi.dll", "ADB USB DLL"),
-        ("aapt.exe", "Android Asset Packaging Tool"),
-        ("fastboot.exe", "Fastboot工具"),
-        ("hprof-conv.exe", "Heap Profile转换工具"),
-        ("sqlite3.exe", "SQLite3数据库工具"),
-        ("etc1tool.exe", "ETC1纹理工具"),
-        ("make_f2fs.exe", "F2FS文件系统工具"),
-        ("make_f2fs_casefold.exe", "F2FS Casefold工具"),
-        ("mke2fs.exe", "Ext2/3/4文件系统工具"),
-        ("mke2fs.conf", "Ext文件系统配置"),
-        ("libwinpthread-1.dll", "Windows线程库"),
-        ("source.properties", "ADB源属性文件"),
-        ("NOTICE.txt", "许可证声明"),
-    ]
-    
-    copied_count = 0
-    for filename, description in adb_files:
-        src = PROJECT_ROOT / filename
-        if src.exists():
-            dst = dist_path / filename
-            shutil.copy2(src, dst)
-            print(f"  ✓ {filename} ({description})")
-            copied_count += 1
-        else:
-            # 检查dist目录中是否已有
-            dist_src = PROJECT_ROOT / "dist" / filename
-            if dist_src.exists():
-                dst = dist_path / filename
-                shutil.copy2(dist_src, dst)
-                print(f"  ✓ {filename} (从dist目录复制)")
-                copied_count += 1
-    
-    print(f"已复制 {copied_count} 个ADB工具文件")
+
 
 
 def build_onefile():
@@ -269,9 +230,6 @@ def build_onefile():
         exe_dst = CONFIG["dist_dir"] / exe_name
         shutil.copy2(exe_src, exe_dst)
         
-        # 复制ADB工具文件
-        copy_adb_tools(CONFIG["dist_dir"])
-        
         # 复制其他必要文件
         for src, dst in CONFIG["data_files"]:
             src_path = PROJECT_ROOT / src
@@ -285,6 +243,7 @@ def build_onefile():
         print(f"可执行文件: {exe_dst}")
         print(f"构建目录: {CONFIG['build_dir']}")
         print(f"分发目录: {CONFIG['dist_dir']}")
+        print("注意: ADB工具文件将由 auto_package.py 脚本复制到 build_nuitka 目录")
         return True
     else:
         print(f"❌ 未找到生成的可执行文件: {exe_src}")
@@ -335,9 +294,6 @@ def build_standalone():
         
         shutil.copytree(dist_src, CONFIG["dist_dir"])
         
-        # 复制ADB工具文件
-        copy_adb_tools(CONFIG["dist_dir"])
-        
         # 复制其他必要文件
         for src, dst in CONFIG["data_files"]:
             src_path = PROJECT_ROOT / src
@@ -353,6 +309,7 @@ def build_standalone():
         print(f"程序目录: {CONFIG['dist_dir']}")
         print(f"主程序: {CONFIG['dist_dir'] / CONFIG['output_name']}.exe")
         print(f"构建目录: {CONFIG['build_dir']}")
+        print("注意: ADB工具文件将由 auto_package.py 脚本复制到 build_nuitka 目录")
         return True
     else:
         print(f"❌ 未找到生成的目录: {dist_src}")
