@@ -2,7 +2,7 @@
 ; 用于打包 build_nuitka 文件夹内容
 
 #define MyAppName "ADBTools"
-#define MyAppVersion "1.6.2"
+#define MyAppVersion "1.6.3"
 #define MyAppPublisher "Your Company"
 #define MyAppURL "https://example.com/"
 #define MyAppExeName "ADBTools_nuitka.exe"
@@ -68,7 +68,7 @@ Source: "{#SourceDir}\mke2fs.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\NOTICE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\source.properties"; DestDir: "{app}"; Flags: ignoreversion
 ; 图标文件（如果存在）
-Source: "icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists("icon.ico")
+Source: "icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('icon.ico')
 
 ; 注意: 以下行用于包含所有文件，但上面已经列出了具体文件，所以注释掉
 ; Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
