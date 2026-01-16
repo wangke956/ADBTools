@@ -230,10 +230,18 @@ class ADB_Mainwindow(QMainWindow):
         # 设置菜单
         settings_menu = menubar.addMenu('设置')
         
-        # ADB配置
+        # ADB配置 (原有功能)
         adb_config_action = QtWidgets.QAction('ADB配置', self)
         adb_config_action.triggered.connect(self.open_config_dialog)
         settings_menu.addAction(adb_config_action)
+        
+        # 增强版配置管理器
+        enhanced_config_action = QtWidgets.QAction('配置管理器 (增强版)', self)
+        enhanced_config_action.triggered.connect(self.open_enhanced_config_dialog)
+        settings_menu.addAction(enhanced_config_action)
+        
+        # 分隔线
+        settings_menu.addSeparator()
         
         # 检查更新
         check_update_action = QtWidgets.QAction('检查更新', self)
@@ -256,6 +264,19 @@ class ADB_Mainwindow(QMainWindow):
             dialog.exec_()
         except Exception as e:
             self.textBrowser.append(f"打开配置对话框失败: {e}")
+    
+    def open_enhanced_config_dialog(self):
+        """打开增强版配置对话框"""
+        try:
+            from config_dialog_enhanced import EnhancedConfigDialog
+            dialog = EnhancedConfigDialog(self)
+            dialog.exec_()
+        except ImportError as e:
+            # 如果增强版不可用，使用普通版
+            self.textBrowser.append(f"增强版配置对话框不可用，使用普通版: {e}")
+            self.open_config_dialog()
+        except Exception as e:
+            self.textBrowser.append(f"打开增强版配置对话框失败: {e}")
 
     def show_about(self):
         """显示关于信息"""
@@ -2145,94 +2166,184 @@ class ADB_Mainwindow(QMainWindow):
             print(f"调整字体大小时出错: {e}")
     
     def adjust_widget_sizes(self, scale_ratio):
-        """根据缩放比例调整控件最小/最大尺寸"""
-        try:
-            # 获取所有按钮控件
-            buttons = self.findChildren(QPushButton)
-            
-            for button in buttons:
-                button_name = button.objectName()
-                button_text = button.text()
+    
+            """根据缩放比例调整控件最小/最大尺寸"""
+    
+            try:
+    
+                # 获取所有按钮控件
+    
+                buttons = self.findChildren(QPushButton)
+    
                 
-                # 对于刷新设备按钮，使用更保守的缩放
-                if button_name == 'RefreshButton':
-                    # 刷新按钮保持相对固定的大小
-                    button.setMinimumSize(120, 30)
-                    button.setMaximumSize(300, 50)
-                # 对于大通页面所有按钮，使用更灵活的自适应尺寸
-                elif button_name in [
-                    'datong_factory_button',
-                    'datong_enable_verity_button',
-                    'datong_disable_verity_button', 
-                    'datong_batch_install_button',
-                    'datong_batch_install_test_button',
-                    'datong_input_password_button',
-                    'datong_open_telenav_engineering_button'
-                ]:
-                    # 大通页面按钮使用灵活的自适应尺寸
-                    # 根据文字长度设置不同的最小宽度
-                    text_length = len(button_text)
-                    if text_length <= 8:  # 短文字
-                        min_width = 120
-                    elif text_length <= 15:  # 中等长度文字
-                        min_width = 160
-                    else:  # 长文字
-                        min_width = 200
+    
+                for button in buttons:
+    
+                    button_name = button.objectName()
+    
+                    button_text = button.text()
+    
                     
-                    button.setMinimumSize(min_width, 35)
-                    button.setMaximumSize(350, 60)
-                    
-                    # 设置灵活的尺寸策略
-                    from PyQt5.QtWidgets import QSizePolicy
-                    size_policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-                    button.setSizePolicy(size_policy)
-                else:
-                    # 获取当前的最小尺寸
-                    current_min_size = button.minimumSize()
-                    if current_min_size.width() > 0 and current_min_size.height() > 0:
-                        # 计算新的最小尺寸
-                        new_min_width = int(current_min_size.width() * scale_ratio)
-                        new_min_height = int(current_min_size.height() * scale_ratio)
+    
+                    # 对于刷新设备按钮，使用更保守的缩放
+    
+                    if button_name == 'RefreshButton':
+    
+                        # 刷新按钮保持相对固定的大小
+    
+                        button.setMinimumSize(120, 30)
+    
+                        button.setMaximumSize(300, 50)
+    
+                    # 对于大通页面所有按钮，使用更灵活的自适应尺寸
+    
+                    elif button_name in [
+    
+                        'datong_factory_button',
+    
+                        'datong_enable_verity_button',
+    
+                        'datong_disable_verity_button', 
+    
+                        'datong_batch_install_button',
+    
+                        'datong_batch_install_test_button',
+    
+                        'datong_input_password_button',
+    
+                        'datong_open_telenav_engineering_button'
+    
+                    ]:
+    
+                        # 大通页面按钮使用灵活的自适应尺寸
+    
+                        # 根据文字长度设置不同的最小宽度
+    
+                        text_length = len(button_text)
+    
+                        if text_length <= 8:  # 短文字
+    
+                            min_width = 120
+    
+                        elif text_length <= 15:  # 中等长度文字
+    
+                            min_width = 160
+    
+                        else:  # 长文字
+    
+                            min_width = 200
+    
                         
-                        # 为长文字按钮设置更大的最小宽度
-                        if len(button_text) > 10:  # 文字长度超过10个字符
-                            # 根据文字长度调整最小宽度
-                            text_length_factor = len(button_text) / 10.0
-                            new_min_width = max(new_min_width, int(120 * text_length_factor * scale_ratio))
+    
+                        button.setMinimumSize(min_width, 35)
+    
+                        button.setMaximumSize(350, 60)
+    
                         
-                        # 确保最小宽度足够显示文字
-                        new_min_width = max(new_min_width, 80)  # 最小80像素
-                        new_min_height = max(new_min_height, 25)  # 最小25像素
+    
+    
+    
+                        # 设置灵活的尺寸策略
+    
+                        from PyQt5.QtWidgets import QSizePolicy
+    
+                        size_policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+    
+                        button.setSizePolicy(size_policy)
+    
+                    else:
+    
+                        # 获取当前的最小尺寸
+    
+                        current_min_size = button.minimumSize()
+    
+                        if current_min_size.width() > 0 and current_min_size.height() > 0:
+    
+                            # 计算新的最小尺寸
+    
+                            new_min_width = int(current_min_size.width() * scale_ratio)
+    
+                            new_min_height = int(current_min_size.height() * scale_ratio)
+    
+                            
+    
+                            # 为长文字按钮设置更大的最小宽度
+    
+                            if len(button_text) > 10:  # 文字长度超过10个字符
+    
+                                # 根据文字长度调整最小宽度
+    
+                                text_length_factor = len(button_text) / 10.0
+    
+                                new_min_width = max(new_min_width, int(120 * text_length_factor * scale_ratio))
+    
+                            
+    
+                            # 确保最小宽度足够显示文字
+    
+                            new_min_width = max(new_min_width, 80)  # 最小80像素
+    
+                            new_min_height = max(new_min_height, 25)  # 最小25像素
+    
+                            
+    
+                            # 设置新的最小尺寸
+    
+                            button.setMinimumSize(new_min_width, new_min_height)
+    
                         
-                        # 设置新的最小尺寸
-                        button.setMinimumSize(new_min_width, new_min_height)
-                    
-                    # 获取当前的最大尺寸
-                    current_max_size = button.maximumSize()
-                    if current_max_size.width() < 16777215 and current_max_size.height() < 16777215:
-                        # 计算新的最大尺寸
-                        new_max_width = int(current_max_size.width() * scale_ratio)
-                        new_max_height = int(current_max_size.height() * scale_ratio)
-                        
-                        # 设置新的最大尺寸
-                        button.setMaximumSize(new_max_width, new_max_height)
-            
-            # 处理ComboBox控件
-            comboboxes = self.findChildren(QComboBox)
-            for combobox in comboboxes:
-                combobox_name = combobox.objectName()
+    
+                        # 获取当前的最大尺寸
+    
+                        current_max_size = button.maximumSize()
+    
+                        if current_max_size.width() < 16777215 and current_max_size.height() < 16777215:
+    
+                            # 计算新的最大尺寸
+    
+                            new_max_width = int(current_max_size.width() * scale_ratio)
+    
+                            new_max_height = int(current_max_size.height() * scale_ratio)
+    
+                            
+    
+                            # 设置新的最大尺寸
+    
+                            button.setMaximumSize(new_max_width, new_max_height)
+    
                 
-                if combobox_name == 'ComboxButton':
-                    # 设备选择下拉框保持合理的最大宽度
-                    combobox.setMinimumSize(150, 30)
-                    combobox.setMaximumSize(500, 50)
-            
-            # 特别处理大通页面布局容器
-            self.adjust_datong_layout(scale_ratio)
+    
+                # 处理ComboBox控件
+    
+                comboboxes = self.findChildren(QComboBox)
+    
+                for combobox in comboboxes:
+    
+                    combobox_name = combobox.objectName()
+    
                     
-        except Exception as e:
-            # 控件大小调整失败时不中断程序
-            print(f"调整控件大小时出错: {e}")
+    
+                    if combobox_name == 'ComboxButton':
+    
+                        # 设备选择下拉框保持合理的最大宽度
+    
+                        combobox.setMinimumSize(150, 30)
+    
+                        combobox.setMaximumSize(500, 50)
+    
+                
+    
+                # 特别处理大通页面布局容器
+    
+                self.adjust_datong_layout(scale_ratio)
+    
+                        
+    
+            except Exception as e:
+    
+                # 控件大小调整失败时不中断程序
+    
+                print(f"调整控件大小时出错: {e}")
     
     def adjust_datong_layout(self, scale_ratio):
         """调整大通页面布局容器大小"""
