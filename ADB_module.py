@@ -2171,6 +2171,10 @@ class ADB_Mainwindow(QMainWindow):
     
             try:
     
+                from PyQt5.QtWidgets import QSizePolicy
+    
+                
+    
                 # 获取所有按钮控件
     
                 buttons = self.findChildren(QPushButton)
@@ -2195,121 +2199,23 @@ class ADB_Mainwindow(QMainWindow):
     
                         button.setMaximumSize(300, 50)
     
-                    # 对于大通页面所有按钮，使用更灵活的自适应尺寸
+                    else:
     
-                    elif button_name in [
+                        # 所有其他按钮都使用与ADB页面一致的Expanding缩放方式
     
-                        'datong_factory_button',
+                        # 设置Expanding尺寸策略
     
-                        'datong_enable_verity_button',
-    
-                        'datong_disable_verity_button', 
-    
-                        'datong_batch_install_button',
-    
-                        'datong_batch_install_test_button',
-    
-                        'datong_input_password_button',
-    
-                        'datong_open_telenav_engineering_button'
-    
-                    ]:
-    
-                        # 大通页面按钮使用灵活的自适应尺寸
-    
-                        # 根据文字长度设置不同的最小宽度
-    
-                        text_length = len(button_text)
-    
-                        if text_length <= 8:  # 短文字
-    
-                            min_width = 120
-    
-                        elif text_length <= 15:  # 中等长度文字
-    
-                            min_width = 160
-    
-                        else:  # 长文字
-    
-                            min_width = 200
-    
-                        
-    
-                        button.setMinimumSize(min_width, 35)
-    
-                        button.setMaximumSize(350, 60)
-    
-                        
-    
-    
-    
-                        # 设置灵活的尺寸策略
-    
-                        from PyQt5.QtWidgets import QSizePolicy
-    
-                        size_policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                        size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     
                         button.setSizePolicy(size_policy)
     
-                    else:
-    
-                        # 获取当前的最小尺寸
-    
-                        current_min_size = button.minimumSize()
-    
-                        if current_min_size.width() > 0 and current_min_size.height() > 0:
-    
-                            # 计算新的最小尺寸
-    
-                            new_min_width = int(current_min_size.width() * scale_ratio)
-    
-                            new_min_height = int(current_min_size.height() * scale_ratio)
-    
-                            
-    
-                            # 为长文字按钮设置更大的最小宽度
-    
-                            if len(button_text) > 10:  # 文字长度超过10个字符
-    
-                                # 根据文字长度调整最小宽度
-    
-                                text_length_factor = len(button_text) / 10.0
-    
-                                new_min_width = max(new_min_width, int(120 * text_length_factor * scale_ratio))
-    
-                            
-    
-                            # 确保最小宽度足够显示文字
-    
-                            new_min_width = max(new_min_width, 80)  # 最小80像素
-    
-                            new_min_height = max(new_min_height, 25)  # 最小25像素
-    
-                            
-    
-                            # 设置新的最小尺寸
-    
-                            button.setMinimumSize(new_min_width, new_min_height)
-    
                         
     
-                        # 获取当前的最大尺寸
+                        # 不设置固定的最小/最大尺寸，让布局自动调整
     
-                        current_max_size = button.maximumSize()
+                        button.setMinimumSize(0, 0)
     
-                        if current_max_size.width() < 16777215 and current_max_size.height() < 16777215:
-    
-                            # 计算新的最大尺寸
-    
-                            new_max_width = int(current_max_size.width() * scale_ratio)
-    
-                            new_max_height = int(current_max_size.height() * scale_ratio)
-    
-                            
-    
-                            # 设置新的最大尺寸
-    
-                            button.setMaximumSize(new_max_width, new_max_height)
+                        button.setMaximumSize(16777215, 16777215)
     
                 
     
@@ -2330,6 +2236,18 @@ class ADB_Mainwindow(QMainWindow):
                         combobox.setMinimumSize(150, 30)
     
                         combobox.setMaximumSize(500, 50)
+    
+                    else:
+    
+                        # 其他下拉框也使用Expanding策略
+    
+                        size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    
+                        combobox.setSizePolicy(size_policy)
+    
+                        combobox.setMinimumSize(0, 0)
+    
+                        combobox.setMaximumSize(16777215, 16777215)
     
                 
     
