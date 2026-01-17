@@ -2,7 +2,7 @@
   "version": {
     "major": 1,
     "minor": 6,
-    "patch": 2,
+    "patch": 4,
     "build": 0
   },
   "adb": {
@@ -38,11 +38,21 @@
     "device_filter": "all"
   },
   "logging": {
-    "level": "INFO",
+    "level": "DEBUG",
     "file": "adbtools.log",
     "max_size": 10485760,
     "backup_count": 5,
-    "console_output": true
+    "console_output": true,
+    "log_dir": "logs",
+    "enable_operation_history": true,
+    "enable_performance_monitoring": true,
+    "format": "detailed",
+    "log_adb_commands": true,
+    "log_thread_operations": true,
+    "log_user_actions": true,
+    "log_errors": true,
+    "log_warnings": true,
+    "log_debug_info": true
   },
   "batch_install": {
     "special_packages": {

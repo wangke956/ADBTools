@@ -173,7 +173,7 @@ def update_config_version(version: str) -> bool:
         minor = int(parts[1])
         patch = int(parts[2])
         
-        # 更新 config_manager.py 中的版本号
+        # 1. 更新 config_manager.py 中的版本号
         config_manager_path = PROJECT_ROOT / "config_manager.py"
         if not config_manager_path.exists():
             print(f"❌ 配置文件不存在: {config_manager_path}")
@@ -202,7 +202,39 @@ def update_config_version(version: str) -> bool:
         
         print(f"✅ 已更新 config_manager.py 中的版本号为: {version}")
         
-        # 更新 ADBTools_setup.iss 中的版本号
+        # 2. 更新 adbtools_config.json 中的版本号
+        config_file_path = PROJECT_ROOT / CONFIG["config_file"]
+        if config_file_path.exists():
+            with open(config_file_path, 'r', encoding='utf-8') as f:
+                config_content = f.read()
+            
+            # 解析 JSON
+            import json
+            config_data = json.loads(config_content)
+            
+            # 更新版本号
+            if 'version' in config_data:
+                config_data['version']['major'] = major
+                config_data['version']['minor'] = minor
+                config_data['version']['patch'] = patch
+                config_data['version']['build'] = 0
+            else:
+                config_data['version'] = {
+                    'major': major,
+                    'minor': minor,
+                    'patch': patch,
+                    'build': 0
+                }
+            
+            # 写回文件
+            with open(config_file_path, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"✅ 已更新 {CONFIG['config_file']} 中的版本号为: {version}")
+        else:
+            print(f"⚠  配置文件不存在: {CONFIG['config_file']}，跳过更新")
+        
+        # 3. 更新 ADBTools_setup.iss 中的版本号
         iss_path = PROJECT_ROOT / CONFIG["iss_file"]
         if iss_path.exists():
             with open(iss_path, 'r', encoding='utf-8') as f:

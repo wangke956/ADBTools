@@ -1,5 +1,9 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 import uiautomator2 as u2
+from logger_manager import get_logger, log_device_operation, log_thread_start, log_thread_complete
+
+# 创建日志记录器
+logger = get_logger("ADBTools.U2ConnectThread")
 
 class U2ConnectThread(QThread):
     """u2连接尝试线程（避免在主线程中阻塞）"""
@@ -16,59 +20,122 @@ class U2ConnectThread(QThread):
         """
         super().__init__()
         self.device_id = device_id
+        logger.info(f"U2ConnectThread初始化: 目标设备 {device_id}")
         
     def run(self):
-        """尝试u2连接，增加重试和自动初始化"""
-        max_retries = 2
-        for attempt in range(max_retries):
-            try:
-                self.progress_signal.emit(f"正在尝试u2连接到设备: {self.device_id} (尝试 {attempt + 1}/{max_retries})")
-                
-                # 尝试u2连接
-                d = u2.connect(self.device_id)
-                
-                if d:
-                    # 测试连接是否有效
-                    try:
-                        # 尝试获取设备信息
-                        info = d.info
-                        self.progress_signal.emit(f"u2连接成功: {self.device_id}")
-                        self.progress_signal.emit(f"设备信息: {info}")
-                        self.connected_signal.emit(d, self.device_id)
-                        return
-                    except Exception as test_error:
-                        # 如果是server not ready错误，尝试初始化服务
-                        if 'server not ready' in str(test_error).lower() or 'server not ready' in str(test_error):
-                            self.progress_signal.emit("检测到server not ready错误，尝试初始化UIAutomator2服务...")
-                            try:
-                                # 尝试健康检查（会自动初始化）
-                                d.healthcheck()
-                                # 再次尝试获取设备信息
-                                info = d.info
-                                self.progress_signal.emit(f"UIAutomator2服务初始化成功，连接成功: {self.device_id}")
-                                self.connected_signal.emit(d, self.device_id)
-                                return
-                            except Exception as healthcheck_error:
-                                self.error_signal.emit(f"UIAutomator2服务初始化失败: {healthcheck_error}")
-                                if attempt == max_retries - 1:
-                                    self.error_signal.emit(f"u2连接测试失败: {test_error}")
-                                    self.connected_signal.emit(None, self.device_id)
-                                    return
-                        else:
-                            self.error_signal.emit(f"u2连接测试失败: {test_error}")
-                            self.connected_signal.emit(None, self.device_id)
-                            return
-                else:
-                    self.error_signal.emit(f"u2连接失败: 无法连接到设备 {self.device_id}")
-                    self.connected_signal.emit(None, self.device_id)
-                    return
+        """尝试u2连接，优化连接速度"""
+        import time
+        start_time = time.time()
+        
+        log_thread_start("U2ConnectThread", {"device_id": self.device_id})
+        log_device_operation("u2_connect_start", self.device_id, {"mode": "u2"})
+        
+        try:
+            self.progress_signal.emit(f"正在连接到设备: {self.device_id}")
+            logger.info(f"开始u2连接: {self.device_id}")
+            
+            # 直接尝试u2连接，不进行额外测试
+            d = u2.connect(self.device_id)
+            
+            if d:
+                # 获取设备详细信息
+                try:
+                    info = d.info
+                    device_info = {
+                        'serial': self.device_id,
+                        'model': info.get('model', 'Unknown'),
+                        'brand': info.get('brand', 'Unknown'),
+                        'version': info.get('version', 'Unknown'),
+                        'sdk': info.get('sdk', 'Unknown'),
+                        'manufacturer': info.get('manufacturer', 'Unknown')
+                    }
                     
-            except Exception as e:
-                error_msg = f"u2连接异常: {str(e)}"
-                if attempt == max_retries - 1:
-                    self.error_signal.emit(error_msg)
-                    self.connected_signal.emit(None, self.device_id)
-                else:
-                    self.progress_signal.emit(f"连接失败，{error_msg}，准备重试...")
-                    import time
-                    time.sleep(1)  # 等待1秒后重试
+                    elapsed_time = time.time() - start_time
+                    logger.info(f"u2连接成功: {self.device_id} | 耗时: {elapsed_time:.3f}s")
+                    logger.info(f"设备信息: {device_info}")
+                    
+                    # 发送详细的成功信息
+                    self.progress_signal.emit(f"u2连接成功: {self.device_id}")
+                    self.progress_signal.emit(f"设备型号: {device_info['brand']} {device_info['model']}")
+                    self.progress_signal.emit(f"Android版本: {device_info['version']}")
+                    self.progress_signal.emit(f"SDK版本: {device_info['sdk']}")
+                    
+                    log_device_operation("u2_connect_success", self.device_id, {
+                        "mode": "u2",
+                        "status": "connected",
+                        "device_info": device_info,
+                        "elapsed_time": elapsed_time
+                    })
+                    
+                    log_thread_complete("U2ConnectThread", "success", {
+                        "device_id": self.device_id,
+                        "elapsed_time": elapsed_time,
+                        "device_info": device_info
+                    })
+                    
+                    self.connected_signal.emit(d, self.device_id)
+                except Exception as info_error:
+                    # 如果获取设备信息失败，仍然返回连接成功
+                    elapsed_time = time.time() - start_time
+                    logger.warning(f"u2连接成功但无法获取设备信息: {self.device_id} | 错误: {info_error}")
+                    
+                    self.progress_signal.emit(f"u2连接成功: {self.device_id}")
+                    self.progress_signal.emit(f"注意: 无法获取设备详细信息 - {str(info_error)}")
+                    
+                    log_device_operation("u2_connect_success_partial", self.device_id, {
+                        "mode": "u2",
+                        "status": "connected",
+                        "warning": "无法获取设备详细信息",
+                        "elapsed_time": elapsed_time
+                    })
+                    
+                    log_thread_complete("U2ConnectThread", "success", {
+                        "device_id": self.device_id,
+                        "elapsed_time": elapsed_time,
+                        "warning": "无法获取设备详细信息"
+                    })
+                    
+                    self.connected_signal.emit(d, self.device_id)
+            else:
+                elapsed_time = time.time() - start_time
+                error_msg = f"u2连接失败: 无法连接到设备 {self.device_id}"
+                logger.error(f"{error_msg} | 耗时: {elapsed_time:.3f}s")
+                self.error_signal.emit(error_msg)
+                
+                log_device_operation("u2_connect_failed", self.device_id, {
+                    "mode": "u2",
+                    "status": "failed",
+                    "reason": "无法连接到设备",
+                    "elapsed_time": elapsed_time
+                })
+                
+                log_thread_complete("U2ConnectThread", "failed", {
+                    "device_id": self.device_id,
+                    "elapsed_time": elapsed_time,
+                    "reason": "无法连接到设备"
+                })
+                
+                self.connected_signal.emit(None, self.device_id)
+                
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            error_msg = f"u2连接异常: {str(e)}"
+            logger.error(f"{error_msg} | 耗时: {elapsed_time:.3f}s")
+            logger.exception("u2连接异常详情:")
+            
+            self.error_signal.emit(error_msg)
+            
+            log_device_operation("u2_connect_exception", self.device_id, {
+                "mode": "u2",
+                "status": "error",
+                "error": str(e),
+                "elapsed_time": elapsed_time
+            })
+            
+            log_thread_complete("U2ConnectThread", "error", {
+                "device_id": self.device_id,
+                "elapsed_time": elapsed_time,
+                "error": str(e)
+            })
+            
+            self.connected_signal.emit(None, self.device_id)

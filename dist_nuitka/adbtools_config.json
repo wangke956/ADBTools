@@ -1,0 +1,104 @@
+{
+  "version": {
+    "major": 1,
+    "minor": 6,
+    "patch": 4,
+    "build": 0
+  },
+  "adb": {
+    "search_paths": [
+      "adb",
+      "adb.exe",
+      "./adb.exe",
+      "./tools/adb.exe",
+      "C:\\Program Files (x86)\\Android\\android-sdk\\platform-tools\\adb.exe",
+      "D:\\work_tools\\adb-1\\adb.exe"
+    ],
+    "custom_path": "",
+    "auto_detect": true,
+    "timeout": 30,
+    "retry_count": 3
+  },
+  "ui": {
+    "theme": "dark",
+    "language": "zh_CN",
+    "font_size": 10,
+    "font_family": "Microsoft YaHei",
+    "window_width": 1200,
+    "window_height": 800,
+    "auto_save_layout": true,
+    "show_tooltips": true
+  },
+  "devices": {
+    "default_device": "",
+    "auto_refresh": true,
+    "refresh_interval": 5,
+    "multithread_refresh": true,
+    "show_offline_devices": false,
+    "device_filter": "all"
+  },
+  "logging": {
+    "level": "DEBUG",
+    "file": "adbtools.log",
+    "max_size": 10485760,
+    "backup_count": 5,
+    "console_output": true,
+    "log_dir": "logs",
+    "enable_operation_history": true,
+    "enable_performance_monitoring": true,
+    "format": "detailed",
+    "log_adb_commands": true,
+    "log_thread_operations": true,
+    "log_user_actions": true,
+    "log_errors": true,
+    "log_warnings": true,
+    "log_debug_info": true
+  },
+  "batch_install": {
+    "special_packages": {
+      "@com.saicmotor.voiceservice": {
+        "delete_before_push": false,
+        "description": "voiceservice包，只push不删除"
+      },
+      "@com.saicmotor.adapterservice": {
+        "delete_before_push": true,
+        "description": "adapterservice包，先删除再push"
+      },
+      "@com.oimt.onlinemedia.amazon": {
+        "delete_before_push": false,
+        "description": "Joox包，直接Push"
+      }
+    },
+    "default_action": "install",
+    "verify_after_install": true,
+    "stop_before_install": true,
+    "clear_cache_before_install": false
+  },
+  "network": {
+    "proxy_enabled": false,
+    "proxy_host": "127.0.0.1",
+    "proxy_port": 8080,
+    "proxy_type": "http",
+    "timeout": 30
+  },
+  "performance": {
+    "max_threads": 4,
+    "thread_pool_size": 10,
+    "cache_enabled": true,
+    "cache_ttl": 300,
+    "auto_cleanup": true
+  },
+  "backup": {
+    "auto_backup": true,
+    "backup_count": 10,
+    "backup_path": "./backups",
+    "compress_backups": true
+  },
+  "shortcuts": {
+    "refresh_devices": "F5",
+    "screenshot": "Ctrl+S",
+    "install_apk": "Ctrl+I",
+    "pull_log": "Ctrl+L",
+    "reboot_device": "Ctrl+R"
+  }
+}

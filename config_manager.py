@@ -15,7 +15,7 @@ class ConfigManager:
         "version": {
             "major": 1,
             "minor": 6,
-            "patch": 3,
+            "patch": 4,
             "build": 0,
         },
         "adb": {
@@ -41,9 +41,21 @@ class ConfigManager:
             "refresh_interval": 5,  # 刷新间隔(秒)
         },
         "logging": {
-            "level": "INFO",  # DEBUG/INFO/WARNING/ERROR
+            "level": "DEBUG",  # DEBUG/INFO/WARNING/ERROR/CRITICAL
             "file": "adbtools.log",  # 日志文件
             "max_size": 10485760,  # 最大10MB
+            "backup_count": 5,  # 备份文件数量
+            "console_output": True,  # 是否输出到控制台
+            "log_dir": "logs",  # 日志目录
+            "enable_operation_history": True,  # 启用操作历史记录
+            "enable_performance_monitoring": True,  # 启用性能监控
+            "format": "detailed",  # 日志格式：simple/detailed/verbose
+            "log_adb_commands": True,  # 记录ADB命令
+            "log_thread_operations": True,  # 记录线程操作
+            "log_user_actions": True,  # 记录用户操作
+            "log_errors": True,  # 记录错误
+            "log_warnings": True,  # 记录警告
+            "log_debug_info": True,  # 记录调试信息
         },
         "batch_install": {
             "special_packages": {
