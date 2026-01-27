@@ -840,7 +840,7 @@ class ADB_Mainwindow(QMainWindow):
                     self.batch_install_thread = ADBBatchInstallThread(
                         device_id,
                         folder_path,
-                        apk_files
+                        connection_mode='adb'
                     )
                     self.batch_install_thread.progress_signal.connect(self.textBrowser.append)
                     self.batch_install_thread.result_signal.connect(self.textBrowser.append)
@@ -996,7 +996,7 @@ class ADB_Mainwindow(QMainWindow):
                     self.batch_install_test_thread = ADBBatchVerifyVersionThread(
                         device_id,
                         folder_path,
-                        apk_files
+                        connection_mode='adb'
                     )
                     self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
                     self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
@@ -1126,7 +1126,7 @@ class ADB_Mainwindow(QMainWindow):
             try:
                 from Function_Moudle.app_version_check_thread import AppVersionCheckThread
                 self.releasenote_dict = {}
-                self.app_version_check_thread = AppVersionCheckThread(self.d, self.releasenote_file)
+                self.app_version_check_thread = AppVersionCheckThread(None, self.releasenote_file)
                 self.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.error_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.release_note_signal.connect(self.handle_progress)
@@ -1953,8 +1953,17 @@ class ADB_Mainwindow(QMainWindow):
                 logger.info(f"卸载应用: {package_name}")
                 
                 try:
-                    from Function_Moudle.show_uninstall_thread import ShowUninstallThread
-                    self.uninstall_thread = ShowUninstallThread(self.d, package_name)
+                    if self.connection_mode == 'u2' and self.d:
+                        from Function_Moudle.show_uninstall_thread import ShowUninstallThread
+                        self.uninstall_thread = ShowUninstallThread(self.d, package_name)
+                    elif self.connection_mode == 'adb':
+                        from Function_Moudle.adb_show_uninstall_thread import ADBShowUninstallThread
+                        self.uninstall_thread = ADBShowUninstallThread(device_id, package_name)
+                    else:
+                        log_method_result("show_uninstall_dialog", False, "设备未连接")
+                        self.textBrowser.append("设备未连接！")
+                        return
+                    
                     self.uninstall_thread.progress_signal.connect(self.textBrowser.append)
                     self.uninstall_thread.result_signal.connect(self.textBrowser.append)
                     self.uninstall_thread.error_signal.connect(self.textBrowser.append)
@@ -1989,10 +1998,25 @@ class ADB_Mainwindow(QMainWindow):
                     if local_path:
                         logger.info(f"拉取文件: {file_path_on_device} -> {local_path}")
                         
-                        from Function_Moudle.pull_files_thread import PullFilesThread
-                        self.pull_files_thread = PullFilesThread(device_id, file_path_on_device, local_path)
-                        self.pull_files_thread.progress_signal.connect(self.textBrowser.append)
-                        self.pull_files_thread.result_signal.connect(self.textBrowser.append)
+                        # 根据连接模式选择对应的线程类
+                        if self.connection_mode == 'u2' and self.d:
+                            from Function_Moudle.pull_files_thread import PullFilesThread
+                            self.pull_files_thread = PullFilesThread(
+                                self.d,
+                                file_path_on_device,
+                                local_path,
+                                apk_file_name
+                            )
+                        else:
+                            from Function_Moudle.adb_pull_files_thread import ADBPullFilesThread
+                            self.pull_files_thread = ADBPullFilesThread(
+                                device_id,
+                                file_path_on_device,
+                                local_path,
+                                apk_file_name
+                            )
+                        
+                        self.pull_files_thread.signal.connect(self.textBrowser.append)
                         self.pull_files_thread.start()
                         
                         log_method_result("show_pull_file_dialog", True, f"拉取线程已启动: {apk_file_name}")

@@ -75,7 +75,10 @@ class ADBVerityThread(QThread):
 
     def _execute_command(self, command):
         """根据连接模式执行命令"""
-        if self.connection_mode == 'u2' and self.u2_device:
+        # verity 命令是 ADB 命令，不应该通过 u2 shell 执行
+        if command in ['enable-verity', 'disable-verity']:
+            return self._execute_adb_command(command)
+        elif self.connection_mode == 'u2' and self.u2_device:
             return self._execute_u2_command(command)
         else:
             return self._execute_adb_command(command)
@@ -186,7 +189,11 @@ class ADBDisableVerityThread(QThread):
     def _execute_command(self, command):
         """执行命令"""
         try:
-            if self.connection_mode == 'u2' and self.u2_device:
+            # verity 命令是 ADB 命令，不应该通过 u2 shell 执行
+            if command in ['enable-verity', 'disable-verity']:
+                result = adb_utils.run_adb_command(command, self.device_id)
+                return result
+            elif self.connection_mode == 'u2' and self.u2_device:
                 result = self.u2_device.shell(command)
                 return result
             else:
@@ -243,7 +250,11 @@ class ADBEnableVerityThread(QThread):
     def _execute_command(self, command):
         """执行命令"""
         try:
-            if self.connection_mode == 'u2' and self.u2_device:
+            # verity 命令是 ADB 命令，不应该通过 u2 shell 执行
+            if command in ['enable-verity', 'disable-verity']:
+                result = adb_utils.run_adb_command(command, self.device_id)
+                return result
+            elif self.connection_mode == 'u2' and self.u2_device:
                 result = self.u2_device.shell(command)
                 return result
             else:

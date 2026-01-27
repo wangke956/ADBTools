@@ -264,15 +264,35 @@ class LoggerManager:
             # 确定日志目录路径
             if getattr(sys, 'frozen', False):
                 # PyInstaller打包后的路径
-                base_dir = os.path.dirname(sys.executable)
+                # 优先使用用户目录，避免C盘权限问题
+                app_data_dir = os.environ.get('APPDATA')
+                if app_data_dir:
+                    base_dir = os.path.join(app_data_dir, 'ADBTools')
+                else:
+                    # 如果APPDATA环境变量不存在，回退到程序目录
+                    base_dir = os.path.dirname(sys.executable)
             else:
                 # 开发环境路径
                 base_dir = os.path.dirname(os.path.abspath(__file__))
             
             self.log_dir = os.path.join(base_dir, self.log_dir)
-            os.makedirs(self.log_dir, exist_ok=True)
             
-            print(f"日志目录: {self.log_dir}")
+            # 尝试创建日志目录
+            try:
+                os.makedirs(self.log_dir, exist_ok=True)
+                print(f"日志目录: {self.log_dir}")
+            except PermissionError:
+                # 如果权限不足，尝试使用临时目录
+                import tempfile
+                temp_dir = tempfile.gettempdir()
+                self.log_dir = os.path.join(temp_dir, 'ADBTools', 'logs')
+                os.makedirs(self.log_dir, exist_ok=True)
+                print(f"日志目录（使用临时目录）: {self.log_dir}")
+            except Exception as e:
+                # 如果其他错误，使用当前目录
+                self.log_dir = "."
+                print(f"初始化日志目录失败，使用当前目录: {e}")
+                
         except Exception as e:
             print(f"初始化日志目录失败: {e}")
             self.log_dir = "."

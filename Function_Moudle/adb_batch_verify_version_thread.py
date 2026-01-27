@@ -41,6 +41,7 @@ class ADBBatchVerifyVersionThread(QThread):
     error_signal = pyqtSignal(str)
     result_signal = pyqtSignal(str)
     verify_result_signal = pyqtSignal(str)  # 验证结果信号
+    debug_signal = pyqtSignal(str)  # 调试信号，用于打印详细命令和值
 
     def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None):
         """
