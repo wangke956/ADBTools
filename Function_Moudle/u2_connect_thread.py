@@ -75,27 +75,30 @@ class U2ConnectThread(QThread):
                     
                     self.connected_signal.emit(d, self.device_id)
                 except Exception as info_error:
-                    # 如果获取设备信息失败，仍然返回连接成功
+                    # 如果获取设备信息失败，降级到ADB模式
                     elapsed_time = time.time() - start_time
-                    logger.warning(f"u2连接成功但无法获取设备信息: {self.device_id} | 错误: {info_error}")
+                    logger.warning(f"u2连接成功但无法获取设备信息，降级到ADB模式: {self.device_id} | 错误: {info_error}")
                     
-                    self.progress_signal.emit(f"u2连接成功: {self.device_id}")
-                    self.progress_signal.emit(f"注意: 无法获取设备详细信息 - {str(info_error)}")
+                    # 不再发送设备信息，直接发送降级消息
+                    self.progress_signal.emit(f"u2连接无法获取设备信息，降级到ADB模式: {self.device_id}")
+                    self.progress_signal.emit(f"原因: {str(info_error)}")
                     
-                    log_device_operation("u2_connect_success_partial", self.device_id, {
-                        "mode": "u2",
-                        "status": "connected",
-                        "warning": "无法获取设备详细信息",
+                    log_device_operation("u2_connect_fallback_to_adb", self.device_id, {
+                        "mode": "u2_to_adb",
+                        "status": "fallback",
+                        "reason": str(info_error),
                         "elapsed_time": elapsed_time
                     })
                     
-                    log_thread_complete("U2ConnectThread", "success", {
+                    log_thread_complete("U2ConnectThread", "fallback", {
                         "device_id": self.device_id,
                         "elapsed_time": elapsed_time,
-                        "warning": "无法获取设备详细信息"
+                        "fallback_mode": "adb",
+                        "reason": str(info_error)
                     })
                     
-                    self.connected_signal.emit(d, self.device_id)
+                    # 发送降级信号（None表示U2失败，触发ADB模式）
+                    self.connected_signal.emit(None, self.device_id)
             else:
                 elapsed_time = time.time() - start_time
                 error_msg = f"u2连接失败: 无法连接到设备 {self.device_id}"

@@ -151,6 +151,7 @@ class ADB_Mainwindow(QMainWindow):
         from PyQt5 import QtWidgets
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
+        self.modeSwitchCheckBox = self.findChild(QtWidgets.QCheckBox, 'modeSwitchCheckBox')
         self.vr_keyevent_combo = self.findChild(QtWidgets.QComboBox, 'vr_keyevent_combo')
         self.datong_factory_button = self.findChild(QtWidgets.QPushButton, 'datong_factory_button')
         self.datong_disable_verity_button = self.findChild(QtWidgets.QPushButton, 'datong_disable_verity_button')
@@ -170,6 +171,7 @@ class ADB_Mainwindow(QMainWindow):
         except Exception as e:
             self.textBrowser.append(str(e))
         self.ComboxButton.activated[str].connect(self.on_combobox_changed)
+        self.modeSwitchCheckBox.stateChanged.connect(self.on_mode_switch_changed)
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb_button.clicked.connect(self.show_input_text_dialog)  # 输入文本
         self.get_screenshot_button.clicked.connect(self.show_screenshot_dialog)  # 截图
@@ -840,7 +842,8 @@ class ADB_Mainwindow(QMainWindow):
                     self.batch_install_thread = ADBBatchInstallThread(
                         device_id,
                         folder_path,
-                        connection_mode='adb'
+                        connection_mode=self.connection_mode,
+                        u2_device=self.d if self.connection_mode == 'u2' else None
                     )
                     self.batch_install_thread.progress_signal.connect(self.textBrowser.append)
                     self.batch_install_thread.result_signal.connect(self.textBrowser.append)
@@ -996,7 +999,8 @@ class ADB_Mainwindow(QMainWindow):
                     self.batch_install_test_thread = ADBBatchVerifyVersionThread(
                         device_id,
                         folder_path,
-                        connection_mode='adb'
+                        connection_mode=self.connection_mode,
+                        u2_device=self.d if self.connection_mode == 'u2' else None
                     )
                     self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
                     self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
@@ -1345,35 +1349,107 @@ class ADB_Mainwindow(QMainWindow):
             log_method_result("pull_log", False, "设备未连接")
             self.textBrowser.append("设备未连接！")
 
+    def on_mode_switch_changed(self, state):
+        """模式切换开关变化时的处理"""
+        if state == Qt.Checked:
+            # 切换到U2模式
+            self.connection_mode = 'u2'
+            self.textBrowser.append("切换到U2模式")
+            log_device_operation("mode_switch", "U2", {"mode": "u2", "action": "切换到U2模式"})
+        else:
+            # 切换到ADB模式
+            self.connection_mode = 'adb'
+            self.textBrowser.append("切换到ADB模式")
+            log_device_operation("mode_switch", "ADB", {"mode": "adb", "action": "切换到ADB模式"})
+        
+        # 如果有已连接的设备，重新连接以应用新模式
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        if device_id in devices_id_lst and self.d is not None:
+            # 重新连接设备以应用新模式
+            self._reconnect_device_with_new_mode(device_id)
+    
+    def _reconnect_device_with_new_mode(self, device_id):
+        """使用新模式重新连接设备"""
+        try:
+            if self.connection_mode == 'u2':
+                # 尝试u2连接
+                self.d = u2.connect(device_id)
+                self.textBrowser.append(f"U2模式重新连接设备: {device_id}")
+                log_device_operation("reconnect_u2", device_id, {"mode": "u2", "status": "success"})
+            else:
+                # ADB模式，清理u2连接
+                self._cleanup_u2_connection()
+                self.textBrowser.append(f"切换到ADB模式，设备: {device_id}")
+                log_device_operation("reconnect_adb", device_id, {"mode": "adb", "status": "success"})
+        except Exception as e:
+            self.textBrowser.append(f"重新连接设备失败: {e}")
+            log_device_operation("reconnect_failed", device_id, {"mode": self.connection_mode, "error": str(e)})
+    
     def on_combobox_changed(self, text):
         """设备选择下拉框变化时立即更新连接"""
         log_button_click("ComboxButton", "切换设备连接", f"目标设备: {text}")
         
         try:
             # 如果选择的设备与当前连接的设备不同，或者没有连接，则重新连接
-            if not self.d or self.connection_mode != 'u2' or text != self.device_id:
-                # 尝试u2连接
-                log_device_operation("u2_connect_attempt", text, {"mode": "u2", "reason": "设备切换"})
-                self.d = u2.connect(text)
-                if self.d:
-                    self.connection_mode = 'u2'
-                    self.device_id = text
-                    self.textBrowser.append(f"u2连接成功：{text}")
-                    log_device_operation("u2_connect_success", text, {"mode": "u2", "status": "connected"})
+            if not self.d or text != self.device_id:
+                # 设备ID改变，先清理旧连接
+                if self.d and text != self.device_id:
+                    self._cleanup_u2_connection()
+                
+                # 使用当前选择的模式进行连接
+                if self.modeSwitchCheckBox.isChecked():
+                    # U2模式
+                    log_device_operation("u2_connect_attempt", text, {"mode": "u2", "reason": "设备切换"})
+                    self.d = u2.connect(text)
+                    if self.d:
+                        self.connection_mode = 'u2'
+                        self.device_id = text
+                        self.textBrowser.append(f"U2连接成功：{text}")
+                        log_device_operation("u2_connect_success", text, {"mode": "u2", "status": "connected"})
+                    else:
+                        raise Exception("u2连接返回空对象")
                 else:
-                    raise Exception("u2连接返回空对象")
+                    # ADB模式
+                    self._cleanup_u2_connection()
+                    self.connection_mode = 'adb'
+                    self.device_id = text
+                    self.textBrowser.append(f"切换到ADB模式：{text}")
+                    log_device_operation("switch_to_adb", text, {"mode": "adb", "status": "connected"})
             else:
                 # 已经连接到该设备，确认连接状态
-                self.textBrowser.append(f"已连接到设备：{text}")
+                mode_text = "U2" if self.connection_mode == 'u2' else "ADB"
+                self.textBrowser.append(f"已连接到设备（{mode_text}模式）：{text}")
                 log_device_operation("device_already_connected", text, {"mode": self.connection_mode, "status": "already_connected"})
-        except Exception as u2_error:
-            # u2连接失败，使用ADB模式
-            self.d = None
-            self.connection_mode = 'adb'
-            self.device_id = text
-            self.textBrowser.append(f"u2连接失败：{u2_error}")
-            self.textBrowser.append(f"切换到ADB模式：{text}")
-            log_device_operation("fallback_to_adb", text, {"mode": "adb", "reason": str(u2_error)})
+        except Exception as connect_error:
+            # 连接失败，根据当前模式处理
+            if self.modeSwitchCheckBox.isChecked():
+                # U2模式失败，尝试切换到ADB模式
+                self._cleanup_u2_connection()
+                self.connection_mode = 'adb'
+                self.device_id = text
+                self.textBrowser.append(f"U2连接失败，切换到ADB模式：{text}")
+                self.textBrowser.append(f"错误信息：{connect_error}")
+                log_device_operation("u2_fallback_to_adb", text, {"mode": "adb", "reason": str(connect_error)})
+            else:
+                # ADB模式，显示错误信息
+                self.textBrowser.append(f"ADB模式连接失败：{text}")
+                self.textBrowser.append(f"错误信息：{connect_error}")
+                log_device_operation("adb_connect_failed", text, {"mode": "adb", "error": str(connect_error)})
+    
+    def _cleanup_u2_connection(self):
+        """清理旧的u2连接"""
+        if self.d is not None:
+            try:
+                # 尝试断开u2连接
+                logger.info(f"清理旧的u2连接: {self.device_id}")
+                # uiautomator2 没有显式的断开方法，我们只需要清除引用
+                self.d = None
+                logger.info("旧连接已清理")
+            except Exception as e:
+                logger.warning(f"清理u2连接时出错: {e}")
+                self.d = None
 
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str
@@ -1401,20 +1477,48 @@ class ADB_Mainwindow(QMainWindow):
             return device_ids
 
     def start_app_action(self, app_name):
-        """启动应用"""
-        device_ids = self.get_new_device_lst()
-        device_id = self.get_selected_device()
-        self.app_name = app_name
-        
-        log_button_click("start_app", f"启动应用: {app_name or '待输入'}")
-        
-        try:
-            if not self.app_name:
-                input_text, ok = QInputDialog.getText(self, '输入应用信息',
-                                                      '请输入应用包名')
-                if ok and input_text:
-                    package_name = input_text
-                    logger.info(f"输入包名: {package_name}")
+            """启动应用"""
+            device_ids = self.get_new_device_lst()
+            device_id = self.get_selected_device()
+            self.app_name = app_name
+            
+            log_button_click("start_app", f"启动应用: {app_name or '待输入'}")
+            
+            # 先检查设备是否可用
+            if device_id not in device_ids:
+                log_method_result("start_app_action", False, "设备未连接")
+                self.textBrowser.append("未连接设备！")
+                return
+            
+            try:
+                if not self.app_name:
+                    input_text, ok = QInputDialog.getText(self, '输入应用信息',
+                                                          '请输入应用包名')
+                    if ok and input_text:
+                        package_name = input_text
+                        logger.info(f"输入包名: {package_name}")
+                        
+                        if self.connection_mode == 'u2':
+                            from Function_Moudle.app_action_thread import AppActionThread
+                            self.app_action_thread = AppActionThread(self.d, package_name)
+                        elif self.connection_mode == 'adb':
+                            from Function_Moudle.adb_app_action_thread import ADBAppActionThread
+                            self.app_action_thread = ADBAppActionThread(device_id, package_name)
+                        else:
+                            log_method_result("start_app_action", False, "设备未连接")
+                            self.textBrowser.append("设备未连接！")
+                            return
+                        
+                        self.app_action_thread.progress_signal.connect(self.textBrowser.append)
+                        self.app_action_thread.error_signal.connect(self.textBrowser.append)
+                        self.app_action_thread.start()
+                        log_method_result("start_app_action", True, f"启动线程已启动: {package_name}")
+                    else:
+                        logger.info("用户取消输入")
+                        self.textBrowser.append("用户取消输入或输入为空")
+                else:
+                    package_name = self.app_name
+                    logger.info(f"启动应用: {package_name}")
                     
                     if self.connection_mode == 'u2':
                         from Function_Moudle.app_action_thread import AppActionThread
@@ -1431,35 +1535,9 @@ class ADB_Mainwindow(QMainWindow):
                     self.app_action_thread.error_signal.connect(self.textBrowser.append)
                     self.app_action_thread.start()
                     log_method_result("start_app_action", True, f"启动线程已启动: {package_name}")
-                else:
-                    logger.info("用户取消输入")
-                    self.textBrowser.append("用户取消输入或输入为空")
-            else:
-                package_name = self.app_name
-                logger.info(f"启动应用: {package_name}")
-                
-                if self.connection_mode == 'u2':
-                    from Function_Moudle.app_action_thread import AppActionThread
-                    self.app_action_thread = AppActionThread(self.d, package_name)
-                elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_app_action_thread import ADBAppActionThread
-                    self.app_action_thread = ADBAppActionThread(device_id, package_name)
-                else:
-                    log_method_result("start_app_action", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-                    return
-                
-                self.app_action_thread.progress_signal.connect(self.textBrowser.append)
-                self.app_action_thread.error_signal.connect(self.textBrowser.append)
-                self.app_action_thread.start()
-                log_method_result("start_app_action", True, f"启动线程已启动: {package_name}")
-        except Exception as e:
-            log_method_result("start_app_action", False, str(e))
-            self.textBrowser.append(f"启动应用失败: {e}")
-        
-        if device_id not in device_ids:
-            self.textBrowser.append("未连接设备！")
-
+            except Exception as e:
+                log_method_result("start_app_action", False, str(e))
+                self.textBrowser.append(f"启动应用失败: {e}")
     def skip_power_limit(self):
         """跳过电源挡位限制"""
         log_button_click("skipping_powerlimit_button", "跳过电源挡位限制")
@@ -1768,6 +1846,29 @@ class ADB_Mainwindow(QMainWindow):
         self.textBrowser.append("设备列表刷新完成")
         # 可以在这里添加其他清理工作
     
+    def _connect_device_with_current_mode(self, device_id):
+        """使用当前选择的模式连接设备"""
+        if not device_id:
+            return
+            
+        # 清理旧连接
+        if self.d:
+            self._cleanup_u2_connection()
+        
+        # 使用当前选择的模式连接
+        if self.modeSwitchCheckBox.isChecked():
+            # U2模式
+            self.connection_mode = 'u2'
+            self.device_id = device_id
+            # 在单独的线程中尝试u2连接，避免阻塞主界面
+            self._try_u2_connection_in_thread(device_id)
+        else:
+            # ADB模式
+            self.connection_mode = 'adb'
+            self.device_id = device_id
+            self.textBrowser.append(f"使用ADB模式连接设备: {device_id}")
+            log_device_operation("connect_adb", device_id, {"mode": "adb", "status": "connected"})
+    
     def _handle_refreshed_devices(self, device_ids):
         """处理刷新后的设备列表（在主线程中执行）"""
         # 清空 ComboxButton 并添加新的设备ID
@@ -1779,13 +1880,13 @@ class ADB_Mainwindow(QMainWindow):
             # 只在有设备时尝试连接
             device_id = self.get_selected_device()
             if device_id and device_id != "请点击刷新设备":
-                self.device_id = device_id
-                # 检查是否已经连接过（避免重复连接）
-                if not self.d or self.connection_mode != 'u2':
-                    # 使用单独的线程尝试u2连接，避免阻塞主界面
-                    self._try_u2_connection_in_thread(device_id)
+                # 检查设备ID是否改变，或者没有连接，则重新连接
+                if not self.d or device_id != self.device_id:
+                    # 设备ID改变了，需要清理旧连接并重新连接
+                    self._connect_device_with_current_mode(device_id)
                 else:
-                    self.textBrowser.append(f"已使用u2模式连接到设备: {device_id}")
+                    mode_text = "U2" if self.connection_mode == 'u2' else "ADB"
+                    self.textBrowser.append(f"已使用{mode_text}模式连接到设备: {device_id}")
         else:
             self.textBrowser.append("未检测到任何设备")
     
@@ -1813,22 +1914,36 @@ class ADB_Mainwindow(QMainWindow):
             self.d = None
             self.connection_mode = 'adb'
             log_device_operation("fallback_to_adb", device_id, {"reason": "u2连接失败", "mode": "adb"})
-            self.textBrowser.append(f"使用ADB模式: {device_id}")
+            self.textBrowser.append(f"切换到ADB模式: {device_id}")
     
     def _handle_u2_connection_result(self, u2_device, device_id):
         """处理u2连接结果"""
         if u2_device:
+            # u2连接成功
             self.d = u2_device
             self.connection_mode = 'u2'
-            self.textBrowser.append(f"u2连接成功: {device_id}")
+            self.device_id = device_id  # 确保更新设备ID
             log_device_operation("u2_connect_success", device_id, {"mode": "u2", "status": "connected"})
             log_thread_complete("U2ConnectThread", "success", {"device_id": device_id, "mode": "u2"})
         else:
-            # u2连接失败，使用ADB模式
+            # u2连接失败或无法获取设备信息，降级到ADB模式
             self.d = None
             self.connection_mode = 'adb'
-            self.textBrowser.append(f"u2连接失败，使用ADB模式: {device_id}")
-            log_device_operation("u2_connect_failed", device_id, {"mode": "adb", "reason": "u2连接失败"})
+            self.device_id = device_id  # 确保更新设备ID
+            
+            # 检查是否有降级提示（通过最近的日志消息判断）
+            log_messages = [self.textBrowser.toPlainText()]
+            recent_messages = log_messages[-5:] if log_messages else []
+            has_fallback_msg = any("降级到ADB模式" in msg for msg in recent_messages)
+            
+            if has_fallback_msg:
+                # 已经显示过降级消息，不再重复
+                log_device_operation("u2_connect_fallback", device_id, {"mode": "adb", "reason": "无法获取设备信息"})
+            else:
+                # 原始连接失败
+                self.textBrowser.append(f"u2连接失败，使用ADB模式: {device_id}")
+                log_device_operation("u2_connect_failed", device_id, {"mode": "adb", "reason": "u2连接失败"})
+            
             log_thread_complete("U2ConnectThread", "failed", {"device_id": device_id, "fallback_mode": "adb"})
 
     def adb_root_wrapper(self):

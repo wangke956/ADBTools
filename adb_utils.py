@@ -216,47 +216,112 @@ class ADBUtils:
         """
         adb_path = cls.get_adb_path()
         
-        # 构建完整命令
-        if device_id:
-            full_command = f'"{adb_path}" -s {device_id} {command}'
-        else:
-            full_command = f'"{adb_path}" {command}'
-        
         logger.info(f"========== 开始执行ADB实时命令 ==========")
         logger.info(f"设备ID: {device_id if device_id else '无'}")
         logger.info(f"命令: {command}")
-        logger.info(f"完整命令: {full_command}")
-        logger.info(f"模式: 实时输出")
         
         # 记录操作历史
         log_operation("adb_command_realtime", {
             "command": command,
-            "full_command": full_command,
             "device_id": device_id,
             "mode": "realtime"
         }, device_id)
         
-        # 设置默认参数
-        default_kwargs = {
-            'shell': True,
-            'stdout': subprocess.PIPE,
-            'stderr': subprocess.STDOUT,  # 将stderr合并到stdout
-            'text': True,
-            'encoding': 'utf-8',
-            'errors': 'ignore',
-            'bufsize': 1,  # 行缓冲
-            'universal_newlines': True
-        }
+        # 检查是否是 install 命令
+        is_install_cmd = command.strip().startswith('install')
+        
+        if is_install_cmd:
+            # install 命令使用列表形式，避免 shell 转义问题
+            # 解析命令参数
+            parts = []
+            current_part = ""
+            in_quotes = False
+            quote_char = None
+            
+            for char in command:
+                if char in ['"', "'"] and (not in_quotes or quote_char == char):
+                    in_quotes = not in_quotes
+                    if in_quotes:
+                        quote_char = char
+                    else:
+                        quote_char = None
+                elif char == ' ' and not in_quotes:
+                    if current_part:
+                        parts.append(current_part)
+                        current_part = ""
+                else:
+                    current_part += char
+            
+            if current_part:
+                parts.append(current_part)
+            
+            # 添加调试日志
+            logger.info(f"解析后的参数列表: {parts}")
+            logger.info(f"参数数量: {len(parts)}")
+            
+            # 构建命令列表
+            cmd_list = [adb_path]
+            if device_id:
+                cmd_list.extend(['-s', device_id])
+            cmd_list.extend(parts)
+            
+            logger.info(f"最终命令列表: {cmd_list}")
+            logger.info(f"最终命令列表长度: {len(cmd_list)}")
+            
+            full_command = ' '.join(cmd_list)
+            logger.info(f"完整命令 (列表模式): {full_command}")
+            
+            # 设置默认参数 - 不使用 shell
+            default_kwargs = {
+                'shell': False,
+                'stdout': subprocess.PIPE,
+                'stderr': subprocess.STDOUT,  # 将stderr合并到stdout
+                'text': True,
+                'encoding': 'utf-8',
+                'errors': 'ignore',
+                'bufsize': 1,  # 行缓冲
+                'universal_newlines': True
+            }
+        else:
+            # 其他命令使用字符串形式
+            if device_id:
+                full_command = f'"{adb_path}" -s {device_id} {command}'
+            else:
+                full_command = f'"{adb_path}" {command}'
+            
+            logger.info(f"完整命令: {full_command}")
+            logger.info(f"模式: shell 模式")
+            
+            # 设置默认参数
+            default_kwargs = {
+                'shell': True,
+                'stdout': subprocess.PIPE,
+                'stderr': subprocess.STDOUT,  # 将stderr合并到stdout
+                'text': True,
+                'encoding': 'utf-8',
+                'errors': 'ignore',
+                'bufsize': 1,  # 行缓冲
+                'universal_newlines': True
+            }
+        
         default_kwargs.update(kwargs)
         
         try:
             if output_callback:
                 # 实时输出模式
                 logger.info(f"启动实时输出进程...")
-                process = subprocess.Popen(
-                    full_command,
-                    **{k: v for k, v in default_kwargs.items() if k not in ['capture_output']}
-                )
+                
+                # 根据 install 命令决定使用列表还是字符串
+                if is_install_cmd:
+                    process = subprocess.Popen(
+                        cmd_list,
+                        **{k: v for k, v in default_kwargs.items() if k not in ['capture_output']}
+                    )
+                else:
+                    process = subprocess.Popen(
+                        full_command,
+                        **{k: v for k, v in default_kwargs.items() if k not in ['capture_output']}
+                    )
                 
                 logger.info(f"========== 实时输出开始 ==========")
                 

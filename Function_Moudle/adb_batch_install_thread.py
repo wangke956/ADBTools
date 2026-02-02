@@ -140,7 +140,10 @@ class ADBBatchInstallThread(QThread):
             command: 命令
             realtime: 是否实时输出，默认为False
         """
-        if self.connection_mode == 'u2' and self.u2_device:
+        # 对于 install 命令，始终使用本地 ADB 命令，因为 u2.shell() 无法执行安装
+        if command.strip().startswith('install'):
+            return self._execute_adb_command(command, realtime=realtime)
+        elif self.connection_mode == 'u2' and self.u2_device:
             return self._execute_u2_command(command)
         else:
             return self._execute_adb_command(command, realtime=realtime)
@@ -229,17 +232,19 @@ class ADBBatchInstallThread(QThread):
             allow_downgrade: 是否允许降级安装，默认为False
         """
         try:
-            quoted_apk_path = f'"{apk_path}"'
+            # 规范化路径，将反斜杠转换为正斜杠，避免 shell 转义问题
+            normalized_path = apk_path.replace('\\', '/')
+            quoted_apk_path = f'"{normalized_path}"'
             
-            # 构建安装命令
+            # 首先尝试带 -r 的命令
             if allow_downgrade:
                 command = f"install -r -d {quoted_apk_path}"
-                self.progress_signal.emit("使用降级安装模式 (-r -d)")
+                mode_desc = "降级安装模式 (-r -d)"
             else:
                 command = f"install -r {quoted_apk_path}"
-                self.progress_signal.emit("使用普通安装模式 (-r)")
+                mode_desc = "普通安装模式 (-r)"
             
-            # 显示要执行的adb命令
+            self.progress_signal.emit(f"使用{mode_desc}")
             self.progress_signal.emit(f"执行命令: adb -s {self.device_id} {command}")
             
             # 使用实时输出执行命令
@@ -248,17 +253,54 @@ class ADBBatchInstallThread(QThread):
             if result is None:
                 return False
             
-            if self.connection_mode == 'u2':
-                output = str(result)
+            # 获取输出内容
+            if hasattr(result, 'stdout'):
+                output = result.stdout.strip()
             else:
-                output = result.stdout.strip() if hasattr(result, 'stdout') else str(result)
+                output = str(result)
             
             # 显示完整的返回结果
             self.progress_signal.emit(f"命令返回: {output}")
             
+            # 检查是否成功
             if "Success" in output or "success" in output.lower():
                 self.progress_signal.emit("安装成功！")
                 return True
+            
+            # 检查是否是因为不支持 -r 选项
+            if "Unknown option 'r'" in output or "Unknown option" in output:
+                self.progress_signal.emit("设备不支持 -r 选项，尝试使用不带 -r 的命令...")
+                
+                # 重试不带 -r 的命令
+                if allow_downgrade:
+                    command = f"install -d {quoted_apk_path}"
+                    mode_desc = "降级安装模式 (-d)"
+                else:
+                    command = f"install {quoted_apk_path}"
+                    mode_desc = "普通安装模式"
+                
+                self.progress_signal.emit(f"使用{mode_desc}")
+                self.progress_signal.emit(f"执行命令: adb -s {self.device_id} {command}")
+                
+                result = self._execute_command(command, realtime=True)
+                
+                if result is None:
+                    return False
+                
+                # 获取输出内容
+                if hasattr(result, 'stdout'):
+                    output = result.stdout.strip()
+                else:
+                    output = str(result)
+                
+                self.progress_signal.emit(f"命令返回: {output}")
+                
+                if "Success" in output or "success" in output.lower():
+                    self.progress_signal.emit("安装成功！")
+                    return True
+                else:
+                    self.error_signal.emit(f"安装失败: {output}")
+                    return False
             else:
                 self.error_signal.emit(f"安装失败: {output}")
                 return False

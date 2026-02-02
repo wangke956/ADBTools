@@ -224,7 +224,7 @@ class ADBBatchInstallTestThread(QThread):
         """模拟安装APK文件 - 仅打印命令"""
         try:
             quoted_apk_path = f'"{apk_path}"'
-            command = f"install -r {quoted_apk_path}"
+            command = f"install {quoted_apk_path}"
             
             self.debug_signal.emit(f"[模拟安装] 将执行命令: {command}")
             

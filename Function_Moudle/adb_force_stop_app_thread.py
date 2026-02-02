@@ -4,6 +4,7 @@ import subprocess
 class ADBForceStopAppThread(QThread):
     progress_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
+    result_signal = pyqtSignal(str)
 
     def __init__(self, device_id, package_name=None):
         super().__init__()
@@ -30,11 +31,16 @@ class ADBForceStopAppThread(QThread):
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             
             if result.returncode == 0:
-                self.progress_signal.emit("应用停止成功！")
+                result_msg = "应用停止成功！"
+                self.result_signal.emit(result_msg)
+                self.progress_signal.emit(result_msg)
             else:
-                self.error_signal.emit(f"停止应用失败: {result.stderr}")
+                error_msg = f"停止应用失败: {result.stderr}"
+                self.error_signal.emit(error_msg)
                 
         except subprocess.CalledProcessError as e:
-            self.error_signal.emit(str(e))
+            error_msg = str(e)
+            self.error_signal.emit(error_msg)
         except Exception as e:
-            self.error_signal.emit(str(e))
+            error_msg = str(e)
+            self.error_signal.emit(error_msg)
