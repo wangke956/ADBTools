@@ -23,8 +23,16 @@ class GetRunningAppInfoThread(QThread):
 
     def run(self):
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.error_signal.emit("设备连接无效，无法获取应用信息")
+                return
+                
             self.progress_signal.emit("正在获取应用信息...")
             self.current_app = self.d.app_current()
+            if self.current_app is None:
+                self.error_signal.emit("无法获取当前应用信息")
+                return
             self.progress_signal.emit("正在获取包名...")
             self.package_name = self.current_app['package']
             self.progress_signal.emit("正在获取应用版本信息...")

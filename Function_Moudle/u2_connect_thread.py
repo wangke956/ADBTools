@@ -1,9 +1,36 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 import uiautomator2 as u2
 from logger_manager import get_logger, log_device_operation, log_thread_start, log_thread_complete
+import os
+import sys
 
 # 创建日志记录器
 logger = get_logger("ADBTools.U2ConnectThread")
+
+# 检查是否在 Nuitka 环境中运行
+IS_NUITKA = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
+if IS_NUITKA:
+    # Nuitka 环境中需要设置 u2 的资源路径
+    import ntpath
+    import uiautomator2
+    import uiautomator2.assets as u2_assets
+    from pathlib import Path
+    
+    # 获取当前脚本所在目录（在 Nuitka 中是可执行文件所在目录）
+    if getattr(sys, 'frozen', False):
+        # 可执行文件路径
+        exe_dir = Path(sys.executable).parent
+        u2_assets_dir = exe_dir / "uiautomator2" / "assets"
+    else:
+        # 源代码路径
+        u2_assets_dir = Path(__file__).parent.parent / "uiautomator2" / "assets"
+    
+    # 设置 u2 的资源路径
+    if u2_assets_dir.exists():
+        # 更新 u2 的资源管理器
+        u2_assets._assets_dir = str(u2_assets_dir)
+        logger.info(f"设置 u2 资源路径为: {u2_assets_dir}")
 
 class U2ConnectThread(QThread):
     """u2连接尝试线程（避免在主线程中阻塞）"""

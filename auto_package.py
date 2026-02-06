@@ -541,8 +541,17 @@ def cleanup_temp_files() -> None:
 def main():
     """主函数"""
     try:
-        # 1. 获取用户输入的版本号和platform-tools路径
-        version, platform_tools_path = get_user_inputs()
+        # 检查是否为非交互式运行
+        import sys
+        if len(sys.argv) > 1 and sys.argv[1] == "--non-interactive":
+            # 非交互式运行，使用默认版本号和路径
+            version = "1.6.7"
+            platform_tools_path = Path(r"D:\work_tools\platform-tools")
+            print(f"非交互式运行，使用版本号: {version}")
+            print(f"platform-tools 路径: {platform_tools_path}")
+        else:
+            # 1. 获取用户输入的版本号和platform-tools路径
+            version, platform_tools_path = get_user_inputs()
         
         # 确认继续
         print(f"\n" + "=" * 60)
@@ -551,10 +560,16 @@ def main():
         print(f"platform-tools 路径: {platform_tools_path}")
         print("=" * 60)
         
-        confirm = input("\n是否开始打包? (y/n): ").strip().lower()
-        if confirm not in ['y', 'yes', '是']:
-            print("打包已取消")
-            return
+        # 检查是否为非交互式运行
+        import sys
+        if len(sys.argv) > 1 and sys.argv[1] == "--non-interactive":
+            print("非交互式运行，自动开始打包...")
+            confirm = 'y'
+        else:
+            confirm = input("\n是否开始打包? (y/n): ").strip().lower()
+            if confirm not in ['y', 'yes', '是']:
+                print("打包已取消")
+                return
         
         # 2. 更新配置文件中的版本号
         if not update_config_version(version):
@@ -581,9 +596,14 @@ def main():
             return
         
         # 7. 清理临时文件（可选）
-        cleanup_choice = input("\n是否清理临时文件? (y/n): ").strip().lower()
-        if cleanup_choice in ['y', 'yes', '是']:
-            cleanup_temp_files()
+        # 检查是否为非交互式运行
+        if len(sys.argv) > 1 and sys.argv[1] == "--non-interactive":
+            print("非交互式运行，跳过清理临时文件确认...")
+            cleanup_choice = 'n'
+        else:
+            cleanup_choice = input("\n是否清理临时文件? (y/n): ").strip().lower()
+            if cleanup_choice in ['y', 'yes', '是']:
+                cleanup_temp_files()
         
         print("\n" + "=" * 60)
         print("✅ 自动打包完成!")

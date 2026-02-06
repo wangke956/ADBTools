@@ -898,6 +898,31 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
+            <item row="3" column="0">
+             <widget class="QPushButton" name="datong_set_datetime_button">
+              <property name="minimumSize">
+               <size>
+                <width>200</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>30</height>
+               </size>
+              </property>
+              <property name="font">
+               <font>
+                <family>Arial Rounded MT Bold</family>
+                <pointsize>12</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>设置设备日期时间</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
          </layout>

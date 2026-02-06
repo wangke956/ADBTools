@@ -160,6 +160,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_batch_install_test_button = self.findChild(QtWidgets.QPushButton, 'datong_batch_install_test_button')
         self.datong_input_password_button = self.findChild(QtWidgets.QPushButton, 'datong_input_password_button')
         self.datong_open_telenav_engineering_button = self.findChild(QtWidgets.QPushButton, 'datong_open_telenav_engineering_button')
+        self.datong_set_datetime_button = self.findChild(QtWidgets.QPushButton, 'datong_set_datetime_button')
         self.d = None
         self.device_id = None
         self.connection_mode = None  # 'u2' 或 'adb'
@@ -216,6 +217,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_batch_install_test_button.clicked.connect(self.datong_batch_verify_version_action)  # 验证批量推包版本号
         self.datong_input_password_button.clicked.connect(self.datong_input_password_action)  # 一键输入密码
         self.datong_open_telenav_engineering_button.clicked.connect(self.datong_open_telenav_engineering_action)  # 打开泰维地图工程模式
+        self.datong_set_datetime_button.clicked.connect(self.datong_set_datetime_action)  # 设置设备日期时间
         
         # 添加重新初始化u2按钮（如果UI中有）
         try:
@@ -1084,6 +1086,56 @@ class ADB_Mainwindow(QMainWindow):
                 self.textBrowser.append(f"打开泰维地图工程模式失败: {e}")
         else:
             log_method_result("datong_open_telenav_engineering_action", False, "设备未连接")
+            self.textBrowser.append("设备未连接！")
+
+    def datong_set_datetime_action(self):
+        """设置设备日期时间"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        log_button_click("datong_set_datetime_button", "设置设备日期时间")
+
+        if device_id in devices_id_lst:
+            try:
+                # 弹出确认对话框
+                from PyQt5.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self, 
+                    '确认设置日期时间',
+                    f'确定要在设备 {device_id} 上设置当前日期时间吗？\n\n'
+                    '注意：\n'
+                    '1. 此操作将修改设备的系统时间\n'
+                    '2. 设置成功后需要重启设备以使更改生效\n'
+                    '3. 请确保已保存所有工作',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 创建设置日期时间线程
+                    from Function_Moudle.datong_set_datetime_thread import DatongSetDatetimeThread
+                    self.datong_set_datetime_thread = DatongSetDatetimeThread(
+                        device_id, 
+                        connection_mode=self.connection_mode,
+                        u2_device=self.d if self.connection_mode == 'u2' else None
+                    )
+                    
+                    # 连接信号
+                    self.datong_set_datetime_thread.progress_signal.connect(self.textBrowser.append)
+                    self.datong_set_datetime_thread.error_signal.connect(self.textBrowser.append)
+                    self.datong_set_datetime_thread.result_signal.connect(self.textBrowser.append)
+                    
+                    # 启动线程
+                    self.datong_set_datetime_thread.start()
+                    
+                    log_method_result("datong_set_datetime_action", True, "设置日期时间线程已启动")
+                else:
+                    logger.info("用户取消设置日期时间")
+            except Exception as e:
+                log_method_result("datong_set_datetime_action", False, str(e))
+                self.textBrowser.append(f"启动设置日期时间线程失败: {e}")
+        else:
+            log_method_result("datong_set_datetime_action", False, "设备未连接")
             self.textBrowser.append("设备未连接！")
 
     def set_vr_timeout(self):
@@ -2288,6 +2340,10 @@ class ADB_Mainwindow(QMainWindow):
                 if self.connection_mode == 'u2':
                     # u2连接成功，自动获取当前前台app并停止
                     try:
+                        # 检查设备连接是否有效
+                        if self.d is None:
+                            logger.warning("设备连接无效，跳过获取当前应用")
+                            raise Exception("设备连接无效")
                         # 获取当前前台应用信息
                         current_app = self.d.app_current()
                         if current_app and 'package' in current_app:
@@ -2375,6 +2431,10 @@ class ADB_Mainwindow(QMainWindow):
                 # u2连接成功，自动获取当前前台app并清除缓存
                 self.textBrowser.append("正在获取当前前台应用...")
                 
+                # 检查设备连接是否有效
+                if self.d is None:
+                    logger.warning("设备连接无效，跳过获取当前应用")
+                    return
                 # 获取当前前台应用
                 current_app = self.d.app_current()
                 if current_app and 'package' in current_app:

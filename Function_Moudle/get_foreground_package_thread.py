@@ -31,9 +31,17 @@ class GetForegroundPackageThread(QThread):
         logger.info("开始获取前台应用信息")
         
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.error_signal.emit("设备连接无效，无法获取前台应用")
+                return
+                
             self.progress_signal.emit("正在获取前台应用...")
             
             current_app = self.d.app_current()  # 获取当前正在运行的应用
+            if current_app is None:
+                self.error_signal.emit("无法获取前台应用信息")
+                return
             
             if current_app:
                 package_name = current_app['package']

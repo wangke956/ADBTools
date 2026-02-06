@@ -262,15 +262,19 @@ class LoggerManager:
         """初始化日志目录"""
         try:
             # 确定日志目录路径
-            if getattr(sys, 'frozen', False):
-                # PyInstaller打包后的路径
-                # 优先使用用户目录，避免C盘权限问题
+            # 检查是否为打包状态（兼容PyInstaller和Nuitka）
+            is_frozen = getattr(sys, 'frozen', False) or \
+                       (sys.platform == 'win32' and os.path.exists(os.path.join(os.path.dirname(sys.executable or ''), '__main__.pyc'))) or \
+                       (sys.platform == 'win32' and os.path.exists(os.path.join(os.path.dirname(sys.executable or ''), 'main.py')))
+            
+            if is_frozen:
+                # 打包后的路径 - 优先使用用户目录，避免C盘权限问题
                 app_data_dir = os.environ.get('APPDATA')
                 if app_data_dir:
                     base_dir = os.path.join(app_data_dir, 'ADBTools')
                 else:
                     # 如果APPDATA环境变量不存在，回退到程序目录
-                    base_dir = os.path.dirname(sys.executable)
+                    base_dir = os.path.dirname(sys.executable or os.path.dirname(os.path.abspath(__file__)))
             else:
                 # 开发环境路径
                 base_dir = os.path.dirname(os.path.abspath(__file__))

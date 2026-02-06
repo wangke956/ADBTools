@@ -7,8 +7,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>623</width>
-    <height>630</height>
+    <width>606</width>
+    <height>662</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -64,12 +64,40 @@
      <verstretch>1</verstretch>
     </sizepolicy>
    </property>
-   <layout class="QGridLayout" name="gridLayout_6">
-    <item row="0" column="0">
-     <layout class="QVBoxLayout" name="verticalLayout_6">
+   <layout class="QFormLayout" name="formLayout_5">
+    <item row="0" column="0" colspan="2">
+     <layout class="QVBoxLayout" name="verticalLayout_7">
       <item>
-       <layout class="QFormLayout" name="formLayout_8">
-        <item row="0" column="0">
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QCheckBox" name="modeSwitchCheckBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>30</width>
+            <height>30</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>50</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>U2</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="RefreshButton">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -100,7 +128,7 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
+        <item>
          <widget class="QComboBox" name="ComboxButton">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -175,10 +203,10 @@
           <item row="0" column="0" colspan="2">
            <layout class="QFormLayout" name="formLayout_10">
             <item row="0" column="0">
-             <layout class="QVBoxLayout" name="verticalLayout_3">
-              <item>
-               <layout class="QGridLayout" name="gridLayout_3">
-                <item row="0" column="0">
+             <layout class="QGridLayout" name="gridLayout_3">
+              <item row="0" column="0">
+               <layout class="QHBoxLayout" name="horizontalLayout_4">
+                <item>
                  <widget class="QPushButton" name="adb_root_button">
                   <property name="enabled">
                    <bool>true</bool>
@@ -198,7 +226,7 @@
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>60</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="baseSize">
@@ -216,9 +244,12 @@
                   <property name="text">
                    <string>获取Root权限</string>
                   </property>
+                  <property name="autoRepeatInterval">
+                   <number>100</number>
+                  </property>
                  </widget>
                 </item>
-                <item row="0" column="1">
+                <item>
                  <widget class="QPushButton" name="button_reboot">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Expanding" vsizetype="Maximum">
@@ -254,7 +285,7 @@
                 </item>
                </layout>
               </item>
-              <item>
+              <item row="1" column="0">
                <layout class="QVBoxLayout" name="verticalLayout_5">
                 <item>
                  <widget class="QTextEdit" name="Findstr">
@@ -273,7 +304,7 @@
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>60</height>
+                    <height>80</height>
                    </size>
                   </property>
                   <property name="font">
@@ -330,7 +361,7 @@ p, li { white-space: pre-wrap; }
                 </item>
                </layout>
               </item>
-              <item>
+              <item row="2" column="0">
                <layout class="QGridLayout" name="gridLayout">
                 <item row="0" column="0">
                  <widget class="QPushButton" name="adb_install_button">
@@ -864,6 +895,31 @@ p, li { white-space: pre-wrap; }
               </property>
               <property name="text">
                <string>打开泰维地图工程模式</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QPushButton" name="datong_set_datetime_button">
+              <property name="minimumSize">
+               <size>
+                <width>200</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>30</height>
+               </size>
+              </property>
+              <property name="font">
+               <font>
+                <family>Arial Rounded MT Bold</family>
+                <pointsize>12</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>设置设备日期时间</string>
               </property>
              </widget>
             </item>
@@ -1565,12 +1621,8 @@ p, li { white-space: pre-wrap; }
         </widget>
        </widget>
       </item>
-     </layout>
-    </item>
-    <item row="1" column="0">
-     <layout class="QVBoxLayout" name="verticalLayout_8">
       <item>
-       <layout class="QVBoxLayout" name="verticalLayout_7">
+       <layout class="QVBoxLayout" name="verticalLayout_6">
         <item>
          <widget class="QTextBrowser" name="textBrowser">
           <property name="enabled">
@@ -1585,19 +1637,19 @@ p, li { white-space: pre-wrap; }
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>245</height>
+            <height>210</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>900</height>
+            <height>800</height>
            </size>
           </property>
           <property name="font">
            <font>
             <family>Franklin Gothic Medium</family>
-            <pointsize>12</pointsize>
+            <pointsize>10</pointsize>
            </font>
           </property>
           <property name="acceptDrops">
@@ -1674,26 +1726,26 @@ p, li { white-space: pre-wrap; }
           </item>
          </layout>
         </item>
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>398</width>
+            <height>28</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>By wk WX:2315313745</string>
+          </property>
+         </widget>
+        </item>
        </layout>
-      </item>
-      <item>
-       <widget class="QLabel" name="label">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>398</width>
-          <height>28</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>By wk WX:2315313745</string>
-        </property>
-       </widget>
       </item>
      </layout>
     </item>
