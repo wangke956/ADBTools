@@ -829,32 +829,109 @@ class ADB_Mainwindow(QMainWindow):
                 
                 logger.info(f"找到 {len(apk_files)} 个APK文件")
                 
-                # 显示确认对话框
-                reply = QMessageBox.question(
-                    self,
-                    '确认批量安装',
-                    f'找到 {len(apk_files)} 个APK文件，是否继续批量安装？\n\n'
-                    f'文件列表:\n' + '\n'.join(apk_files[:10]),
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
+                # 创建APK多选对话框
+                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel
+                dialog = QDialog(self)
+                dialog.setWindowTitle("选择要安装的APK文件")
+                dialog.resize(600, 400)
                 
-                if reply == QMessageBox.Yes:
-                    from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
-                    self.batch_install_thread = ADBBatchInstallThread(
-                        device_id,
-                        folder_path,
-                        connection_mode=self.connection_mode,
-                        u2_device=self.d if self.connection_mode == 'u2' else None
-                    )
-                    self.batch_install_thread.progress_signal.connect(self.textBrowser.append)
-                    self.batch_install_thread.result_signal.connect(self.textBrowser.append)
-                    self.batch_install_thread.error_signal.connect(self.textBrowser.append)
-                    self.batch_install_thread.start()
+                # 文件列表
+                file_list = QListWidget(dialog)
+                file_list.setSelectionMode(QListWidget.ExtendedSelection)
+                
+                # 添加文件到列表
+                for apk_file in apk_files:
+                    item = QListWidgetItem(apk_file)
+                    item.setCheckState(Qt.Unchecked)
+                    file_list.addItem(item)
+                
+                # 按钮布局
+                button_layout = QHBoxLayout()
+                
+                # 全选按钮
+                select_all_btn = QPushButton("全选")
+                select_all_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Checked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(select_all_btn)
+                
+                # 反选按钮
+                invert_btn = QPushButton("反选")
+                invert_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Checked if file_list.item(i).checkState() == Qt.Unchecked else Qt.Unchecked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(invert_btn)
+                
+                # 清空按钮
+                clear_btn = QPushButton("清空")
+                clear_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Unchecked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(clear_btn)
+                
+                # 确认按钮
+                confirm_btn = QPushButton("确认选择")
+                confirm_btn.clicked.connect(dialog.accept)
+                button_layout.addWidget(confirm_btn)
+                
+                # 取消按钮
+                cancel_btn = QPushButton("取消")
+                cancel_btn.clicked.connect(dialog.reject)
+                button_layout.addWidget(cancel_btn)
+                
+                # 主布局
+                layout = QVBoxLayout()
+                layout.addWidget(QLabel(f"从 {len(apk_files)} 个APK文件中选择要安装的文件:"))
+                layout.addWidget(file_list)
+                layout.addLayout(button_layout)
+                dialog.setLayout(layout)
+                
+                # 显示对话框
+                if dialog.exec_() == QDialog.Accepted:
+                    # 获取选中的文件
+                    selected_files = []
+                    for i in range(file_list.count()):
+                        if file_list.item(i).checkState() == Qt.Checked:
+                            selected_files.append(file_list.item(i).text())
                     
-                    log_method_result("datong_batch_install_action", True, f"批量安装线程已启动 ({len(apk_files)}个文件)")
+                    if not selected_files:
+                        QMessageBox.warning(self, "未选择文件", "请至少选择一个APK文件")
+                        return
+                    
+                    logger.info(f"用户选择了 {len(selected_files)} 个APK文件")
+                    
+                    # 显示确认对话框
+                    reply = QMessageBox.question(
+                        self,
+                        '确认批量安装',
+                        f'已选择 {len(selected_files)} 个APK文件，是否继续批量安装？\n\n'
+                        f'文件列表:\n' + '\n'.join(selected_files),
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.Yes:
+                        from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
+                        self.batch_install_thread = ADBBatchInstallThread(
+                            device_id,
+                            folder_path,
+                            connection_mode=self.connection_mode,
+                            u2_device=self.d if self.connection_mode == 'u2' else None,
+                            selected_files=selected_files  # 传递选中的文件列表
+                        )
+                        self.batch_install_thread.progress_signal.connect(self.textBrowser.append)
+                        self.batch_install_thread.result_signal.connect(self.textBrowser.append)
+                        self.batch_install_thread.error_signal.connect(self.textBrowser.append)
+                        self.batch_install_thread.start()
+                        
+                        log_method_result("datong_batch_install_action", True, f"批量安装线程已启动 ({len(selected_files)}个文件)")
+                    else:
+                        logger.info("用户取消批量安装")
                 else:
-                    logger.info("用户取消批量安装")
+                    logger.info("用户取消文件选择")
             except Exception as e:
                 log_method_result("datong_batch_install_action", False, str(e))
                 self.textBrowser.append(f"批量安装失败: {e}")
@@ -893,58 +970,126 @@ class ADB_Mainwindow(QMainWindow):
                     self.textBrowser.append(f"文件夹不存在: {folder_path}")
                     return
                 
+                # 检查是否为文件夹
                 if not os.path.isdir(folder_path):
                     log_method_result("datong_batch_install_test_action", False, "路径不是文件夹")
                     self.textBrowser.append(f"路径不是文件夹: {folder_path}")
                     return
                 
-                # 弹出确认对话框
-                reply = QMessageBox.question(
-                    self, 
-                    '确认测试批量安装',
-                    f'是否要在设备 {device_id} 上测试批量安装功能？\n\n'
-                    f'文件夹路径: {folder_path}\n\n'
-                    '注意：\n'
-                    '1. 此功能仅用于测试，不会实际安装任何APK\n'
-                    '2. 将打印所有流程中的值、命令和状态\n'
-                    '3. 用于验证逻辑是否正确，防止误操作损坏设备',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
+                # 获取文件夹中的所有APK文件
+                apk_files = [f for f in os.listdir(folder_path) if f.endswith('.apk')]
                 
-                if reply == QMessageBox.Yes:
-                    # 创建测试线程
-                    from Function_Moudle.adb_batch_install_test_thread import ADBBatchInstallTestThread
+                if not apk_files:
+                    log_method_result("datong_batch_install_test_action", False, "未找到APK文件")
+                    QMessageBox.warning(self, "未找到APK文件", f"在 {folder_path} 中未找到任何APK文件")
+                    return
+                
+                logger.info(f"找到 {len(apk_files)} 个APK文件")
+                
+                # 创建APK多选对话框
+                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel
+                dialog = QDialog(self)
+                dialog.setWindowTitle("选择要测试的APK文件")
+                dialog.resize(600, 400)
+                
+                # 文件列表
+                file_list = QListWidget(dialog)
+                file_list.setSelectionMode(QListWidget.ExtendedSelection)
+                
+                # 添加文件到列表
+                for apk_file in apk_files:
+                    item = QListWidgetItem(apk_file)
+                    item.setCheckState(Qt.Unchecked)
+                    file_list.addItem(item)
+                
+                # 按钮布局
+                button_layout = QHBoxLayout()
+                
+                # 全选按钮
+                select_all_btn = QPushButton("全选")
+                select_all_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Checked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(select_all_btn)
+                
+                # 反选按钮
+                invert_btn = QPushButton("反选")
+                invert_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Checked if file_list.item(i).checkState() == Qt.Unchecked else Qt.Unchecked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(invert_btn)
+                
+                # 清空按钮
+                clear_btn = QPushButton("清空")
+                clear_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Unchecked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(clear_btn)
+                
+                # 确认按钮
+                confirm_btn = QPushButton("确认选择")
+                confirm_btn.clicked.connect(dialog.accept)
+                button_layout.addWidget(confirm_btn)
+                
+                # 取消按钮
+                cancel_btn = QPushButton("取消")
+                cancel_btn.clicked.connect(dialog.reject)
+                button_layout.addWidget(cancel_btn)
+                
+                # 主布局
+                layout = QVBoxLayout()
+                layout.addWidget(QLabel(f"从 {len(apk_files)} 个APK文件中选择要测试的文件:"))
+                layout.addWidget(file_list)
+                layout.addLayout(button_layout)
+                dialog.setLayout(layout)
+                
+                # 显示对话框
+                if dialog.exec_() == QDialog.Accepted:
+                    # 获取选中的文件
+                    selected_files = []
+                    for i in range(file_list.count()):
+                        if file_list.item(i).checkState() == Qt.Checked:
+                            selected_files.append(file_list.item(i).text())
                     
-                    if self.connection_mode == 'u2':
-                        self.batch_install_test_thread = ADBBatchInstallTestThread(
-                            device_id, 
-                            folder_path,
-                            connection_mode='u2',
-                            u2_device=self.d
-                        )
-                    elif self.connection_mode == 'adb':
-                        self.batch_install_test_thread = ADBBatchInstallTestThread(
-                            device_id, 
-                            folder_path,
-                            connection_mode='adb'
-                        )
-                    else:
-                        log_method_result("datong_batch_install_test_action", False, "设备未连接")
-                        self.textBrowser.append("设备未连接！")
+                    if not selected_files:
+                        QMessageBox.warning(self, "未选择文件", "请至少选择一个APK文件")
                         return
                     
-                    # 连接信号
-                    self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
-                    self.batch_install_test_thread.error_signal.connect(self.textBrowser.append)
-                    self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
-                    self.batch_install_test_thread.debug_signal.connect(self.textBrowser.append)
+                    logger.info(f"用户选择了 {len(selected_files)} 个APK文件进行测试")
                     
-                    # 启动线程
-                    self.batch_install_test_thread.start()
-                    log_method_result("datong_batch_install_test_action", True, "测试线程已启动")
+                    # 显示确认对话框
+                    reply = QMessageBox.question(
+                        self,
+                        '确认测试批量安装',
+                        f'已选择 {len(selected_files)} 个APK文件进行测试，是否继续？\n\n'
+                        f'文件列表:\n' + '\n'.join(selected_files),
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.Yes:
+                        from Function_Moudle.adb_batch_install_test_thread import ADBBatchInstallTestThread
+                        self.batch_install_test_thread = ADBBatchInstallTestThread(
+                            device_id,
+                            folder_path,
+                            connection_mode=self.connection_mode,
+                            u2_device=self.d if self.connection_mode == 'u2' else None,
+                            selected_files=selected_files  # 传递选中的文件列表
+                        )
+                        self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
+                        self.batch_install_test_thread.error_signal.connect(self.textBrowser.append)
+                        self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
+                        self.batch_install_test_thread.debug_signal.connect(self.textBrowser.append)
+                        self.batch_install_test_thread.start()
+                        
+                        log_method_result("datong_batch_install_test_action", True, f"测试线程已启动 ({len(selected_files)}个文件)")
+                    else:
+                        logger.info("用户取消测试批量安装")
                 else:
-                    logger.info("用户取消测试")
+                    logger.info("用户取消文件选择")
             except Exception as e:
                 log_method_result("datong_batch_install_test_action", False, str(e))
                 self.textBrowser.append(f"启动批量安装测试线程失败: {e}")
@@ -986,35 +1131,112 @@ class ADB_Mainwindow(QMainWindow):
                 
                 logger.info(f"找到 {len(apk_files)} 个APK文件")
                 
-                # 显示确认对话框
-                reply = QMessageBox.question(
-                    self,
-                    '确认版本验证',
-                    f'找到 {len(apk_files)} 个APK文件，是否继续验证版本？\n\n'
-                    f'文件列表:\n' + '\n'.join(apk_files[:10]),
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
+                # 创建APK多选对话框
+                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel
+                dialog = QDialog(self)
+                dialog.setWindowTitle("选择要验证版本的APK文件")
+                dialog.resize(600, 400)
                 
-                if reply == QMessageBox.Yes:
-                    from Function_Moudle.adb_batch_verify_version_thread import ADBBatchVerifyVersionThread
-                    self.batch_install_test_thread = ADBBatchVerifyVersionThread(
-                        device_id,
-                        folder_path,
-                        connection_mode=self.connection_mode,
-                        u2_device=self.d if self.connection_mode == 'u2' else None
+                # 文件列表
+                file_list = QListWidget(dialog)
+                file_list.setSelectionMode(QListWidget.ExtendedSelection)
+                
+                # 添加文件到列表
+                for apk_file in apk_files:
+                    item = QListWidgetItem(apk_file)
+                    item.setCheckState(Qt.Unchecked)
+                    file_list.addItem(item)
+                
+                # 按钮布局
+                button_layout = QHBoxLayout()
+                
+                # 全选按钮
+                select_all_btn = QPushButton("全选")
+                select_all_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Checked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(select_all_btn)
+                
+                # 反选按钮
+                invert_btn = QPushButton("反选")
+                invert_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Checked if file_list.item(i).checkState() == Qt.Unchecked else Qt.Unchecked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(invert_btn)
+                
+                # 清空按钮
+                clear_btn = QPushButton("清空")
+                clear_btn.clicked.connect(lambda: [
+                    file_list.item(i).setCheckState(Qt.Unchecked)
+                    for i in range(file_list.count())
+                ])
+                button_layout.addWidget(clear_btn)
+                
+                # 确认按钮
+                confirm_btn = QPushButton("确认选择")
+                confirm_btn.clicked.connect(dialog.accept)
+                button_layout.addWidget(confirm_btn)
+                
+                # 取消按钮
+                cancel_btn = QPushButton("取消")
+                cancel_btn.clicked.connect(dialog.reject)
+                button_layout.addWidget(cancel_btn)
+                
+                # 主布局
+                layout = QVBoxLayout()
+                layout.addWidget(QLabel(f"从 {len(apk_files)} 个APK文件中选择要验证版本的文件:"))
+                layout.addWidget(file_list)
+                layout.addLayout(button_layout)
+                dialog.setLayout(layout)
+                
+                # 显示对话框
+                if dialog.exec_() == QDialog.Accepted:
+                    # 获取选中的文件
+                    selected_files = []
+                    for i in range(file_list.count()):
+                        if file_list.item(i).checkState() == Qt.Checked:
+                            selected_files.append(file_list.item(i).text())
+                    
+                    if not selected_files:
+                        QMessageBox.warning(self, "未选择文件", "请至少选择一个APK文件")
+                        return
+                    
+                    logger.info(f"用户选择了 {len(selected_files)} 个APK文件进行版本验证")
+                    
+                    # 显示确认对话框
+                    reply = QMessageBox.question(
+                        self,
+                        '确认版本验证',
+                        f'已选择 {len(selected_files)} 个APK文件进行版本验证，是否继续？\n\n'
+                        f'文件列表:\n' + '\n'.join(selected_files),
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
                     )
-                    self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
-                    self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
-                    self.batch_install_test_thread.error_signal.connect(self.textBrowser.append)
-                    self.batch_install_test_thread.debug_signal.connect(self.textBrowser.append)
                     
-                    # 启动线程
-                    self.batch_install_test_thread.start()
-                    
-                    log_method_result("datong_batch_verify_version_action", True, f"版本验证线程已启动 ({len(apk_files)}个文件)")
+                    if reply == QMessageBox.Yes:
+                        from Function_Moudle.adb_batch_verify_version_thread import ADBBatchVerifyVersionThread
+                        self.batch_install_test_thread = ADBBatchVerifyVersionThread(
+                            device_id,
+                            folder_path,
+                            connection_mode=self.connection_mode,
+                            u2_device=self.d if self.connection_mode == 'u2' else None,
+                            selected_files=selected_files  # 传递选中的文件列表
+                        )
+                        self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
+                        self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
+                        self.batch_install_test_thread.error_signal.connect(self.textBrowser.append)
+                        self.batch_install_test_thread.debug_signal.connect(self.textBrowser.append)
+                        
+                        # 启动线程
+                        self.batch_install_test_thread.start()
+                        
+                        log_method_result("datong_batch_verify_version_action", True, f"版本验证线程已启动 ({len(selected_files)}个文件)")
+                    else:
+                        logger.info("用户取消版本验证")
                 else:
-                    logger.info("用户取消版本验证")
+                    logger.info("用户取消文件选择")
             except Exception as e:
                 log_method_result("datong_batch_verify_version_action", False, str(e))
                 self.textBrowser.append(f"版本验证失败: {e}")

@@ -65,7 +65,7 @@ class ADBBatchInstallTestThread(QThread):
     result_signal = pyqtSignal(str)
     debug_signal = pyqtSignal(str)  # 调试信号，用于打印详细命令和值
 
-    def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None):
+    def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None, allow_downgrade=False, selected_files=None):
         """
         初始化测试线程
         
@@ -74,12 +74,16 @@ class ADBBatchInstallTestThread(QThread):
             folder_path: 文件夹路径
             connection_mode: 连接模式 ('u2' 或 'adb')
             u2_device: u2设备对象（仅当connection_mode='u2'时使用）
+            allow_downgrade: 是否允许降级安装，默认为False
+            selected_files: 选中的APK文件列表，如果为None则处理文件夹中所有APK
         """
         super(ADBBatchInstallTestThread, self).__init__()
         self.device_id = device_id
         self.folder_path = folder_path
         self.connection_mode = connection_mode
         self.u2_device = u2_device
+        self.allow_downgrade = allow_downgrade
+        self.selected_files = selected_files
         
         # 从配置文件读取特殊处理的包名配置
         self.special_packages_config = config_manager.get("batch_install.special_packages", {
@@ -319,7 +323,8 @@ class ADBBatchInstallTestThread(QThread):
                 "设备ID": self.device_id,
                 "文件夹路径": self.folder_path,
                 "连接模式": self.connection_mode,
-                "特殊包名列表": self.special_packages
+                "特殊包名列表": self.special_packages,
+                "选中的文件": self.selected_files if self.selected_files else "所有文件"
             }
             self._print_debug_info("初始化参数", init_info)
             
@@ -332,8 +337,25 @@ class ADBBatchInstallTestThread(QThread):
                 self.error_signal.emit("未找到APK文件")
                 return
             
+            # 如果指定了选中的文件，则过滤文件列表
+            if self.selected_files:
+                filtered_apk_files = []
+                for apk_path in apk_files:
+                    file_name = os.path.basename(apk_path)
+                    if file_name in self.selected_files:
+                        filtered_apk_files.append(apk_path)
+                
+                if not filtered_apk_files:
+                    self.error_signal.emit("未找到选中的APK文件")
+                    return
+                
+                apk_files = filtered_apk_files
+                self.debug_signal.emit(f"[过滤] 根据选择过滤，找到 {len(apk_files)} 个APK文件")
+            else:
+                self.debug_signal.emit(f"[过滤] 未指定选中文件，处理所有 {len(apk_files)} 个APK文件")
+            
             total_files = len(apk_files)
-            self.progress_signal.emit(f"找到 {total_files} 个APK文件")
+            self.progress_signal.emit(f"{'选中' if self.selected_files else '找到'} {total_files} 个APK文件")
             
             success_count = 0
             fail_count = 0
@@ -441,7 +463,7 @@ class ADBBatchInstallTestThread(QThread):
             self.result_signal.emit(f"\n{'='*60}")
             self.result_signal.emit("批量安装功能测试完成！")
             self.result_signal.emit(f"{'='*60}")
-            self.result_signal.emit(f"总文件数: {total_files}")
+            self.result_signal.emit(f"{'选中' if self.selected_files else '总'}文件数: {total_files}")
             self.result_signal.emit(f"成功模拟: {success_count}")
             self.result_signal.emit(f"失败模拟: {fail_count}")
             self.result_signal.emit(f"特殊处理: {special_count}")

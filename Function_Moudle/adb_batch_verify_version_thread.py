@@ -43,7 +43,7 @@ class ADBBatchVerifyVersionThread(QThread):
     verify_result_signal = pyqtSignal(str)  # 验证结果信号
     debug_signal = pyqtSignal(str)  # 调试信号，用于打印详细命令和值
 
-    def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None):
+    def __init__(self, device_id, folder_path, connection_mode='adb', u2_device=None, selected_files=None):
         """
         初始化验证线程
         
@@ -52,12 +52,14 @@ class ADBBatchVerifyVersionThread(QThread):
             folder_path: 文件夹路径
             connection_mode: 连接模式 ('u2' 或 'adb')
             u2_device: u2设备对象（仅当connection_mode='u2'时使用）
+            selected_files: 选中的APK文件列表，如果为None则处理文件夹中所有APK
         """
         super(ADBBatchVerifyVersionThread, self).__init__()
         self.device_id = device_id
         self.folder_path = folder_path
         self.connection_mode = connection_mode
         self.u2_device = u2_device
+        self.selected_files = selected_files
 
     def _get_apk_package_and_version(self, apk_path):
         """获取APK文件的包名和版本号"""
@@ -237,8 +239,25 @@ class ADBBatchVerifyVersionThread(QThread):
                 self.error_signal.emit("未找到APK文件")
                 return
             
+            # 如果指定了选中的文件，则过滤文件列表
+            if self.selected_files:
+                filtered_apk_files = []
+                for apk_path in apk_files:
+                    file_name = os.path.basename(apk_path)
+                    if file_name in self.selected_files:
+                        filtered_apk_files.append(apk_path)
+                
+                if not filtered_apk_files:
+                    self.error_signal.emit("未找到选中的APK文件")
+                    return
+                
+                apk_files = filtered_apk_files
+                self.progress_signal.emit(f"根据选择过滤，找到 {len(apk_files)} 个APK文件")
+            else:
+                self.progress_signal.emit(f"找到 {len(apk_files)} 个APK文件")
+            
             total_files = len(apk_files)
-            self.progress_signal.emit(f"找到 {total_files} 个APK文件")
+            self.progress_signal.emit(f"{'选中' if self.selected_files else '找到'} {total_files} 个APK文件")
             
             # 存储验证结果
             verification_results = []
@@ -315,14 +334,24 @@ class ADBBatchVerifyVersionThread(QThread):
                     fail_count += 1
             
             # 输出验证结果
-            self.result_signal.emit(f"\n{'='*80}")
-            self.result_signal.emit("批量推包版本号验证完成！")
-            self.result_signal.emit(f"{'='*80}")
-            self.result_signal.emit(f"总文件数: {total_files}")
-            self.result_signal.emit(f"验证成功: {success_count}")
-            self.result_signal.emit(f"验证失败: {fail_count}")
-            self.result_signal.emit(f"跳过文件: {skip_count}")
-            self.result_signal.emit(f"{'='*80}")
+            if self.selected_files:
+                self.result_signal.emit(f"\n{'='*80}")
+                self.result_signal.emit("版本验证完成！")
+                self.result_signal.emit(f"{'='*80}")
+                self.result_signal.emit(f"选择文件数: {total_files}")
+                self.result_signal.emit(f"验证成功: {success_count}")
+                self.result_signal.emit(f"验证失败: {fail_count}")
+                self.result_signal.emit(f"跳过文件: {skip_count}")
+                self.result_signal.emit(f"{'='*80}")
+            else:
+                self.result_signal.emit(f"\n{'='*80}")
+                self.result_signal.emit("批量推包版本号验证完成！")
+                self.result_signal.emit(f"{'='*80}")
+                self.result_signal.emit(f"总文件数: {total_files}")
+                self.result_signal.emit(f"验证成功: {success_count}")
+                self.result_signal.emit(f"验证失败: {fail_count}")
+                self.result_signal.emit(f"跳过文件: {skip_count}")
+                self.result_signal.emit(f"{'='*80}")
             
             # 输出详细结果表格
             self.verify_result_signal.emit("\n详细验证结果:")
