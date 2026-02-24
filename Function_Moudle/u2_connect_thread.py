@@ -28,9 +28,58 @@ if IS_NUITKA:
     
     # 设置 u2 的资源路径
     if u2_assets_dir.exists():
-        # 更新 u2 的资源管理器
-        u2_assets._assets_dir = str(u2_assets_dir)
-        logger.info(f"设置 u2 资源路径为: {u2_assets_dir}")
+        # 确保路径是字符串类型，并且是绝对路径
+        assets_path = str(u2_assets_dir.absolute())
+        u2_assets._assets_dir = assets_path
+        logger.info(f"设置 u2 资源路径为: {assets_path}")
+        
+        # 确保 u2 能够正确处理资源
+        try:
+            # 尝试访问 assets 目录
+            if hasattr(u2_assets, '_assets'):
+                # 重置资源管理器
+                u2_assets._assets = None
+            logger.info("已重置 u2 资源管理器")
+            
+            # 强制 u2 重新初始化资源
+            u2_assets.init()
+            logger.info("已强制 u2 重新初始化资源")
+        except Exception as e:
+            logger.warning(f"重置 u2 资源管理器时出现警告: {e}")
+            
+            # 如果 init() 失败，尝试手动复制资源文件
+            try:
+                import shutil
+                import tempfile
+                
+                # 创建临时目录
+                temp_dir = Path(tempfile.gettempdir()) / "u2_assets"
+                temp_dir.mkdir(exist_ok=True)
+                
+                # 复制所有资源文件到临时目录
+                for asset_file in u2_assets_dir.glob("*"):
+                    if asset_file.is_file():
+                        dest_file = temp_dir / asset_file.name
+                        shutil.copy2(asset_file, dest_file)
+                        logger.debug(f"已复制资源文件: {asset_file.name}")
+                
+                # 更新 u2 的资源路径为临时目录
+                u2_assets._assets_dir = str(temp_dir.absolute())
+                u2_assets.init()
+                logger.info(f"已使用临时目录作为 u2 资源路径: {temp_dir}")
+                
+            except Exception as copy_error:
+                logger.error(f"手动复制 u2 资源文件失败: {copy_error}")
+    else:
+        logger.warning("uiautomator2 assets 目录不存在，尝试使用默认路径")
+        # 尝试使用 uiautomator2 的默认资源路径
+        try:
+            # 清除可能的错误路径
+            u2_assets._assets_dir = None
+            u2_assets.init()
+            logger.info("已使用 uiautomator2 默认资源路径")
+        except Exception as e:
+            logger.error(f"使用 uiautomator2 默认资源路径失败: {e}")
 
 class U2ConnectThread(QThread):
     """u2连接尝试线程（避免在主线程中阻塞）"""

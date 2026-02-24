@@ -159,21 +159,39 @@ def get_nuitka_command(build_type="onefile"):
     # 添加uiautomator2的assets目录文件
     u2_assets_dir = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "uiautomator2" / "assets"
     if u2_assets_dir.exists():
-        # 只复制关键的assets文件，忽略.gitignore等非必要文件
-        critical_assets = ["u2.jar", "app-uiautomator.apk", "version.json", "sync.sh"]
-        copied_count = 0
+        # 复制所有assets文件，确保完整性
+        import shutil
         
-        for asset_name in critical_assets:
-            asset_file = u2_assets_dir / asset_name
-            if asset_file.exists() and asset_file.is_file():
-                # 保持目录结构：uiautomator2/assets/文件名
-                cmd.append(f"--include-data-files={asset_file}=uiautomator2/assets/{asset_name}")
-                copied_count += 1
+        # 首先检查是否已经有dist目录中的assets
+        dist_assets_dir = PROJECT_ROOT / "dist_nuitka" / "uiautomator2" / "assets"
+        if dist_assets_dir.exists():
+            shutil.rmtree(dist_assets_dir)
         
-        print(f"已包含 {copied_count} 个uiautomator2关键assets文件")
-        if copied_count < len(critical_assets):
-            missing = [a for a in critical_assets if not (u2_assets_dir / a).exists()]
-            print(f"警告: 缺少以下assets文件: {missing}")
+        # 复制整个assets目录
+        if not dist_assets_dir.exists():
+            dist_assets_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(u2_assets_dir, dist_assets_dir)
+            print(f"已复制 uiautomator2 assets 目录到: {dist_assets_dir}")
+        
+        # 添加到Nuitka构建命令（使用相对路径）
+        cmd.append(f"--include-package-data=uiautomator2")
+        
+        # 列出复制的文件
+        copied_files = list(dist_assets_dir.rglob("*"))
+        copied_files = [f for f in copied_files if f.is_file()]
+        print(f"已包含 {len(copied_files)} 个uiautomator2 assets文件")
+        
+        # 验证关键文件
+        critical_files = ["u2.jar", "app-uiautomator.apk", "version.json"]
+        missing_files = []
+        for file_name in critical_files:
+            if not (dist_assets_dir / file_name).exists():
+                missing_files.append(file_name)
+        
+        if missing_files:
+            print(f"警告: 缺少以下关键assets文件: {missing_files}")
+    else:
+        print("警告: uiautomator2 assets 目录不存在")
     
     # 主脚本
     cmd.append(str(PROJECT_ROOT / CONFIG["main_script"]))
@@ -238,6 +256,18 @@ def build_onefile():
                 if dst == ".":
                     dst_path = CONFIG["dist_dir"] / src
                 shutil.copy2(src_path, dst_path)
+        
+        # 确保uiautomator2 assets目录存在
+        u2_assets_src = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "uiautomator2" / "assets"
+        u2_assets_dst = CONFIG["dist_dir"] / "uiautomator2" / "assets"
+        
+        if u2_assets_src.exists():
+            if u2_assets_dst.exists():
+                shutil.rmtree(u2_assets_dst)
+            shutil.copytree(u2_assets_src, u2_assets_dst)
+            print(f"已复制 uiautomator2 assets 到: {u2_assets_dst}")
+        else:
+            print("警告: uiautomator2 assets 目录不存在")
         
         print(f"\n✅ 构建成功!")
         print(f"可执行文件: {exe_dst}")
