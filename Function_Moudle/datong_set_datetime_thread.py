@@ -27,7 +27,7 @@ class DatongSetDatetimeThread(QThread):
     error_signal = pyqtSignal(str)  # 错误信息信号
     result_signal = pyqtSignal(str)  # 结果信息信号
     
-    def __init__(self, device_id, connection_mode='adb', u2_device=None):
+    def __init__(self, device_id, connection_mode='adb', u2_device=None, timezone=None):
         """
         初始化线程
         
@@ -35,11 +35,13 @@ class DatongSetDatetimeThread(QThread):
             device_id (str): 设备ID
             connection_mode (str): 连接模式 ('adb' 或 'u2')
             u2_device: uiautomator2设备对象（如果使用u2模式）
+            timezone (str): 时区名称，如 'Asia/Shanghai'
         """
         super().__init__()
         self.device_id = device_id
         self.connection_mode = connection_mode
         self.u2_device = u2_device
+        self.timezone = timezone
         self.is_stopped = False
     
     def stop(self):
@@ -61,11 +63,24 @@ class DatongSetDatetimeThread(QThread):
                 return
             
             # 获取当前时间并格式化为adb shell date命令需要的格式
-            current_time = datetime.now()
+            if self.timezone:
+                import pytz
+                try:
+                    tz = pytz.timezone(self.timezone)
+                    current_time = datetime.now(tz)
+                    self.progress_signal.emit(f"时区: {self.timezone}")
+                    self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                except Exception as e:
+                    logger.warning(f"时区设置失败，使用本地时间: {e}")
+                    current_time = datetime.now()
+                    self.progress_signal.emit(f"时区: 本地时间")
+                    self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            else:
+                current_time = datetime.now()
+                self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            
             # 格式: MMDDhhmmYYYY.ss (月日时分年.秒)
             date_command = current_time.strftime("%m%d%H%M%Y.%S")
-            
-            self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
             self.progress_signal.emit(f"准备执行命令: adb -s {self.device_id} shell date {date_command}")
             
             # 执行ADB命令设置日期时间

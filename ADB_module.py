@@ -38,8 +38,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
         # 同时记录到日志（只记录非空内容）
         if s and s.strip():
             import threading
-            from datetime import datetime
-            
+            from datetime import datetime            
             thread_id = threading.current_thread().ident
             thread_name = threading.current_thread().name
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -1319,12 +1318,42 @@ class ADB_Mainwindow(QMainWindow):
 
         if device_id in devices_id_lst:
             try:
+                import pytz
+                from datetime import datetime
+                # 弹出时区选择对话框
+                from PyQt5.QtWidgets import QMessageBox, QInputDialog
+                timezones = [
+                    "Asia/Shanghai (GMT+8)", "Asia/Tokyo (GMT+9)", "Asia/Seoul (GMT+9)",
+                    "Asia/Bangkok (GMT+7)", "Asia/Dubai (GMT+4)", "Asia/Kolkata (GMT+5:30)",
+                    "Europe/London (GMT+0)", "Europe/Paris (GMT+1)", "Europe/Moscow (GMT+3)",
+                    "America/New_York (GMT-5)", "America/Los_Angeles (GMT-8)", "America/Chicago (GMT-6)",
+                    "Pacific/Auckland (GMT+13)", "Pacific/Fiji (GMT+12)", "UTC"
+                ]
+                
+                timezone, ok = QInputDialog.getItem(
+                    self,
+                    "选择时区",
+                    "请选择要设置的时区:",
+                    timezones,
+                    current=0,
+                    editable=False
+                )
+                
+                if not ok:
+                    logger.info("用户取消选择时区")
+                    return
+                    
+                # 提取时区名称（去掉时间信息）
+                timezone_name = timezone.split(' (')[0]
+                
                 # 弹出确认对话框
                 from PyQt5.QtWidgets import QMessageBox
                 reply = QMessageBox.question(
                     self, 
                     '确认设置日期时间',
-                    f'确定要在设备 {device_id} 上设置当前日期时间吗？\n\n'
+                    f'确定要在设备 {device_id} 上设置以下日期时间吗？\n\n'
+                    f'时区: {timezone}\n'
+                    f'时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
                     '注意：\n'
                     '1. 此操作将修改设备的系统时间\n'
                     '2. 设置成功后需要重启设备以使更改生效\n'
@@ -1339,7 +1368,8 @@ class ADB_Mainwindow(QMainWindow):
                     self.datong_set_datetime_thread = DatongSetDatetimeThread(
                         device_id, 
                         connection_mode=self.connection_mode,
-                        u2_device=self.d if self.connection_mode == 'u2' else None
+                        u2_device=self.d if self.connection_mode == 'u2' else None,
+                        timezone=timezone_name
                     )
                     
                     # 连接信号
@@ -1350,7 +1380,7 @@ class ADB_Mainwindow(QMainWindow):
                     # 启动线程
                     self.datong_set_datetime_thread.start()
                     
-                    log_method_result("datong_set_datetime_action", True, "设置日期时间线程已启动")
+                    log_method_result("datong_set_datetime_action", True, f"设置日期时间线程已启动，时区: {timezone_name}")
                 else:
                     logger.info("用户取消设置日期时间")
             except Exception as e:
