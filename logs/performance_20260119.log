@@ -1,0 +1,4 @@
+{"timestamp": "2026-01-19 09:46:31", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.6891446113586426, "thread_id": 35020}
+{"timestamp": "2026-01-19 09:49:48", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.26119470596313477, "thread_id": 13444}
+{"timestamp": "2026-01-19 10:11:12", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.2598402500152588, "thread_id": 9884}
+{"timestamp": "2026-01-19 13:55:48", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.3248262405395508, "thread_id": 39396}

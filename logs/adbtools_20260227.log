@@ -1,0 +1,76 @@
+2026-02-27 14:33:18 - ADBTools.Main - INFO - [main.py:19] - [main] - ================================================================================
+2026-02-27 14:33:18 - ADBTools.Main - INFO - [main.py:20] - [main] - ADBTools 应用程序启动
+2026-02-27 14:33:18 - ADBTools.Main - INFO - [main.py:21] - [main] - Python 版本: 3.10.16 | packaged by Anaconda, Inc. | (main, Dec 11 2024, 16:19:12) [MSC v.1929 64 bit (AMD64)]
+2026-02-27 14:33:18 - ADBTools.Main - INFO - [main.py:22] - [main] - 工作目录: D:\Personal files\ADBTools
+2026-02-27 14:33:18 - ADBTools.Main - INFO - [main.py:23] - [main] - ================================================================================
+2026-02-27 14:33:18 - ADBTools.Main - INFO - [main.py:28] - [main] - 加载 ADB 主窗口模块...
+2026-02-27 14:33:20 - ADBTools.ADB_Module - INFO - [ADB_module.py:107] - [__init__] - 初始化 ADB 主窗口...
+2026-02-27 14:33:20 - ADBTools.UI - INFO - [logger_manager.py:560] - [log_button_click] - [2026-02-27 14:33:20.962] [Thread-59492] 用户操作: 点击 RefreshButton 按钮 -> 刷新设备列表
+2026-02-27 14:33:20 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:37] - [__init__] - 刷新设备列表线程初始化
+2026-02-27 14:33:20 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:41] - [run] - ================================================================================
+2026-02-27 14:33:20 - ADBTools.Thread - INFO - [logger_manager.py:644] - [log_thread_start] - [2026-02-27 14:33:20.973] [Thread-59492] 线程启动: RefreshDevicesThread | 详情: {'action': '刷新设备列表'}
+2026-02-27 14:33:20 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:42] - [run] - 开始执行刷新设备列表操作
+2026-02-27 14:33:20 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:43] - [run] - ================================================================================
+2026-02-27 14:33:20 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:51] - [run] - 发送进度信号: 正在刷新设备列表...
+2026-02-27 14:33:20 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:54] - [run] - 准备执行 ADB 命令: devices
+2026-02-27 14:33:20 - ADBTools.ADB_Utils - INFO - [adb_utils.py:78] - [get_adb_path] - 开始查找ADB可执行文件...
+2026-02-27 14:33:20 - ADBTools.Main - INFO - [main.py:32] - [main] - ADB 主窗口创建成功，版本: 1.6.7
+2026-02-27 14:33:20 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:82] - [get_adb_path] - ADB搜索路径: ['adb', 'adb.exe', './adb.exe', './tools/adb.exe', 'C:\\Program Files (x86)\\Android\\android-sdk\\platform-tools\\adb.exe', 'D:\\work_tools\\adb-1\\adb.exe']
+2026-02-27 14:33:21 - ADBTools.ADB_Utils - INFO - [adb_utils.py:109] - [get_adb_path] - 找到ADB (系统PATH): D:\work_tools\adb-1\adb.exe
+2026-02-27 14:33:21 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:154] - [run_adb_command] - [2026-02-27 14:33:21.261] [Thread-84236] 执行ADB命令 [全局]: devices
+2026-02-27 14:33:21 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:173] - [run_adb_command] - [2026-02-27 14:33:21.261] [Thread-84236] ADB命令执行成功 [全局]: devices (耗时: 0.121s)
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:60] - [run] - ADB 命令执行完成，开始解析结果...
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:76] - [run] - ADB 命令返回内容长度: 50 字符
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:89] - [run] - ADB命令返回 2 行内容
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - DEBUG - [refresh_devices_thread.py:95] - [run] - 解析第 1 行: List of devices attached
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - DEBUG - [refresh_devices_thread.py:95] - [run] - 解析第 2 行: 192.168.43.43:5555	device
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:101] - [run] - ✓ 发现设备: 192.168.43.43:5555 (状态: device)
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:107] - [run] - 设备解析完成，共找到 1 个设备
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:112] - [run] - 设备列表:
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:114] - [run] -   - 192.168.43.43:5555
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:133] - [run] - ================================================================================
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:134] - [run] - 刷新设备列表操作完成
+2026-02-27 14:33:21 - ADBTools.RefreshDevicesThread - INFO - [refresh_devices_thread.py:135] - [run] - ================================================================================
+2026-02-27 14:33:21 - ADBTools.Device - INFO - [logger_manager.py:605] - [log_device_operation] - [2026-02-27 14:33:21.393] [Thread-59492] 设备操作: u2_connect_attempt | 设备: 192.168.43.43:5555 | 详情: {'mode': 'u2', 'action': '尝试u2连接'}
+2026-02-27 14:33:21 - ADBTools.U2ConnectThread - INFO - [u2_connect_thread.py:99] - [__init__] - U2ConnectThread初始化: 目标设备 192.168.43.43:5555
+2026-02-27 14:33:21 - ADBTools.Thread - INFO - [logger_manager.py:644] - [log_thread_start] - [2026-02-27 14:33:21.400] [Thread-59492] 线程启动: U2ConnectThread | 详情: {'device_id': '192.168.43.43:5555', 'mode': 'u2'}
+2026-02-27 14:33:21 - ADBTools.Thread - INFO - [logger_manager.py:644] - [log_thread_start] - [2026-02-27 14:33:21.401] [Thread-60428] 线程启动: U2ConnectThread | 详情: {'device_id': '192.168.43.43:5555'}
+2026-02-27 14:33:21 - ADBTools.Device - INFO - [logger_manager.py:605] - [log_device_operation] - [2026-02-27 14:33:21.402] [Thread-60428] 设备操作: u2_connect_start | 设备: 192.168.43.43:5555 | 详情: {'mode': 'u2'}
+2026-02-27 14:33:21 - ADBTools.ADB_Module - INFO - [ADB_module.py:2149] - [_on_refresh_thread_finished] - 设备列表刷新完成
+2026-02-27 14:33:21 - ADBTools.U2ConnectThread - INFO - [u2_connect_thread.py:111] - [run] - 开始u2连接: 192.168.43.43:5555
+2026-02-27 14:33:26 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:75] - [get_adb_path] - 使用缓存的ADB路径: D:\work_tools\adb-1\adb.exe
+2026-02-27 14:33:26 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:154] - [run_adb_command] - [2026-02-27 14:33:26.081] [Thread-59492] 执行ADB命令 [全局]: devices
+2026-02-27 14:33:26 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:173] - [run_adb_command] - [2026-02-27 14:33:26.081] [Thread-59492] ADB命令执行成功 [全局]: devices (耗时: 0.091s)
+2026-02-27 14:33:26 - ADBTools.UI - INFO - [logger_manager.py:560] - [log_button_click] - [2026-02-27 14:33:26.176] [Thread-59492] 用户操作: 点击 datong_set_datetime_button 按钮 -> 设置设备日期时间
+2026-02-27 14:33:29 - ADBTools.U2ConnectThread - INFO - [u2_connect_thread.py:130] - [run] - u2连接成功: 192.168.43.43:5555 | 耗时: 7.716s
+2026-02-27 14:33:29 - ADBTools.U2ConnectThread - INFO - [u2_connect_thread.py:131] - [run] - 设备信息: {'serial': '192.168.43.43:5555', 'model': 'Unknown', 'brand': 'Unknown', 'version': 'Unknown', 'sdk': 'Unknown', 'manufacturer': 'Unknown'}
+2026-02-27 14:33:29 - ADBTools.Device - INFO - [logger_manager.py:605] - [log_device_operation] - [2026-02-27 14:33:29.118] [Thread-60428] 设备操作: u2_connect_success | 设备: 192.168.43.43:5555 | 详情: {'mode': 'u2', 'status': 'connected', 'device_info': {'serial': '192.168.43.43:5555', 'model': 'Unknown', 'brand': 'Unknown', 'version': 'Unknown', 'sdk': 'Unknown', 'manufacturer': 'Unknown'}, 'elapsed_time': 7.7156291007995605}
+2026-02-27 14:33:29 - ADBTools.Thread - INFO - [logger_manager.py:662] - [log_thread_complete] - [2026-02-27 14:33:29.119] [Thread-60428] 线程完成: U2ConnectThread | 结果: success | 详情: {'device_id': '192.168.43.43:5555', 'elapsed_time': 7.7156291007995605, 'device_info': {'serial': '192.168.43.43:5555', 'model': 'Unknown', 'brand': 'Unknown', 'version': 'Unknown', 'sdk': 'Unknown', 'manufacturer': 'Unknown'}}
+2026-02-27 14:33:29 - ADBTools.Device - INFO - [logger_manager.py:605] - [log_device_operation] - [2026-02-27 14:33:29.119] [Thread-59492] 设备操作: u2_connect_success | 设备: 192.168.43.43:5555 | 详情: {'mode': 'u2', 'status': 'connected'}
+2026-02-27 14:33:29 - ADBTools.Thread - INFO - [logger_manager.py:662] - [log_thread_complete] - [2026-02-27 14:33:29.120] [Thread-59492] 线程完成: U2ConnectThread | 结果: success | 详情: {'device_id': '192.168.43.43:5555', 'mode': 'u2'}
+2026-02-27 14:33:36 - ADBTools.ADB_Module - INFO - [ADB_module.py:1343] - [datong_set_datetime_action] - 用户取消选择时区
+2026-02-27 14:33:41 - ADBTools.Device - INFO - [logger_manager.py:605] - [log_device_operation] - [2026-02-27 14:33:41.318] [Thread-59492] 设备操作: mode_switch | 设备: ADB | 详情: {'mode': 'adb', 'action': '切换到ADB模式'}
+2026-02-27 14:33:41 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:75] - [get_adb_path] - 使用缓存的ADB路径: D:\work_tools\adb-1\adb.exe
+2026-02-27 14:33:41 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:154] - [run_adb_command] - [2026-02-27 14:33:41.319] [Thread-59492] 执行ADB命令 [全局]: devices
+2026-02-27 14:33:41 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:173] - [run_adb_command] - [2026-02-27 14:33:41.319] [Thread-59492] ADB命令执行成功 [全局]: devices (耗时: 0.098s)
+2026-02-27 14:33:41 - ADBTools.ADB_Module - INFO - [ADB_module.py:1750] - [_cleanup_u2_connection] - 清理旧的u2连接: 192.168.43.43:5555
+2026-02-27 14:33:41 - ADBTools.ADB_Module - INFO - [ADB_module.py:1753] - [_cleanup_u2_connection] - 旧连接已清理
+2026-02-27 14:33:41 - ADBTools.Device - INFO - [logger_manager.py:605] - [log_device_operation] - [2026-02-27 14:33:41.420] [Thread-59492] 设备操作: reconnect_adb | 设备: 192.168.43.43:5555 | 详情: {'mode': 'adb', 'status': 'success'}
+2026-02-27 14:34:20 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:75] - [get_adb_path] - 使用缓存的ADB路径: D:\work_tools\adb-1\adb.exe
+2026-02-27 14:34:20 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:154] - [run_adb_command] - [2026-02-27 14:34:20.595] [Thread-59492] 执行ADB命令 [全局]: devices
+2026-02-27 14:34:20 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:173] - [run_adb_command] - [2026-02-27 14:34:20.595] [Thread-59492] ADB命令执行成功 [全局]: devices (耗时: 0.087s)
+2026-02-27 14:34:20 - ADBTools.UI - INFO - [logger_manager.py:560] - [log_button_click] - [2026-02-27 14:34:20.684] [Thread-59492] 用户操作: 点击 datong_set_datetime_button 按钮 -> 设置设备日期时间
+2026-02-27 14:34:26 - ADBTools.Method - INFO - [logger_manager.py:582] - [log_method_result] - [2026-02-27 14:34:26.278] [Thread-59492] ✓ datong_set_datetime_action 完成: 设置日期时间线程已启动，时区: Asia/Bangkok
+2026-02-27 14:34:26 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:75] - [get_adb_path] - 使用缓存的ADB路径: D:\work_tools\adb-1\adb.exe
+2026-02-27 14:34:26 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:152] - [run_adb_command] - [2026-02-27 14:34:26.383] [Thread-32324] 执行ADB命令 [192.168.43.43:5555]: shell date 022713342026.26
+2026-02-27 14:34:26 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:171] - [run_adb_command] - [2026-02-27 14:34:26.383] [Thread-32324] ADB命令执行成功 [192.168.43.43:5555]: shell date 022713342026.26 (耗时: 0.366s)
+2026-02-27 14:34:26 - ADBTools.DatongSetDatetimeThread - INFO - [datong_set_datetime_thread.py:104] - [run] - 日期时间设置成功: ✓ 日期时间设置成功！
+  设备: 192.168.43.43:5555
+  新时间: 2026-02-27 13:34:26
+  命令: adb -s 192.168.43.43:5555 shell date 022713342026.26
+2026-02-27 14:34:26 - ADBTools.Method - INFO - [logger_manager.py:582] - [log_method_result] - [2026-02-27 14:34:26.752] [Thread-32324] ✓ DatongSetDatetimeThread.run 完成: 日期时间设置成功
+2026-02-27 14:44:29 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:75] - [get_adb_path] - 使用缓存的ADB路径: D:\work_tools\adb-1\adb.exe
+2026-02-27 14:44:29 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:154] - [run_adb_command] - [2026-02-27 14:44:29.468] [Thread-59492] 执行ADB命令 [全局]: devices
+2026-02-27 14:44:29 - ADBTools.ADB_Utils - DEBUG - [adb_utils.py:173] - [run_adb_command] - [2026-02-27 14:44:29.468] [Thread-59492] ADB命令执行成功 [全局]: devices (耗时: 0.092s)
+2026-02-27 14:44:29 - ADBTools.UI - INFO - [logger_manager.py:560] - [log_button_click] - [2026-02-27 14:44:29.562] [Thread-59492] 用户操作: 点击 datong_set_datetime_button 按钮 -> 设置设备日期时间
+2026-02-27 14:44:30 - ADBTools.ADB_Module - INFO - [ADB_module.py:1343] - [datong_set_datetime_action] - 用户取消选择时区

@@ -1,0 +1,11 @@
+{"timestamp": "2026-01-27 13:20:54", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.37306737899780273, "thread_id": 73740}
+{"timestamp": "2026-01-27 13:27:45", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.11629152297973633, "thread_id": 4268}
+{"timestamp": "2026-01-27 13:27:55", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.13778376579284668, "thread_id": 39456}
+{"timestamp": "2026-01-27 13:52:18", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.28646206855773926, "thread_id": 45296}
+{"timestamp": "2026-01-27 13:52:21", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.11652970314025879, "thread_id": 576}
+{"timestamp": "2026-01-27 13:52:29", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.13144826889038086, "thread_id": 52604}
+{"timestamp": "2026-01-27 14:37:00", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.106201171875, "thread_id": 60300}
+{"timestamp": "2026-01-27 16:14:15", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.10647892951965332, "thread_id": 45760}
+{"timestamp": "2026-01-27 16:14:30", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.12389302253723145, "thread_id": 22000}
+{"timestamp": "2026-01-28 10:01:45", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.12130522727966309, "thread_id": 54812}
+{"timestamp": "2026-01-28 16:13:36", "operation": "refresh_devices", "device_id": null, "elapsed_time": 0.14288997650146484, "thread_id": 34100}
