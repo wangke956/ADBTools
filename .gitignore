@@ -8,3 +8,4 @@ logs/
 dist_nuitka/
 build_nuitka/
 backups/
+/RELEASE_GUIDE.md
