@@ -2,7 +2,7 @@
 ; 用于打包 build_nuitka 文件夹内容
 
 #define MyAppName "ADBTools"
-#define MyAppVersion "1.6.8"
+#define MyAppVersion "1.7.0"
 #define MyAppPublisher "Your Company"
 #define MyAppURL "https://example.com/"
 #define MyAppExeName "ADBTools_nuitka.exe"
@@ -32,9 +32,11 @@ WizardStyle=modern
 ; 输出设置
 OutputDir=Output
 OutputBaseFilename=ADBTools_Setup
-; 权限设置
-PrivilegesRequired=lowest
+; 权限设置 - 改为需要管理员权限以确保写入权限
+PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
+; 安装后自动创建用户数据目录
+ChangesAssociations=yes
 
 [Languages]
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
@@ -104,7 +106,20 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
-    // 可以在这里添加安装完成后的操作
+    // 创建用户数据目录
+    if not DirExists(ExpandConstant('{userappdata}\ADBTools')) then
+    begin
+      if not CreateDir(ExpandConstant('{userappdata}\ADBTools')) then
+      begin
+        MsgBox('警告：无法创建用户数据目录 ' + ExpandConstant('{userappdata}\ADBTools') + '，日志可能无法正常保存。', mbError, MB_OK);
+      end
+      else
+      begin
+        MsgBox('已创建用户数据目录: ' + ExpandConstant('{userappdata}\ADBTools'), mbInformation, MB_OK);
+      end;
+    end;
+    
+    // 可以在这里添加其他初始化操作
     // 例如：创建配置文件、注册表设置等
   end;
 end;
