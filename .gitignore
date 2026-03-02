@@ -2,10 +2,8 @@
 /build/
 /funcition_Moudle/__pycache__
 /main.spec
-/release_simplest.py
 Output/
 logs/
 dist_nuitka/
 build_nuitka/
 backups/
-/RELEASE_GUIDE.md
