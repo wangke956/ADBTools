@@ -17,6 +17,15 @@ import argparse
 import subprocess
 from pathlib import Path
 
+# Nuitka 兼容性修复
+try:
+    import nuitka
+    nuitka_version = getattr(nuitka, '__version__', 'unknown')
+    if nuitka_version != 'unknown':
+        print(f"Nuitka 版本: {nuitka_version}")
+except ImportError:
+    pass
+
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.absolute()
 
@@ -84,6 +93,14 @@ CONFIG = {
 def get_nuitka_command(build_type="onefile"):
     """生成Nuitka构建命令"""
     
+    # Nuitka 兼容性修复
+    nuitka_version = getattr(__import__('nuitka'), '__version__', 'unknown')
+    if nuitka_version != 'unknown':
+        print(f"当前 Nuitka 版本: {nuitka_version}")
+        # 某些版本的 Nuitka 对资源文件处理有问题，添加兼容性参数
+        if nuitka_version.startswith('2.8.'):
+            print("检测到 Nuitka 2.8.x，应用兼容性修复")
+    
     # 从config_manager获取版本号
     try:
         from config_manager import config_manager
@@ -110,6 +127,14 @@ def get_nuitka_command(build_type="onefile"):
         "--output-dir=" + str(CONFIG["build_dir"]),
         "--output-filename=" + CONFIG["output_name"],
     ]
+    
+    # Nuitka 2.8.x 兼容性修复
+    nuitka_version = getattr(__import__('nuitka'), '__version__', 'unknown')
+    if nuitka_version.startswith('2.8.'):
+        cmd.extend([
+            "--experimental=use_all_compatible_files",
+            "--experimental=use_older_gcc",
+        ])
     
     # 添加包含模块
     for module in CONFIG["include_modules"]:

@@ -145,7 +145,17 @@ class ADB_Mainwindow(QMainWindow):
         self.u2_reinit_dialog = None
 
         # 动态加载ui文件
-        uic.loadUi('adbtool.ui', self)
+        try:
+            # 尝试从当前目录加载
+            uic.loadUi('adbtool.ui', self)
+        except Exception as e:
+            print(f"加载 adbtool.ui 失败: {e}")
+            # 尝试从项目根目录加载
+            import os
+            project_root = os.path.dirname(os.path.abspath(__file__))
+            ui_path = os.path.join(project_root, 'adbtool.ui')
+            print(f"尝试从 {ui_path} 加载...")
+            uic.loadUi(ui_path, self)
         # 假设这里是初始化UI控件的部分，使用findChild方法获取控件
         from PyQt5 import QtWidgets
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')

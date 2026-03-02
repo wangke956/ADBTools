@@ -165,6 +165,8 @@ class ADBUtils:
                 logger.error(f"返回码: {result.returncode}")
                 if result.stderr:
                     logger.error(f"错误输出: {result.stderr.strip()}")
+                else:
+                    logger.error("无错误输出，但命令执行失败")
             else:
                 # 成功时记录简要信息
                 if device_id:

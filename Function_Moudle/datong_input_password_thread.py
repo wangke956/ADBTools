@@ -79,6 +79,7 @@ class DatongInputPasswordThread(QThread):
             else:
                 error_msg = f"ADB命令执行失败: {result.stderr}"
                 self.error_signal.emit(error_msg)
+                print(f"ADB错误详情: {error_msg}")
                 
         except subprocess.TimeoutExpired:
             self.error_signal.emit("ADB命令执行超时")
