@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Nuitka打包配置文件
+Nuitka打包配置文件 - 修复版本
 用于将ADBTools打包为独立的可执行文件
 
 使用方法:
-python nuitka_build.py --build  # 构建可执行文件
-python nuitka_build.py --clean  # 清理构建文件
-python nuitka_build.py --help   # 显示帮助信息
+python nuitka_build_fixed_v2.py --build  # 构建可执行文件
+python nuitka_build_fixed_v2.py --clean  # 清理构建文件
+python nuitka_build_fixed_v2.py --help   # 显示帮助信息
 """
 
 import os
@@ -16,15 +16,6 @@ import shutil
 import argparse
 import subprocess
 from pathlib import Path
-
-# Nuitka 兼容性修复
-try:
-    import nuitka
-    nuitka_version = getattr(nuitka, '__version__', 'unknown')
-    if nuitka_version != 'unknown':
-        print(f"Nuitka 版本: {nuitka_version}")
-except ImportError:
-    pass
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.absolute()
@@ -93,14 +84,6 @@ CONFIG = {
 def get_nuitka_command(build_type="onefile"):
     """生成Nuitka构建命令"""
     
-    # Nuitka 兼容性修复
-    nuitka_version = getattr(__import__('nuitka'), '__version__', 'unknown')
-    if nuitka_version != 'unknown':
-        print(f"当前 Nuitka 版本: {nuitka_version}")
-        # 某些版本的 Nuitka 对资源文件处理有问题，添加兼容性参数
-        if nuitka_version.startswith('2.8.'):
-            print("检测到 Nuitka 2.8.x，应用兼容性修复")
-    
     # 从config_manager获取版本号
     try:
         from config_manager import config_manager
@@ -127,14 +110,6 @@ def get_nuitka_command(build_type="onefile"):
         "--output-dir=" + str(CONFIG["build_dir"]),
         "--output-filename=" + CONFIG["output_name"],
     ]
-    
-    # Nuitka 2.8.x 兼容性修复
-    nuitka_version = getattr(__import__('nuitka'), '__version__', 'unknown')
-    if nuitka_version.startswith('2.8.'):
-        cmd.extend([
-            "--experimental=use_all_compatible_files",
-            "--experimental=use_older_gcc",
-        ])
     
     # 添加包含模块
     for module in CONFIG["include_modules"]:
@@ -187,16 +162,21 @@ def get_nuitka_command(build_type="onefile"):
         # 复制所有assets文件，确保完整性
         import shutil
         
-        # 首先检查是否已经有dist目录中的assets
+        # 复制到 dist_nuitka 目录
         dist_assets_dir = PROJECT_ROOT / "dist_nuitka" / "uiautomator2" / "assets"
         if dist_assets_dir.exists():
             shutil.rmtree(dist_assets_dir)
+        dist_assets_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(u2_assets_dir, dist_assets_dir)
+        print(f"已复制 uiautomator2 assets 目录到: {dist_assets_dir}")
         
-        # 复制整个assets目录
-        if not dist_assets_dir.exists():
-            dist_assets_dir.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(u2_assets_dir, dist_assets_dir)
-            print(f"已复制 uiautomator2 assets 目录到: {dist_assets_dir}")
+        # 复制到 build_nuitka 目录（重要！Nuitka打包时会从这里读取资源）
+        build_assets_dir = CONFIG["build_dir"] / "uiautomator2" / "assets"
+        if build_assets_dir.exists():
+            shutil.rmtree(build_assets_dir)
+        build_assets_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(u2_assets_dir, build_assets_dir)
+        print(f"已复制 uiautomator2 assets 目录到: {build_assets_dir}")
         
         # 添加到Nuitka构建命令（使用相对路径）
         cmd.append(f"--include-package-data=uiautomator2")
@@ -218,13 +198,53 @@ def get_nuitka_command(build_type="onefile"):
     else:
         print("警告: uiautomator2 assets 目录不存在")
     
+    # Nuitka 2.8.x 兼容性修复
+    try:
+        # 尝试多种方式获取 Nuitka 版本
+        nuitka_version = None
+        
+        # 方法1: 尝试通过命令行获取版本
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "nuitka", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # 解析版本号（第一行）
+                version_line = result.stdout.strip().split('\n')[0]
+                nuitka_version = version_line.strip()
+        except:
+            pass
+        
+        # 方法2: 尝试从模块获取版本
+        if not nuitka_version:
+            try:
+                import nuitka
+                if hasattr(nuitka, 'Version'):
+                    nuitka_version = nuitka.Version.getNuitkaVersion()
+                elif hasattr(nuitka, '__version__'):
+                    nuitka_version = nuitka.__version__
+            except:
+                pass
+        
+        if nuitka_version and nuitka_version.startswith('2.8.'):
+            print(f"当前 Nuitka 版本: {nuitka_version}")
+            print("应用 Nuitka 2.8.x 兼容性修复")
+            cmd.extend([
+                "--experimental=use_all_compatible_files",
+                "--experimental=use_older_gcc",
+                "--experimental=no_use_temp_directory",
+            ])
+    except Exception as e:
+        print(f"警告: 无法检测 Nuitka 版本: {e}")
+
+    
     # 主脚本
     cmd.append(str(PROJECT_ROOT / CONFIG["main_script"]))
     
     return cmd
-
-
-
 
 
 def build_onefile():
@@ -297,7 +317,6 @@ def build_onefile():
         print(f"\n✅ 构建成功!")
         print(f"可执行文件: {exe_dst}")
         print(f"构建目录: {CONFIG['build_dir']}")
-        print(f"分发目录: {CONFIG['dist_dir']}")
         print("注意: ADB工具文件将由 auto_package.py 脚本复制到 build_nuitka 目录")
         return True
     else:
@@ -494,11 +513,11 @@ def main():
     else:
         parser.print_help()
         print("\n示例:")
-        print("  python nuitka_build.py --build onefile     # 构建单文件版本")
-        print("  python nuitka_build.py --build standalone  # 构建独立目录版本")
-        print("  python nuitka_build.py --build both        # 构建两种版本")
-        print("  python nuitka_build.py --clean             # 清理构建文件")
-        print("  python nuitka_build.py --check             # 检查依赖")
+        print("  python nuitka_build_fixed_v2.py --build onefile     # 构建单文件版本")
+        print("  python nuitka_build_fixed_v2.py --build standalone  # 构建独立目录版本")
+        print("  python nuitka_build_fixed_v2.py --build both        # 构建两种版本")
+        print("  python nuitka_build_fixed_v2.py --clean             # 清理构建文件")
+        print("  python nuitka_build_fixed_v2.py --check             # 检查依赖")
 
 
 if __name__ == "__main__":

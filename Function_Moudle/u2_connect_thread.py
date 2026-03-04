@@ -10,76 +10,116 @@ logger = get_logger("ADBTools.U2ConnectThread")
 # 检查是否在 Nuitka 环境中运行
 IS_NUITKA = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
 
+# 全局变量：存储找到的 assets 目录路径
+_NUITKA_ASSETS_DIR = None
+
 if IS_NUITKA:
-    # Nuitka 环境中需要设置 u2 的资源路径
-    import ntpath
-    import uiautomator2
-    import uiautomator2.assets as u2_assets
+    # Nuitka 环境中需要特殊处理 uiautomator2 的资源读取
     from pathlib import Path
+    import shutil
+    import tempfile
     
-    # 获取当前脚本所在目录（在 Nuitka 中是可执行文件所在目录）
-    if getattr(sys, 'frozen', False):
-        # 可执行文件路径
-        exe_dir = Path(sys.executable).parent
-        u2_assets_dir = exe_dir / "uiautomator2" / "assets"
-    else:
-        # 源代码路径
-        u2_assets_dir = Path(__file__).parent.parent / "uiautomator2" / "assets"
+    logger.info("=" * 60)
+    logger.info("检测到 Nuitka 环境，开始配置 uiautomator2 资源路径")
+    logger.info("=" * 60)
     
-    # 设置 u2 的资源路径
-    if u2_assets_dir.exists():
-        # 确保路径是字符串类型，并且是绝对路径
-        assets_path = str(u2_assets_dir.absolute())
-        u2_assets._assets_dir = assets_path
-        logger.info(f"设置 u2 资源路径为: {assets_path}")
+    # 获取可执行文件所在目录
+    exe_dir = Path(sys.executable).parent
+    logger.info(f"可执行文件目录: {exe_dir}")
+    
+    # 查找 uiautomator2 assets 目录
+    possible_assets_dirs = [
+        exe_dir / "uiautomator2" / "assets",
+        exe_dir / "uiautomator2_assets",
+        exe_dir.parent / "uiautomator2" / "assets",
+    ]
+    
+    for assets_dir in possible_assets_dirs:
+        logger.info(f"检查资源目录: {assets_dir}，存在: {assets_dir.exists()}")
+        if assets_dir.exists():
+            _NUITKA_ASSETS_DIR = assets_dir
+            break
+    
+    if _NUITKA_ASSETS_DIR and _NUITKA_ASSETS_DIR.exists():
+        logger.info(f"找到 u2 assets 目录: {_NUITKA_ASSETS_DIR}")
         
-        # 确保 u2 能够正确处理资源
+        # 列出资源文件
+        asset_files = list(_NUITKA_ASSETS_DIR.glob("*"))
+        logger.info(f"找到 {len(asset_files)} 个资源文件:")
+        for f in asset_files:
+            logger.info(f"  - {f.name} ({f.stat().st_size} bytes)")
+        
+        # 关键修复：Monkey-patch importlib.resources 来解决 Nuitka 兼容性问题
         try:
-            # 尝试访问 assets 目录
-            if hasattr(u2_assets, '_assets'):
-                # 重置资源管理器
-                u2_assets._assets = None
-            logger.info("已重置 u2 资源管理器")
+            import importlib.resources as resources
             
-            # 强制 u2 重新初始化资源
-            u2_assets.init()
-            logger.info("已强制 u2 重新初始化资源")
-        except Exception as e:
-            logger.warning(f"重置 u2 资源管理器时出现警告: {e}")
+            # 保存原始函数
+            _original_files = resources.files
             
-            # 如果 init() 失败，尝试手动复制资源文件
+            def _patched_files(package):
+                """
+                修补后的 resources.files 函数
+                当请求 uiautomator2.assets 时，返回文件系统路径而不是 Nuitka 资源读取器
+                """
+                package_name = package if isinstance(package, str) else package.__name__
+                logger.debug(f"resources.files 被调用，包名: {package_name}")
+                
+                if 'uiautomator2.assets' in package_name or ('uiautomator2' in package_name and 'assets' in package_name):
+                    # 返回文件系统路径
+                    from pathlib import Path as PathlibPath
+                    assets_path = PathlibPath(_NUITKA_ASSETS_DIR)
+                    logger.info(f"返回 uiautomator2 assets 文件系统路径: {assets_path}")
+                    return assets_path
+                else:
+                    # 其他包使用原始函数
+                    return _original_files(package)
+            
+            # 应用 Monkey-patch
+            resources.files = _patched_files
+            logger.info("✓ 成功 Monkey-patch importlib.resources.files")
+            
+            # 同时检查 importlib_resources（某些版本可能使用这个）
             try:
-                import shutil
-                import tempfile
+                import importlib_resources
+                _original_files_v2 = importlib_resources.files
+                importlib_resources.files = _patched_files
+                logger.info("✓ 成功 Monkey-patch importlib_resources.files")
+            except ImportError:
+                logger.debug("importlib_resources 未安装，跳过")
+            
+        except Exception as patch_error:
+            logger.error(f"Monkey-patch 失败: {patch_error}")
+            import traceback
+            logger.error(traceback.format_exc())
+            
+            # 备用方案：复制资源到临时目录
+            logger.info("尝试备用方案：复制资源到临时目录...")
+            try:
+                temp_dir = Path(tempfile.gettempdir()) / "u2_assets_runtime"
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir)
+                temp_dir.mkdir(parents=True, exist_ok=True)
                 
-                # 创建临时目录
-                temp_dir = Path(tempfile.gettempdir()) / "u2_assets"
-                temp_dir.mkdir(exist_ok=True)
-                
-                # 复制所有资源文件到临时目录
-                for asset_file in u2_assets_dir.glob("*"):
+                for asset_file in _NUITKA_ASSETS_DIR.glob("*"):
                     if asset_file.is_file():
-                        dest_file = temp_dir / asset_file.name
-                        shutil.copy2(asset_file, dest_file)
-                        logger.debug(f"已复制资源文件: {asset_file.name}")
+                        shutil.copy2(asset_file, temp_dir / asset_file.name)
+                        logger.info(f"  复制: {asset_file.name}")
                 
-                # 更新 u2 的资源路径为临时目录
-                u2_assets._assets_dir = str(temp_dir.absolute())
-                u2_assets.init()
-                logger.info(f"已使用临时目录作为 u2 资源路径: {temp_dir}")
+                # 设置环境变量
+                os.environ['UIAUTOMATOR2_ASSETS_DIR'] = str(temp_dir)
+                logger.info(f"✓ 已设置环境变量 UIAUTOMATOR2_ASSETS_DIR = {temp_dir}")
                 
             except Exception as copy_error:
-                logger.error(f"手动复制 u2 资源文件失败: {copy_error}")
+                logger.error(f"备用方案失败: {copy_error}")
     else:
-        logger.warning("uiautomator2 assets 目录不存在，尝试使用默认路径")
-        # 尝试使用 uiautomator2 的默认资源路径
-        try:
-            # 清除可能的错误路径
-            u2_assets._assets_dir = None
-            u2_assets.init()
-            logger.info("已使用 uiautomator2 默认资源路径")
-        except Exception as e:
-            logger.error(f"使用 uiautomator2 默认资源路径失败: {e}")
+        logger.error("未找到 uiautomator2 assets 目录！")
+        logger.error("U2 连接可能失败，将自动降级到 ADB 模式")
+    
+    logger.info("=" * 60)
+    logger.info("Nuitka 环境配置完成")
+    logger.info("=" * 60)
+else:
+    logger.debug("非 Nuitka 环境，使用默认配置")
 
 class U2ConnectThread(QThread):
     """u2连接尝试线程（避免在主线程中阻塞）"""
@@ -110,7 +150,8 @@ class U2ConnectThread(QThread):
             self.progress_signal.emit(f"正在连接到设备: {self.device_id}")
             logger.info(f"开始u2连接: {self.device_id}")
             
-            # 直接尝试u2连接，不进行额外测试
+            # 直接尝试u2连接
+            # 注意：Nuitka 环境的资源处理已在模块加载时通过 Monkey-patch 完成
             d = u2.connect(self.device_id)
             
             if d:
