@@ -16,7 +16,7 @@ class DatongOpenTelenavEngineeringThread(QThread):
             
             # 使用ADB命令启动泰维地图工程模式
             import subprocess
-            command = f"adb -s {self.device_id} shell am start -n com.autonavi.minimap/.engineering.EngineeringActivity"
+            command = f"adb -s {self.device_id} shell am start -n com.telenav.app.arp/com.telenav.arp.module.secret.SecretScreenActivity"
             result = subprocess.run(command, shell=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
             
             if result.returncode == 0:

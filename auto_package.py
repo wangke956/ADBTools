@@ -7,7 +7,7 @@ ADBTools 自动打包脚本
 1. 要求用户输入版本号（如：1.6.2）
 2. 要求用户输入 platform-tools 文件夹路径
 3. 更新配置文件中的版本号
-4. 执行 python nuitka_build.py --build onefile
+4. 执行 python nuitka_build_fixed_v2.py --build onefile
 5. 复制 platform-tools 文件夹下所有文件到 build_nuitka 文件夹
 6. 复制 adbtool.ui 和 adbtools_config.json 到 build_nuitka 文件夹
 7. 通过命令行 iscc 调用编译器使用 ADBTools_setup.iss 打包成安装包
@@ -265,7 +265,7 @@ def run_nuitka_build() -> bool:
     print("开始执行 Nuitka 构建...")
     print("=" * 60)
     
-    cmd = [sys.executable, "nuitka_build.py", "--build", "onefile"]
+    cmd = [sys.executable, "nuitka_build_fixed_v2.py", "--build", "onefile"]
     
     print(f"执行命令: {' '.join(cmd)}")
     

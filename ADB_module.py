@@ -2574,8 +2574,15 @@ class ADB_Mainwindow(QMainWindow):
                 logger.info(f"输入文本: {text_to_input}")
                 
                 try:
-                    from Function_Moudle.input_text_thread import InputTextThread
-                    self.input_text_thread = InputTextThread(self.d, text_to_input)
+                    if self.connection_mode == 'u2':
+                        # 使用U2输入文本
+                        from Function_Moudle.input_text_thread import InputTextThread
+                        self.input_text_thread = InputTextThread(self.d, text_to_input)
+                    else:
+                        # 使用ADB输入文本
+                        from Function_Moudle.adb_input_text_thread import ADBInputTextThread
+                        self.input_text_thread = ADBInputTextThread(device_id, text_to_input)
+                    
                     self.input_text_thread.progress_signal.connect(self.textBrowser.append)
                     self.input_text_thread.error_signal.connect(self.textBrowser.append)
                     self.input_text_thread.start()
