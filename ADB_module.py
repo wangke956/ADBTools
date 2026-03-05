@@ -175,6 +175,23 @@ class ADB_Mainwindow(QMainWindow):
         self.connection_mode = None  # 'u2' 或 'adb'
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
+        
+        # 初始化功能管理器（必须在信号连接之前）
+        from Function_Moudle.datong_manager import DatongManager
+        from Function_Moudle.vr_controller import VRController
+        from Function_Moudle.device_manager import DeviceManager
+        from Function_Moudle.log_operations import LogManager
+        from Function_Moudle.file_operations import FileOperationsManager
+        from Function_Moudle.input_operations import InputOperationsManager
+        from Function_Moudle.app_operations import AppOperationsManager
+        self.datong_manager = DatongManager(self)
+        self.vr_controller = VRController(self)
+        self.device_manager = DeviceManager(self)
+        self.log_operations = LogManager(self)
+        self.file_operations = FileOperationsManager(self)
+        self.input_operations = InputOperationsManager(self)
+        self.app_operations = AppOperationsManager(self)
+        
         try:
             # 刷新设备列表（refresh_devices方法内部会尝试u2连接）
             self.refresh_devices()
@@ -200,33 +217,45 @@ class ADB_Mainwindow(QMainWindow):
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
-        self.switch_vr_env_button.clicked.connect(self.switch_vr_env)  # 切换VR环境
-        self.VR_nework_check_button.clicked.connect(self.check_vr_network)  # 检查VR网络
-        self.activate_VR_button.clicked.connect(self.activate_vr)  # 激活VR
+        
+        # VR 功能信号连接
+        self.switch_vr_env_button.clicked.connect(self.vr_controller.switch_vr_env)  # 切换VR环境
+        self.VR_nework_check_button.clicked.connect(self.vr_controller.check_vr_network)  # 检查VR网络
+        self.activate_VR_button.clicked.connect(self.vr_controller.activate_vr)  # 激活VR
+        self.skipping_powerlimit_button.clicked.connect(self.vr_controller.skip_power_limit)  # 跳过电源挡位限制
+        self.set_vr_server_timout.clicked.connect(self.vr_controller.set_vr_timeout)  # 设置VR服务器超时
+        
+        # 设备管理信号连接
+        self.RefreshButton.clicked.connect(self.device_manager.refresh_devices)  # 刷新设备列表
+        self.button_reboot.clicked.connect(self.device_manager.reboot_device)  # 重启设备
+        
+        # 日志操作信号连接
+        self.browse_log_save_path_button.clicked.connect(self.log_operations.browse_log_save_path)  # 浏览日志保存路径
+        self.pull_log_button.clicked.connect(self.log_operations.pull_log)  # 拉取日志
+        self.open_path_buttom.clicked.connect(self.log_operations.open_path)  # 打开文件所在目录
+        self.voice_start_record_button.clicked.connect(self.log_operations.voice_start_record)  # 开始语音录制
+        self.voice_stop_record_button.clicked.connect(self.log_operations.voice_stop_record)  # 停止语音录制
+        self.voice_pull_record_file_button.clicked.connect(self.log_operations.voice_pull_record_file)  # 拉取录音文件
+        self.remove_record_file_button.clicked.connect(self.log_operations.remove_voice_record_file)  # 删除语音录制文件
+        
+        # 其他信号连接
         self.list_package_button.clicked.connect(self.list_package)
-        self.skipping_powerlimit_button.clicked.connect(self.skip_power_limit)  # 跳过电源挡位限制
         self.enter_engineering_mode_button.clicked.connect(self.open_engineering_mode)  # 进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering)
         self.open_update_page_button.clicked.connect(self.open_soimt_update)  # 打开资源升级页面
-        self.browse_log_save_path_button.clicked.connect(self.browse_log_save_path)  # 浏览日志保存路径
-        self.pull_log_button.clicked.connect(self.pull_log)  # 拉取日志
-        self.open_path_buttom.clicked.connect(self.open_path)  # 打开文件所在目录
-        self.voice_start_record_button.clicked.connect(self.voice_start_record)  # 开始语音录制
-        self.voice_stop_record_button.clicked.connect(self.voice_stop_record)  # 停止语音录制
-        self.voice_pull_record_file_button.clicked.connect(self.voice_pull_record_file)  # 拉取录音文件
-        self.remove_record_file_button.clicked.connect(self.remove_voice_record_file)  # 删除语音录制文件
         self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
         self.start_check_button.clicked.connect(self.app_version_check)
-        self.set_vr_server_timout.clicked.connect(self.set_vr_timeout)
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
-        self.datong_factory_button.clicked.connect(self.datong_factory_action)  # 拉起中环工厂
-        self.datong_disable_verity_button.clicked.connect(self.datong_disable_verity_action)  # 禁用verity校验 (adb disable-verity)
-        self.datong_enable_verity_button.clicked.connect(self.datong_enable_verity_action)  # 启用verity校验 (adb enable-verity)
-        self.datong_batch_install_button.clicked.connect(self.datong_batch_install_action)  # 批量安装APK文件
-        self.datong_batch_install_test_button.clicked.connect(self.datong_batch_verify_version_action)  # 验证批量推包版本号
-        self.datong_input_password_button.clicked.connect(self.datong_input_password_action)  # 一键输入密码
-        self.datong_open_telenav_engineering_button.clicked.connect(self.datong_open_telenav_engineering_action)  # 打开泰维地图工程模式
-        self.datong_set_datetime_button.clicked.connect(self.datong_set_datetime_action)  # 设置设备日期时间
+        
+        # 大通功能信号连接
+        self.datong_factory_button.clicked.connect(self.datong_manager.factory_action)  # 拉起中环工厂
+        self.datong_disable_verity_button.clicked.connect(self.datong_manager.disable_verity_action)  # 禁用verity校验
+        self.datong_enable_verity_button.clicked.connect(self.datong_manager.enable_verity_action)  # 启用verity校验
+        self.datong_batch_install_button.clicked.connect(self.datong_manager.batch_install_action)  # 批量安装APK文件
+        self.datong_batch_install_test_button.clicked.connect(self.datong_manager.batch_verify_version_action)  # 验证批量推包版本号
+        self.datong_input_password_button.clicked.connect(self.datong_manager.input_password_action)  # 一键输入密码
+        self.datong_open_telenav_engineering_button.clicked.connect(self.datong_manager.open_telenav_engineering_action)  # 打开泰维地图工程模式
+        self.datong_set_datetime_button.clicked.connect(self.datong_manager.set_datetime_action)  # 设置设备日期时间
         
         # 添加重新初始化u2按钮（如果UI中有）
         try:
@@ -583,855 +612,53 @@ class ADB_Mainwindow(QMainWindow):
         log_button_click("AS33_CR_enter_engineering_mode_button", "启动AS33 CR工程模式", "com.saicmotor.diag")
         self.start_app_action(app_name = "com.saicmotor.diag")
 
+    # ========== 大通功能 - 已委托给 datong_manager ==========
+    
     def datong_factory_action(self):
-        """拉起中环工厂应用"""
-        log_button_click("datong_factory_button", "启动中环工厂应用", "com.zhonghuan.factory")
-        self.start_app_action(app_name = "com.zhonghuan.factory")
+        """拉起中环工厂应用 - 委托给 datong_manager"""
+        self.datong_manager.factory_action()
 
     def datong_verity_action(self):
-        """执行adb enable-verity和adb disable-verity命令"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        if device_id in devices_id_lst:
-            try:
-                # 弹出确认对话框
-                from PyQt5.QtWidgets import QMessageBox
-                reply = QMessageBox.question(
-                    self, 
-                    '确认执行verity命令',
-                    f'是否要在设备 {device_id} 上执行adb disable-verity和adb enable-verity命令？\n\n'
-                    '注意：执行此操作可能需要设备重启才能生效。',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
-                
-                if reply == QMessageBox.Yes:
-                    # 根据连接模式创建相应的线程
-                    if self.connection_mode == 'u2':
-                        from Function_Moudle.adb_verity_thread import ADBVerityThread
-                        self.verity_thread = ADBVerityThread(
-                            device_id, 
-                            connection_mode='u2',
-                            u2_device=self.d
-                        )
-                    elif self.connection_mode == 'adb':
-                        from Function_Moudle.adb_verity_thread import ADBVerityThread
-                        self.verity_thread = ADBVerityThread(
-                            device_id, 
-                            connection_mode='adb'
-                        )
-                    else:
-                        self.textBrowser.append("设备未连接！")
-                        return
-                    
-                    # 连接信号
-                    self.verity_thread.progress_signal.connect(self.textBrowser.append)
-                    self.verity_thread.error_signal.connect(self.textBrowser.append)
-                    self.verity_thread.result_signal.connect(self.textBrowser.append)
-                    
-                    # 启动线程
-                    self.verity_thread.start()
-                else:
-                    self.textBrowser.append("用户取消执行verity命令")
-                    
-            except Exception as e:
-                self.textBrowser.append(f"启动verity命令线程失败: {e}")
-        else:
-            self.textBrowser.append("设备未连接！")
+        """执行verity命令 - 委托给 datong_manager"""
+        self.datong_manager.verity_action()
 
     def datong_disable_verity_action(self):
-        """执行adb disable-verity命令"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("datong_disable_verity_button", "禁用verity校验")
-
-        if device_id in devices_id_lst:
-            try:
-                # 弹出确认对话框
-                from PyQt5.QtWidgets import QMessageBox
-                reply = QMessageBox.question(
-                    self, 
-                    '确认执行adb disable-verity',
-                    f'是否要在设备 {device_id} 上执行adb disable-verity命令？\n\n'
-                    '注意：\n'
-                    '1. 此操作将禁用设备的verity校验\n'
-                    '2. 执行成功后需要将主机断电重启才能生效\n'
-                    '3. 请确保已保存所有工作',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
-                
-                if reply == QMessageBox.Yes:
-                    # 根据连接模式创建相应的线程
-                    if self.connection_mode == 'u2':
-                        from Function_Moudle.adb_verity_thread import ADBDisableVerityThread
-                        self.disable_verity_thread = ADBDisableVerityThread(
-                            device_id, 
-                            connection_mode='u2',
-                            u2_device=self.d
-                        )
-                    elif self.connection_mode == 'adb':
-                        from Function_Moudle.adb_verity_thread import ADBDisableVerityThread
-                        self.disable_verity_thread = ADBDisableVerityThread(
-                            device_id, 
-                            connection_mode='adb'
-                        )
-                    else:
-                        log_method_result("datong_disable_verity_action", False, "设备未连接")
-                        self.textBrowser.append("设备未连接！")
-                        return
-                    
-                    # 连接信号
-                    self.disable_verity_thread.progress_signal.connect(self.textBrowser.append)
-                    self.disable_verity_thread.error_signal.connect(self.textBrowser.append)
-                    self.disable_verity_thread.result_signal.connect(self.handle_disable_verity_result)
-                    
-                    # 启动线程
-                    self.disable_verity_thread.start()
-                    log_method_result("datong_disable_verity_action", True, "disable-verity命令已发送")
-                else:
-                    logger.info("用户取消执行adb disable-verity命令")
-            except Exception as e:
-                log_method_result("datong_disable_verity_action", False, str(e))
-                self.textBrowser.append(f"启动disable-verity命令线程失败: {e}")
-        else:
-            log_method_result("datong_disable_verity_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-
-    def handle_disable_verity_result(self, result_message):
-        """处理adb disable-verity执行结果"""
-        self.textBrowser.append(result_message)
-        
-        # 检查是否执行成功
-        if "执行完成" in result_message or "成功" in result_message:
-            # 弹出成功提示对话框
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                'adb disable-verity执行成功',
-                'adb disable-verity命令执行成功！\n\n'
-                '重要提示：\n'
-                '请将主机断电重启以使更改生效。\n\n'
-                '操作步骤：\n'
-                '1. 关闭所有应用程序\n'
-                '2. 断开设备连接\n'
-                '3. 关闭主机电源\n'
-                '4. 等待10秒后重新启动主机',
-                QMessageBox.Ok
-            )
+        """禁用verity - 委托给 datong_manager"""
+        self.datong_manager.disable_verity_action()
 
     def datong_enable_verity_action(self):
-        """执行adb enable-verity命令"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("datong_enable_verity_button", "启用verity校验")
-
-        if device_id in devices_id_lst:
-            try:
-                # 弹出确认对话框
-                from PyQt5.QtWidgets import QMessageBox
-                reply = QMessageBox.question(
-                    self, 
-                    '确认执行adb enable-verity',
-                    f'是否要在设备 {device_id} 上执行adb enable-verity命令？\n\n'
-                    '注意：\n'
-                    '1. 此操作将启用设备的verity校验\n'
-                    '2. 执行成功后需要将主机断电重启才能生效\n'
-                    '3. 请确保已保存所有工作',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
-                
-                if reply == QMessageBox.Yes:
-                    # 根据连接模式创建相应的线程
-                    if self.connection_mode == 'u2':
-                        from Function_Moudle.adb_verity_thread import ADBEnableVerityThread
-                        self.enable_verity_thread = ADBEnableVerityThread(
-                            device_id, 
-                            connection_mode='u2',
-                            u2_device=self.d
-                        )
-                    elif self.connection_mode == 'adb':
-                        from Function_Moudle.adb_verity_thread import ADBEnableVerityThread
-                        self.enable_verity_thread = ADBEnableVerityThread(
-                            device_id, 
-                            connection_mode='adb'
-                        )
-                    else:
-                        log_method_result("datong_enable_verity_action", False, "设备未连接")
-                        self.textBrowser.append("设备未连接！")
-                        return
-                    
-                    # 连接信号
-                    self.enable_verity_thread.progress_signal.connect(self.textBrowser.append)
-                    self.enable_verity_thread.error_signal.connect(self.textBrowser.append)
-                    self.enable_verity_thread.result_signal.connect(self.handle_enable_verity_result)
-                    
-                    # 启动线程
-                    self.enable_verity_thread.start()
-                    log_method_result("datong_enable_verity_action", True, "enable-verity命令已发送")
-                else:
-                    logger.info("用户取消执行adb enable-verity命令")
-            except Exception as e:
-                log_method_result("datong_enable_verity_action", False, str(e))
-                self.textBrowser.append(f"启动enable-verity命令线程失败: {e}")
-        else:
-            log_method_result("datong_enable_verity_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-
-    def handle_enable_verity_result(self, result_message):
-            """处理adb enable-verity执行结果"""
-            self.textBrowser.append(result_message)
-            
-            # 检查是否执行成功
-            if "执行完成" in result_message or "成功" in result_message:
-                # 弹出成功提示对话框
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.information(
-                    self,
-                    'adb enable-verity执行成功',
-                    'adb enable-verity命令执行成功！\n\n'
-                    '重要提示：\n'
-                    '请将主机断电重启以使更改生效。\n\n'
-                    '操作步骤：\n'
-                    '1. 关闭所有应用程序\n'
-                    '2. 断开设备连接\n'
-                    '3. 关闭主机电源\n'
-                    '4. 等待10秒后重新启动主机',
-                    QMessageBox.Ok
-                )
+        """启用verity - 委托给 datong_manager"""
+        self.datong_manager.enable_verity_action()
 
     def datong_batch_install_action(self):
-        """批量安装APK文件"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("datong_batch_install_button", "批量安装APK文件")
-
-        if device_id in devices_id_lst:
-            try:
-                # 弹出文件夹选择框
-                from PyQt5.QtWidgets import QFileDialog, QMessageBox
-                folder_path = QFileDialog.getExistingDirectory(
-                    self,
-                    "选择APK文件所在文件夹",
-                    "."
-                )
-                
-                if not folder_path:
-                    logger.info("用户取消文件夹选择")
-                    return
-                
-                logger.info(f"选择文件夹: {folder_path}")
-                
-                # 获取文件夹中的所有APK文件
-                import os
-                apk_files = [f for f in os.listdir(folder_path) if f.endswith('.apk')]
-                
-                if not apk_files:
-                    log_method_result("datong_batch_install_action", False, "未找到APK文件")
-                    QMessageBox.warning(self, "未找到APK文件", f"在 {folder_path} 中未找到任何APK文件")
-                    return
-                
-                logger.info(f"找到 {len(apk_files)} 个APK文件")
-                
-                # 创建APK多选对话框
-                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel
-                dialog = QDialog(self)
-                dialog.setWindowTitle("选择要安装的APK文件")
-                dialog.resize(600, 400)
-                
-                # 文件列表
-                file_list = QListWidget(dialog)
-                file_list.setSelectionMode(QListWidget.ExtendedSelection)
-                
-                # 添加文件到列表
-                for apk_file in apk_files:
-                    item = QListWidgetItem(apk_file)
-                    item.setCheckState(Qt.Unchecked)
-                    file_list.addItem(item)
-                
-                # 按钮布局
-                button_layout = QHBoxLayout()
-                
-                # 全选按钮
-                select_all_btn = QPushButton("全选")
-                select_all_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Checked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(select_all_btn)
-                
-                # 反选按钮
-                invert_btn = QPushButton("反选")
-                invert_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Checked if file_list.item(i).checkState() == Qt.Unchecked else Qt.Unchecked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(invert_btn)
-                
-                # 清空按钮
-                clear_btn = QPushButton("清空")
-                clear_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Unchecked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(clear_btn)
-                
-                # 确认按钮
-                confirm_btn = QPushButton("确认选择")
-                confirm_btn.clicked.connect(dialog.accept)
-                button_layout.addWidget(confirm_btn)
-                
-                # 取消按钮
-                cancel_btn = QPushButton("取消")
-                cancel_btn.clicked.connect(dialog.reject)
-                button_layout.addWidget(cancel_btn)
-                
-                # 主布局
-                layout = QVBoxLayout()
-                layout.addWidget(QLabel(f"从 {len(apk_files)} 个APK文件中选择要安装的文件:"))
-                layout.addWidget(file_list)
-                layout.addLayout(button_layout)
-                dialog.setLayout(layout)
-                
-                # 显示对话框
-                if dialog.exec_() == QDialog.Accepted:
-                    # 获取选中的文件
-                    selected_files = []
-                    for i in range(file_list.count()):
-                        if file_list.item(i).checkState() == Qt.Checked:
-                            selected_files.append(file_list.item(i).text())
-                    
-                    if not selected_files:
-                        QMessageBox.warning(self, "未选择文件", "请至少选择一个APK文件")
-                        return
-                    
-                    logger.info(f"用户选择了 {len(selected_files)} 个APK文件")
-                    
-                    # 显示确认对话框
-                    reply = QMessageBox.question(
-                        self,
-                        '确认批量安装',
-                        f'已选择 {len(selected_files)} 个APK文件，是否继续批量安装？\n\n'
-                        f'文件列表:\n' + '\n'.join(selected_files),
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.No
-                    )
-                    
-                    if reply == QMessageBox.Yes:
-                        from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
-                        self.batch_install_thread = ADBBatchInstallThread(
-                            device_id,
-                            folder_path,
-                            connection_mode=self.connection_mode,
-                            u2_device=self.d if self.connection_mode == 'u2' else None,
-                            selected_files=selected_files  # 传递选中的文件列表
-                        )
-                        self.batch_install_thread.progress_signal.connect(self.textBrowser.append)
-                        self.batch_install_thread.result_signal.connect(self.textBrowser.append)
-                        self.batch_install_thread.error_signal.connect(self.textBrowser.append)
-                        self.batch_install_thread.start()
-                        
-                        log_method_result("datong_batch_install_action", True, f"批量安装线程已启动 ({len(selected_files)}个文件)")
-                    else:
-                        logger.info("用户取消批量安装")
-                else:
-                    logger.info("用户取消文件选择")
-            except Exception as e:
-                log_method_result("datong_batch_install_action", False, str(e))
-                self.textBrowser.append(f"批量安装失败: {e}")
-        else:
-            log_method_result("datong_batch_install_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """批量安装APK - 委托给 datong_manager"""
+        self.datong_manager.batch_install_action()
 
     def datong_batch_install_test_action(self):
-        """测试批量安装功能 - 打印所有流程中的值和命令"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("datong_batch_install_test_button", "测试批量安装功能")
-        
-        if device_id in devices_id_lst:
-            try:
-                # 弹出文件夹选择框
-                from PyQt5.QtWidgets import QFileDialog, QMessageBox
-                folder_path = QFileDialog.getExistingDirectory(
-                    self,
-                    "选择APK文件夹（测试模式）",
-                    "",  # 默认路径为空
-                    QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
-                )
-                
-                if not folder_path:
-                    logger.info("用户取消文件夹选择")
-                    return
-                
-                logger.info(f"选择文件夹: {folder_path}")
-                
-                # 检查文件夹是否存在
-                import os
-                if not os.path.exists(folder_path):
-                    log_method_result("datong_batch_install_test_action", False, "文件夹不存在")
-                    self.textBrowser.append(f"文件夹不存在: {folder_path}")
-                    return
-                
-                # 检查是否为文件夹
-                if not os.path.isdir(folder_path):
-                    log_method_result("datong_batch_install_test_action", False, "路径不是文件夹")
-                    self.textBrowser.append(f"路径不是文件夹: {folder_path}")
-                    return
-                
-                # 获取文件夹中的所有APK文件
-                apk_files = [f for f in os.listdir(folder_path) if f.endswith('.apk')]
-                
-                if not apk_files:
-                    log_method_result("datong_batch_install_test_action", False, "未找到APK文件")
-                    QMessageBox.warning(self, "未找到APK文件", f"在 {folder_path} 中未找到任何APK文件")
-                    return
-                
-                logger.info(f"找到 {len(apk_files)} 个APK文件")
-                
-                # 创建APK多选对话框
-                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel
-                dialog = QDialog(self)
-                dialog.setWindowTitle("选择要测试的APK文件")
-                dialog.resize(600, 400)
-                
-                # 文件列表
-                file_list = QListWidget(dialog)
-                file_list.setSelectionMode(QListWidget.ExtendedSelection)
-                
-                # 添加文件到列表
-                for apk_file in apk_files:
-                    item = QListWidgetItem(apk_file)
-                    item.setCheckState(Qt.Unchecked)
-                    file_list.addItem(item)
-                
-                # 按钮布局
-                button_layout = QHBoxLayout()
-                
-                # 全选按钮
-                select_all_btn = QPushButton("全选")
-                select_all_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Checked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(select_all_btn)
-                
-                # 反选按钮
-                invert_btn = QPushButton("反选")
-                invert_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Checked if file_list.item(i).checkState() == Qt.Unchecked else Qt.Unchecked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(invert_btn)
-                
-                # 清空按钮
-                clear_btn = QPushButton("清空")
-                clear_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Unchecked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(clear_btn)
-                
-                # 确认按钮
-                confirm_btn = QPushButton("确认选择")
-                confirm_btn.clicked.connect(dialog.accept)
-                button_layout.addWidget(confirm_btn)
-                
-                # 取消按钮
-                cancel_btn = QPushButton("取消")
-                cancel_btn.clicked.connect(dialog.reject)
-                button_layout.addWidget(cancel_btn)
-                
-                # 主布局
-                layout = QVBoxLayout()
-                layout.addWidget(QLabel(f"从 {len(apk_files)} 个APK文件中选择要测试的文件:"))
-                layout.addWidget(file_list)
-                layout.addLayout(button_layout)
-                dialog.setLayout(layout)
-                
-                # 显示对话框
-                if dialog.exec_() == QDialog.Accepted:
-                    # 获取选中的文件
-                    selected_files = []
-                    for i in range(file_list.count()):
-                        if file_list.item(i).checkState() == Qt.Checked:
-                            selected_files.append(file_list.item(i).text())
-                    
-                    if not selected_files:
-                        QMessageBox.warning(self, "未选择文件", "请至少选择一个APK文件")
-                        return
-                    
-                    logger.info(f"用户选择了 {len(selected_files)} 个APK文件进行测试")
-                    
-                    # 显示确认对话框
-                    reply = QMessageBox.question(
-                        self,
-                        '确认测试批量安装',
-                        f'已选择 {len(selected_files)} 个APK文件进行测试，是否继续？\n\n'
-                        f'文件列表:\n' + '\n'.join(selected_files),
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.No
-                    )
-                    
-                    if reply == QMessageBox.Yes:
-                        from Function_Moudle.adb_batch_install_test_thread import ADBBatchInstallTestThread
-                        self.batch_install_test_thread = ADBBatchInstallTestThread(
-                            device_id,
-                            folder_path,
-                            connection_mode=self.connection_mode,
-                            u2_device=self.d if self.connection_mode == 'u2' else None,
-                            selected_files=selected_files  # 传递选中的文件列表
-                        )
-                        self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
-                        self.batch_install_test_thread.error_signal.connect(self.textBrowser.append)
-                        self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
-                        self.batch_install_test_thread.debug_signal.connect(self.textBrowser.append)
-                        self.batch_install_test_thread.start()
-                        
-                        log_method_result("datong_batch_install_test_action", True, f"测试线程已启动 ({len(selected_files)}个文件)")
-                    else:
-                        logger.info("用户取消测试批量安装")
-                else:
-                    logger.info("用户取消文件选择")
-            except Exception as e:
-                log_method_result("datong_batch_install_test_action", False, str(e))
-                self.textBrowser.append(f"启动批量安装测试线程失败: {e}")
-        else:
-            log_method_result("datong_batch_install_test_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """测试批量安装 - 委托给 datong_manager"""
+        self.datong_manager.batch_install_test_action()
 
     def datong_batch_verify_version_action(self):
-        """验证批量推包版本号"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("datong_batch_install_test_button", "验证批量推包版本号")
-
-        if device_id in devices_id_lst:
-            try:
-                # 弹出文件夹选择框
-                from PyQt5.QtWidgets import QFileDialog, QMessageBox
-                folder_path = QFileDialog.getExistingDirectory(
-                    self,
-                    "选择APK文件所在文件夹",
-                    "."
-                )
-                
-                if not folder_path:
-                    logger.info("用户取消文件夹选择")
-                    return
-                
-                logger.info(f"选择文件夹: {folder_path}")
-                
-                # 获取文件夹中的所有APK文件
-                import os
-                apk_files = [f for f in os.listdir(folder_path) if f.endswith('.apk')]
-                
-                if not apk_files:
-                    log_method_result("datong_batch_verify_version_action", False, "未找到APK文件")
-                    QMessageBox.warning(self, "未找到APK文件", f"在 {folder_path} 中未找到任何APK文件")
-                    return
-                
-                logger.info(f"找到 {len(apk_files)} 个APK文件")
-                
-                # 创建APK多选对话框
-                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel
-                dialog = QDialog(self)
-                dialog.setWindowTitle("选择要验证版本的APK文件")
-                dialog.resize(600, 400)
-                
-                # 文件列表
-                file_list = QListWidget(dialog)
-                file_list.setSelectionMode(QListWidget.ExtendedSelection)
-                
-                # 添加文件到列表
-                for apk_file in apk_files:
-                    item = QListWidgetItem(apk_file)
-                    item.setCheckState(Qt.Unchecked)
-                    file_list.addItem(item)
-                
-                # 按钮布局
-                button_layout = QHBoxLayout()
-                
-                # 全选按钮
-                select_all_btn = QPushButton("全选")
-                select_all_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Checked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(select_all_btn)
-                
-                # 反选按钮
-                invert_btn = QPushButton("反选")
-                invert_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Checked if file_list.item(i).checkState() == Qt.Unchecked else Qt.Unchecked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(invert_btn)
-                
-                # 清空按钮
-                clear_btn = QPushButton("清空")
-                clear_btn.clicked.connect(lambda: [
-                    file_list.item(i).setCheckState(Qt.Unchecked)
-                    for i in range(file_list.count())
-                ])
-                button_layout.addWidget(clear_btn)
-                
-                # 确认按钮
-                confirm_btn = QPushButton("确认选择")
-                confirm_btn.clicked.connect(dialog.accept)
-                button_layout.addWidget(confirm_btn)
-                
-                # 取消按钮
-                cancel_btn = QPushButton("取消")
-                cancel_btn.clicked.connect(dialog.reject)
-                button_layout.addWidget(cancel_btn)
-                
-                # 主布局
-                layout = QVBoxLayout()
-                layout.addWidget(QLabel(f"从 {len(apk_files)} 个APK文件中选择要验证版本的文件:"))
-                layout.addWidget(file_list)
-                layout.addLayout(button_layout)
-                dialog.setLayout(layout)
-                
-                # 显示对话框
-                if dialog.exec_() == QDialog.Accepted:
-                    # 获取选中的文件
-                    selected_files = []
-                    for i in range(file_list.count()):
-                        if file_list.item(i).checkState() == Qt.Checked:
-                            selected_files.append(file_list.item(i).text())
-                    
-                    if not selected_files:
-                        QMessageBox.warning(self, "未选择文件", "请至少选择一个APK文件")
-                        return
-                    
-                    logger.info(f"用户选择了 {len(selected_files)} 个APK文件进行版本验证")
-                    
-                    # 显示确认对话框
-                    reply = QMessageBox.question(
-                        self,
-                        '确认版本验证',
-                        f'已选择 {len(selected_files)} 个APK文件进行版本验证，是否继续？\n\n'
-                        f'文件列表:\n' + '\n'.join(selected_files),
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.No
-                    )
-                    
-                    if reply == QMessageBox.Yes:
-                        from Function_Moudle.adb_batch_verify_version_thread import ADBBatchVerifyVersionThread
-                        self.batch_install_test_thread = ADBBatchVerifyVersionThread(
-                            device_id,
-                            folder_path,
-                            connection_mode=self.connection_mode,
-                            u2_device=self.d if self.connection_mode == 'u2' else None,
-                            selected_files=selected_files  # 传递选中的文件列表
-                        )
-                        self.batch_install_test_thread.progress_signal.connect(self.textBrowser.append)
-                        self.batch_install_test_thread.result_signal.connect(self.textBrowser.append)
-                        self.batch_install_test_thread.error_signal.connect(self.textBrowser.append)
-                        self.batch_install_test_thread.debug_signal.connect(self.textBrowser.append)
-                        
-                        # 启动线程
-                        self.batch_install_test_thread.start()
-                        
-                        log_method_result("datong_batch_verify_version_action", True, f"版本验证线程已启动 ({len(selected_files)}个文件)")
-                    else:
-                        logger.info("用户取消版本验证")
-                else:
-                    logger.info("用户取消文件选择")
-            except Exception as e:
-                log_method_result("datong_batch_verify_version_action", False, str(e))
-                self.textBrowser.append(f"版本验证失败: {e}")
-        else:
-            log_method_result("datong_batch_verify_version_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """验证批量推包版本号 - 委托给 datong_manager"""
+        self.datong_manager.batch_verify_version_action()
 
     def datong_input_password_action(self):
-        """一键输入密码 Kfs73p940a"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        password = "Kfs73p940a"
-        
-        log_button_click("datong_input_password_button", "一键输入密码")
-
-        if device_id in devices_id_lst:
-            try:
-                # 弹出确认对话框
-                from PyQt5.QtWidgets import QMessageBox
-                reply = QMessageBox.question(
-                    self, 
-                    '确认输入密码',
-                    f'确定要在设备 {device_id} 上输入密码 {password} 吗？',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
-                
-                if reply == QMessageBox.Yes:
-                    logger.info(f"输入密码: {password}")
-                    
-                    from Function_Moudle.datong_input_password_thread import DatongInputPasswordThread
-                    self.input_password_thread = DatongInputPasswordThread(device_id, password)
-                    self.input_password_thread.progress_signal.connect(self.textBrowser.append)
-                    self.input_password_thread.result_signal.connect(self.textBrowser.append)
-                    self.input_password_thread.error_signal.connect(self.textBrowser.append)
-                    
-                    # 启动线程
-                    self.input_password_thread.start()
-                    
-                    log_method_result("datong_input_password_action", True, "密码输入线程已启动")
-                else:
-                    logger.info("用户取消输入密码")
-            except Exception as e:
-                log_method_result("datong_input_password_action", False, str(e))
-                self.textBrowser.append(f"启动密码输入线程失败: {e}")
-        else:
-            log_method_result("datong_input_password_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """一键输入密码 - 委托给 datong_manager"""
+        self.datong_manager.input_password_action()
 
     def datong_open_telenav_engineering_action(self):
-        """打开泰维地图工程模式"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("datong_open_telenav_engineering_button", "打开泰维地图工程模式")
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.datong_open_telenav_engineering_thread import DatongOpenTelenavEngineeringThread
-                self.datong_open_telenav_engineering_thread = DatongOpenTelenavEngineeringThread(device_id)
-                self.datong_open_telenav_engineering_thread.progress_signal.connect(self.textBrowser.append)
-                self.datong_open_telenav_engineering_thread.result_signal.connect(self.textBrowser.append)
-                self.datong_open_telenav_engineering_thread.error_signal.connect(self.textBrowser.append)
-                self.datong_open_telenav_engineering_thread.start()
-                
-                log_method_result("datong_open_telenav_engineering_action", True, "线程已启动")
-            except Exception as e:
-                log_method_result("datong_open_telenav_engineering_action", False, str(e))
-                self.textBrowser.append(f"打开泰维地图工程模式失败: {e}")
-        else:
-            log_method_result("datong_open_telenav_engineering_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """打开泰维地图工程模式 - 委托给 datong_manager"""
+        self.datong_manager.open_telenav_engineering_action()
 
     def datong_set_datetime_action(self):
-        """设置设备日期时间"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("datong_set_datetime_button", "设置设备日期时间")
+        """设置设备日期时间 - 委托给 datong_manager"""
+        self.datong_manager.set_datetime_action()
 
-        if device_id in devices_id_lst:
-            try:
-                import pytz
-                from datetime import datetime
-                # 弹出时区选择对话框
-                from PyQt5.QtWidgets import QMessageBox, QInputDialog
-                timezones = [
-                    "Asia/Shanghai (GMT+8)", "Asia/Tokyo (GMT+9)", "Asia/Seoul (GMT+9)",
-                    "Asia/Bangkok (GMT+7)", "Asia/Dubai (GMT+4)", "Asia/Kolkata (GMT+5:30)",
-                    "Europe/London (GMT+0)", "Europe/Paris (GMT+1)", "Europe/Moscow (GMT+3)",
-                    "America/New_York (GMT-5)", "America/Los_Angeles (GMT-8)", "America/Chicago (GMT-6)",
-                    "Pacific/Auckland (GMT+13)", "Pacific/Fiji (GMT+12)", "UTC"
-                ]
-                
-                timezone, ok = QInputDialog.getItem(
-                    self,
-                    "选择时区",
-                    "请选择要设置的时区:",
-                    timezones,
-                    current=0,
-                    editable=False
-                )
-                
-                if not ok:
-                    logger.info("用户取消选择时区")
-                    return
-                    
-                # 提取时区名称（去掉时间信息）
-                timezone_name = timezone.split(' (')[0]
-                
-                # 弹出确认对话框
-                from PyQt5.QtWidgets import QMessageBox
-                reply = QMessageBox.question(
-                    self, 
-                    '确认设置日期时间',
-                    f'确定要在设备 {device_id} 上设置以下日期时间吗？\n\n'
-                    f'时区: {timezone}\n'
-                    f'时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
-                    '注意：\n'
-                    '1. 此操作将修改设备的系统时间\n'
-                    '2. 设置成功后需要重启设备以使更改生效\n'
-                    '3. 请确保已保存所有工作',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
-                
-                if reply == QMessageBox.Yes:
-                    # 创建设置日期时间线程
-                    from Function_Moudle.datong_set_datetime_thread import DatongSetDatetimeThread
-                    self.datong_set_datetime_thread = DatongSetDatetimeThread(
-                        device_id, 
-                        connection_mode=self.connection_mode,
-                        u2_device=self.d if self.connection_mode == 'u2' else None,
-                        timezone=timezone_name
-                    )
-                    
-                    # 连接信号
-                    self.datong_set_datetime_thread.progress_signal.connect(self.textBrowser.append)
-                    self.datong_set_datetime_thread.error_signal.connect(self.textBrowser.append)
-                    self.datong_set_datetime_thread.result_signal.connect(self.textBrowser.append)
-                    
-                    # 启动线程
-                    self.datong_set_datetime_thread.start()
-                    
-                    log_method_result("datong_set_datetime_action", True, f"设置日期时间线程已启动，时区: {timezone_name}")
-                else:
-                    logger.info("用户取消设置日期时间")
-            except Exception as e:
-                log_method_result("datong_set_datetime_action", False, str(e))
-                self.textBrowser.append(f"启动设置日期时间线程失败: {e}")
-        else:
-            log_method_result("datong_set_datetime_action", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+    # ========== VR功能 - 已委托给 vr_controller ==========
 
     def set_vr_timeout(self):
-        """设置VR服务器超时"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("set_vr_server_timout", "设置VR服务器超时")
-
-        if device_id in devices_id_lst:
-            try:
-                if self.connection_mode == 'u2':
-                    from Function_Moudle.set_vr_timeout_thread import SetVrTimeoutThread
-                    self.mzs3ett_thread = SetVrTimeoutThread(self.d)
-                elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_set_vr_timeout_thread import ADBSetVrTimeoutThread
-                    self.mzs3ett_thread = ADBSetVrTimeoutThread(device_id)
-                else:
-                    log_method_result("set_vr_timeout", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-                    return
-                
-                self.mzs3ett_thread.progress_signal.connect(self.textBrowser.append)
-                self.mzs3ett_thread.result_signal.connect(self.textBrowser.append)
-                self.mzs3ett_thread.error_signal.connect(self.textBrowser.append)
-                self.mzs3ett_thread.start()
-                
-                log_method_result("set_vr_timeout", True, "线程已启动")
-            except Exception as e:
-                log_method_result("set_vr_timeout", False, str(e))
-                self.textBrowser.append(f"设置VR超时失败: {e}")
-        else:
-            log_method_result("set_vr_timeout", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """设置VR服务器超时 - 委托给 vr_controller"""
+        self.vr_controller.set_vr_timeout()
 
     def app_version_check(self):
         """检查应用版本"""
@@ -1524,741 +751,87 @@ class ADB_Mainwindow(QMainWindow):
             logger.info("用户取消选择文件")
 
 
-    def remove_voice_record_file(self):
-        """删除语音录制文件"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("remove_record_file_button", "删除语音录制文件")
+    # ========== 日志操作 - 已委托给 log_operations ==========
 
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.remove_record_file_thread import RemoveRecordFileThread
-                self.remove_record_file_thread = RemoveRecordFileThread(device_id)
-                self.remove_record_file_thread.progress_signal.connect(self.textBrowser.append)
-                self.remove_record_file_thread.result_signal.connect(self.textBrowser.append)
-                self.remove_record_file_thread.start()
-                
-                log_method_result("remove_voice_record_file", True, "删除线程已启动")
-            except Exception as e:
-                log_method_result("remove_voice_record_file", False, str(e))
-                self.textBrowser.append(f"删除录音文件失败: {e}")
-        else:
-            log_method_result("remove_voice_record_file", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+    def remove_voice_record_file(self):
+        """删除语音录制文件 - 委托给 log_operations"""
+        self.log_operations.remove_voice_record_file()
 
     def voice_start_record(self):
-        """开始语音录制"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("voice_start_record_button", "开始语音录制")
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.voice_record_thread import VoiceRecordThread
-                self.voice_record_thread = VoiceRecordThread(device_id)
-                self.voice_record_thread.progress_signal.connect(self.textBrowser.append)
-                self.voice_record_thread.record_signal.connect(self.textBrowser.append)
-                self.voice_record_thread.start()
-                
-                log_method_result("voice_start_record", True, "录制线程已启动")
-            except Exception as e:
-                log_method_result("voice_start_record", False, str(e))
-                self.textBrowser.append(f"启动语音录制线程失败: {e}")
-        else:
-            log_method_result("voice_start_record", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """开始语音录制 - 委托给 log_operations"""
+        self.log_operations.voice_start_record()
 
     def voice_stop_record(self):
-        """停止语音录制"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("voice_stop_record_button", "停止语音录制")
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.voice_stop_record_thread import VoiceStopRecordThread
-                self.voice_record_thread = VoiceStopRecordThread(device_id)
-                self.voice_record_thread.voice_stop_record_signal.connect(self.textBrowser.append)
-                self.voice_record_thread.start()
-                
-                log_method_result("voice_stop_record", True, "停止录制线程已启动")
-            except Exception as e:
-                log_method_result("voice_stop_record", False, str(e))
-                self.textBrowser.append(f"停止语音录制失败: {e}")
-        else:
-            log_method_result("voice_stop_record", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """停止语音录制 - 委托给 log_operations"""
+        self.log_operations.voice_stop_record()
 
     def voice_pull_record_file(self):
-        """拉取录音文件"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("voice_pull_record_file_button", "拉取录音文件")
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.voice_pull_record_file_thread import VoicePullRecordFileThread
-                self.voice_pull_record_file_thread = VoicePullRecordFileThread(device_id)
-                self.voice_pull_record_file_thread.progress_signal.connect(self.textBrowser.append)
-                self.voice_pull_record_file_thread.result_signal.connect(self.textBrowser.append)
-                self.voice_pull_record_file_thread.start()
-                
-                log_method_result("voice_pull_record_file", True, "拉取线程已启动")
-            except Exception as e:
-                log_method_result("voice_pull_record_file", False, str(e))
-                self.textBrowser.append(f"拉取录音文件失败: {e}")
-        else:
-            log_method_result("voice_pull_record_file", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """拉取录音文件 - 委托给 log_operations"""
+        self.log_operations.voice_pull_record_file()
 
     def open_path(self):
-        """打开文件所在目录"""
-        log_button_click("open_path_buttom", "打开文件所在目录")
-        
-        self.file_path = self.inputbox_log_path.text()
-        
-        try:
-            if self.file_path:
-                logger.info(f"打开路径: {self.file_path}")
-                os.startfile(self.file_path)
-                log_method_result("open_path", True, f"已打开: {self.file_path}")
-            else:
-                log_method_result("open_path", False, "路径不能为空")
-                self.textBrowser.append("路径不能为空！")
-        except Exception as e:
-            log_method_result("open_path", False, str(e))
-            self.textBrowser.append(f"路径不存在！: {e}")
+        """打开文件所在目录 - 委托给 log_operations"""
+        self.log_operations.open_path()
 
     def pull_log(self):
-        """拉取设备日志"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        self.file_path = self.inputbox_log_path.text()
-        
-        log_button_click("pull_log_button", "拉取设备日志", f"保存路径: {self.file_path}")
-        
-        if device_id in devices_id_lst:
-            try:
-                if not self.file_path:
-                    log_method_result("pull_log", False, "路径不能为空")
-                    self.textBrowser.append(f"路径不能为空！")
-                elif os.path.exists(self.file_path):
-                    from Function_Moudle.pull_log_thread import PullLogThread
-                    self.PullLogSaveThread = PullLogThread(self.file_path, device_id)
-                    self.PullLogSaveThread.progress_signal.connect(self.textBrowser.append)
-                    self.PullLogSaveThread.error_signal.connect(self.textBrowser.append)
-                    self.PullLogSaveThread.start()
-                    log_method_result("pull_log", True, "拉取日志线程已启动")
-                else:
-                    log_method_result("pull_log", False, "路径不存在")
-                    self.textBrowser.append(f"路径不存在！")
-            except Exception as e:
-                log_method_result("pull_log", False, str(e))
-                self.textBrowser.append(f"启动拉取日志线程失败: {e}")
-        else:
-            log_method_result("pull_log", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """拉取设备日志 - 委托给 log_operations"""
+        self.log_operations.pull_log()
+
+    # ========== 设备管理 - 已委托给 device_manager ==========
 
     def on_mode_switch_changed(self, state):
-        """模式切换开关变化时的处理"""
-        if state == Qt.Checked:
-            # 切换到U2模式
-            self.connection_mode = 'u2'
-            self.textBrowser.append("切换到U2模式")
-            log_device_operation("mode_switch", "U2", {"mode": "u2", "action": "切换到U2模式"})
-        else:
-            # 切换到ADB模式
-            self.connection_mode = 'adb'
-            self.textBrowser.append("切换到ADB模式")
-            log_device_operation("mode_switch", "ADB", {"mode": "adb", "action": "切换到ADB模式"})
-        
-        # 如果有已连接的设备，重新连接以应用新模式
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        if device_id in devices_id_lst and self.d is not None:
-            # 重新连接设备以应用新模式
-            self._reconnect_device_with_new_mode(device_id)
-    
-    def _reconnect_device_with_new_mode(self, device_id):
-        """使用新模式重新连接设备"""
-        try:
-            if self.connection_mode == 'u2':
-                # 尝试u2连接
-                self.d = u2.connect(device_id)
-                self.textBrowser.append(f"U2模式重新连接设备: {device_id}")
-                log_device_operation("reconnect_u2", device_id, {"mode": "u2", "status": "success"})
-            else:
-                # ADB模式，清理u2连接
-                self._cleanup_u2_connection()
-                self.textBrowser.append(f"切换到ADB模式，设备: {device_id}")
-                log_device_operation("reconnect_adb", device_id, {"mode": "adb", "status": "success"})
-        except Exception as e:
-            self.textBrowser.append(f"重新连接设备失败: {e}")
-            log_device_operation("reconnect_failed", device_id, {"mode": self.connection_mode, "error": str(e)})
+        """模式切换 - 委托给 device_manager"""
+        self.device_manager.on_mode_switch_changed(state)
     
     def on_combobox_changed(self, text):
-        """设备选择下拉框变化时立即更新连接"""
-        log_button_click("ComboxButton", "切换设备连接", f"目标设备: {text}")
-        
-        try:
-            # 如果选择的设备与当前连接的设备不同，或者没有连接，则重新连接
-            if not self.d or text != self.device_id:
-                # 设备ID改变，先清理旧连接
-                if self.d and text != self.device_id:
-                    self._cleanup_u2_connection()
-                
-                # 使用当前选择的模式进行连接
-                if self.modeSwitchCheckBox.isChecked():
-                    # U2模式
-                    log_device_operation("u2_connect_attempt", text, {"mode": "u2", "reason": "设备切换"})
-                    self.d = u2.connect(text)
-                    if self.d:
-                        self.connection_mode = 'u2'
-                        self.device_id = text
-                        self.textBrowser.append(f"U2连接成功：{text}")
-                        log_device_operation("u2_connect_success", text, {"mode": "u2", "status": "connected"})
-                    else:
-                        raise Exception("u2连接返回空对象")
-                else:
-                    # ADB模式
-                    self._cleanup_u2_connection()
-                    self.connection_mode = 'adb'
-                    self.device_id = text
-                    self.textBrowser.append(f"切换到ADB模式：{text}")
-                    log_device_operation("switch_to_adb", text, {"mode": "adb", "status": "connected"})
-            else:
-                # 已经连接到该设备，确认连接状态
-                mode_text = "U2" if self.connection_mode == 'u2' else "ADB"
-                self.textBrowser.append(f"已连接到设备（{mode_text}模式）：{text}")
-                log_device_operation("device_already_connected", text, {"mode": self.connection_mode, "status": "already_connected"})
-        except Exception as connect_error:
-            # 连接失败，根据当前模式处理
-            if self.modeSwitchCheckBox.isChecked():
-                # U2模式失败，尝试切换到ADB模式
-                self._cleanup_u2_connection()
-                self.connection_mode = 'adb'
-                self.device_id = text
-                self.textBrowser.append(f"U2连接失败，切换到ADB模式：{text}")
-                self.textBrowser.append(f"错误信息：{connect_error}")
-                log_device_operation("u2_fallback_to_adb", text, {"mode": "adb", "reason": str(connect_error)})
-            else:
-                # ADB模式，显示错误信息
-                self.textBrowser.append(f"ADB模式连接失败：{text}")
-                self.textBrowser.append(f"错误信息：{connect_error}")
-                log_device_operation("adb_connect_failed", text, {"mode": "adb", "error": str(connect_error)})
+        """设备选择切换 - 委托给 device_manager"""
+        self.device_manager.on_combobox_changed(text)
     
-    def _cleanup_u2_connection(self):
-        """清理旧的u2连接"""
-        if self.d is not None:
-            try:
-                # 尝试断开u2连接
-                logger.info(f"清理旧的u2连接: {self.device_id}")
-                # uiautomator2 没有显式的断开方法，我们只需要清除引用
-                self.d = None
-                logger.info("旧连接已清理")
-            except Exception as e:
-                logger.warning(f"清理u2连接时出错: {e}")
-                self.d = None
+    def refresh_devices(self):
+        """刷新设备列表 - 委托给 device_manager"""
+        self.device_manager.refresh_devices()
+    
+    def reboot_device(self):
+        """重启设备 - 委托给 device_manager"""
+        self.device_manager.reboot_device()
+    
+    def reinit_uiautomator2(self):
+        """重新初始化u2 - 委托给 device_manager"""
+        self.device_manager.reinit_uiautomator2()
 
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str
 
-    @staticmethod
-    def get_new_device_lst():  # 静态方法，返回设备ID列表
-        try:
-            # 导入adb_utils
-            import sys
-            import os
-            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-            from adb_utils import adb_utils
-            
-            result = adb_utils.run_adb_command("devices", check=True)
-            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
-            return device_ids
-        except Exception:
-            # 回退到原来的方法
-            import subprocess
-            result = subprocess.run("adb devices", shell=True, check=True, capture_output=True, encoding='utf-8', errors='ignore',
-                                    text=True)  # 执行 adb devices 命令
-            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
-            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
-            return device_ids
+    def get_new_device_lst(self):
+        """获取设备ID列表 - 委托给 adb_utils"""
+        return adb_utils.get_device_list()
 
-    def start_app_action(self, app_name):
-            """启动应用"""
-            device_ids = self.get_new_device_lst()
-            device_id = self.get_selected_device()
-            self.app_name = app_name
-            
-            log_button_click("start_app", f"启动应用: {app_name or '待输入'}")
-            
-            # 先检查设备是否可用
-            if device_id not in device_ids:
-                log_method_result("start_app_action", False, "设备未连接")
-                self.textBrowser.append("未连接设备！")
-                return
-            
-            try:
-                if not self.app_name:
-                    input_text, ok = QInputDialog.getText(self, '输入应用信息',
-                                                          '请输入应用包名')
-                    if ok and input_text:
-                        package_name = input_text
-                        logger.info(f"输入包名: {package_name}")
-                        
-                        if self.connection_mode == 'u2':
-                            from Function_Moudle.app_action_thread import AppActionThread
-                            self.app_action_thread = AppActionThread(self.d, package_name)
-                        elif self.connection_mode == 'adb':
-                            from Function_Moudle.adb_app_action_thread import ADBAppActionThread
-                            self.app_action_thread = ADBAppActionThread(device_id, package_name)
-                        else:
-                            log_method_result("start_app_action", False, "设备未连接")
-                            self.textBrowser.append("设备未连接！")
-                            return
-                        
-                        self.app_action_thread.progress_signal.connect(self.textBrowser.append)
-                        self.app_action_thread.error_signal.connect(self.textBrowser.append)
-                        self.app_action_thread.start()
-                        log_method_result("start_app_action", True, f"启动线程已启动: {package_name}")
-                    else:
-                        logger.info("用户取消输入")
-                        self.textBrowser.append("用户取消输入或输入为空")
-                else:
-                    package_name = self.app_name
-                    logger.info(f"启动应用: {package_name}")
-                    
-                    if self.connection_mode == 'u2':
-                        from Function_Moudle.app_action_thread import AppActionThread
-                        self.app_action_thread = AppActionThread(self.d, package_name)
-                    elif self.connection_mode == 'adb':
-                        from Function_Moudle.adb_app_action_thread import ADBAppActionThread
-                        self.app_action_thread = ADBAppActionThread(device_id, package_name)
-                    else:
-                        log_method_result("start_app_action", False, "设备未连接")
-                        self.textBrowser.append("设备未连接！")
-                        return
-                    
-                    self.app_action_thread.progress_signal.connect(self.textBrowser.append)
-                    self.app_action_thread.error_signal.connect(self.textBrowser.append)
-                    self.app_action_thread.start()
-                    log_method_result("start_app_action", True, f"启动线程已启动: {package_name}")
-            except Exception as e:
-                log_method_result("start_app_action", False, str(e))
-                self.textBrowser.append(f"启动应用失败: {e}")
-    def skip_power_limit(self):
-        """跳过电源挡位限制"""
-        log_button_click("skipping_powerlimit_button", "跳过电源挡位限制")
-        
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.skip_power_limit_thread import SkipPowerLimitThread
-                self.skip_power_limit_thread = SkipPowerLimitThread(device_id)
-                self.skip_power_limit_thread.progress_signal.connect(self.textBrowser.append)
-                self.skip_power_limit_thread.error_signal.connect(self.textBrowser.append)
-                self.skip_power_limit_thread.start()
-                
-                log_method_result("skip_power_limit", True, "线程已启动")
-            except Exception as e:
-                log_method_result("skip_power_limit", False, str(e))
-                self.textBrowser.append(f"启动跳过电源限制线程失败: {e}")
-        else:
-            log_method_result("skip_power_limit", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-
-    def list_package(self):
-        """获取设备上安装的应用列表"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        findstr = self.Findstr.toPlainText()
-        
-        log_button_click("list_package_button", "获取应用列表", f"搜索: {findstr}")
-
-        if device_id in devices_id_lst:
-            try:
-                if self.connection_mode == 'u2':
-                    from Function_Moudle.list_package_thread import ListPackageThread
-                    self.list_package_thread = ListPackageThread(self.d, findstr)
-                elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_list_package_thread import ADBListPackageThread
-                    self.list_package_thread = ADBListPackageThread(device_id, findstr)
-                else:
-                    log_method_result("list_package", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-                    return
-
-                # 连接信号
-                self.list_package_thread.progress_signal.connect(self.textBrowser.append)
-                self.list_package_thread.result_signal.connect(
-                    lambda results: self._handle_list_package_results(results))
-                self.list_package_thread.finished_signal.connect(lambda: log_method_result("list_package", True, "获取完成"))
-                self.list_package_thread.error_signal.connect(self.textBrowser.append)
-
-                # 启动线程
-                self.list_package_thread.start()
-            except Exception as e:
-                log_method_result("list_package", False, str(e))
-                self.textBrowser.append(f"启动应用列表获取线程失败: {e}")
-        else:
-            log_method_result("list_package", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-    
-    def _handle_list_package_results(self, results):
-        """处理应用列表结果"""
-        if results:
-            logger.info(f"✓ 找到 {len(results)} 个应用")
-            self.textBrowser.append(f"✓ 找到 {len(results)} 个应用")
-            # 只记录前5个应用，避免日志过长
-            for i, app in enumerate(results[:5]):
-                logger.info(f"  {i+1}. {app}")
-                self.textBrowser.append(f"  {i+1}. {app}")
-            if len(results) > 5:
-                logger.info(f"  ... 还有 {len(results) - 5} 个应用")
-                self.textBrowser.append(f"  ... 还有 {len(results) - 5} 个应用")
-        else:
-            logger.warning("✗ 未找到任何应用")
-            self.textBrowser.append("✗ 未找到任何应用")
+    # ========== VR操作 - 已委托给 vr_controller ==========
 
     def activate_vr(self):
-        """激活VR"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        keyevent_value = self.vr_keyevent_combo.currentText()
-        
-        log_button_click("activate_VR_button", "激活VR", f"Keyevent: {keyevent_value}")
-
-        if device_id in devices_id_lst:
-            try:
-                # 使用线程执行命令
-                from Function_Moudle.activate_vr_thread import ActivateVrThread
-                
-                if self.connection_mode == 'u2' and self.d:
-                    # u2模式使用press_keycode方法
-                    self.activate_vr_thread = ActivateVrThread(
-                        device_id, 
-                        keyevent_value, 
-                        connection_mode='u2',
-                        u2_device=self.d
-                    )
-                elif self.connection_mode == 'adb':
-                    # ADB模式使用keyevent命令
-                    self.activate_vr_thread = ActivateVrThread(
-                        device_id, 
-                        keyevent_value, 
-                        connection_mode='adb'
-                    )
-                else:
-                    log_method_result("activate_vr", False, "设备连接失败")
-                    self.textBrowser.append("设备连接失败或模式不支持！")
-                    return
-                
-                self.activate_vr_thread.progress_signal.connect(self.textBrowser.append)
-                self.activate_vr_thread.error_signal.connect(self.textBrowser.append)
-                self.activate_vr_thread.start()
-                
-                log_method_result("activate_vr", True, f"线程已启动 (Keyevent: {keyevent_value})")
-                    
-            except Exception as e:
-                log_method_result("activate_vr", False, str(e))
-                self.textBrowser.append(f"执行VR唤醒命令失败: {e}")
-        else:
-            log_method_result("activate_vr", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """激活VR - 委托给 vr_controller"""
+        self.vr_controller.activate_vr()
 
     def check_vr_network(self):
-        """检查VR网络"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("VR_nework_check_button", "检查VR网络")
-
-        if device_id in devices_id_lst:
-            try:
-                if self.connection_mode == 'u2':
-                    from Function_Moudle.check_vr_network_thread import CheckVRNetworkThread
-                    self.check_vr_network_thread = CheckVRNetworkThread(self.d)
-                elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_check_vr_network_thread import ADBCheckVRNetworkThread
-                    self.check_vr_network_thread = ADBCheckVRNetworkThread(device_id)
-                else:
-                    log_method_result("check_vr_network", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-                    return
-                
-                self.check_vr_network_thread.progress_signal.connect(self.textBrowser.append)
-                self.check_vr_network_thread.result_signal.connect(self.textBrowser.append)
-                self.check_vr_network_thread.error_signal.connect(self.textBrowser.append)
-                self.check_vr_network_thread.start()
-                
-                log_method_result("check_vr_network", True, "线程已启动")
-            except Exception as e:
-                log_method_result("check_vr_network", False, str(e))
-                self.textBrowser.append(f"检查VR网络失败: {e}")
-        else:
-            log_method_result("check_vr_network", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """检查VR网络 - 委托给 vr_controller"""
+        self.vr_controller.check_vr_network()
 
     def switch_vr_env(self):
-        """切换VR环境"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("switch_vr_env_button", "切换VR环境")
-
-        if device_id in devices_id_lst:
-            try:
-                if self.connection_mode == 'u2':
-                    from Function_Moudle.switch_vr_env_thread import SwitchVrEnvThread
-                    self.check_vr_env_thread = SwitchVrEnvThread(self.d)
-                elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_switch_vr_env_thread import ADBSwitchVrEnvThread
-                    self.check_vr_env_thread = ADBSwitchVrEnvThread(device_id)
-                else:
-                    log_method_result("switch_vr_env", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-                    return
-                
-                self.check_vr_env_thread.progress_signal.connect(self.textBrowser.append)
-                self.check_vr_env_thread.result_signal.connect(self.textBrowser.append)
-                self.check_vr_env_thread.error_signal.connect(self.textBrowser.append)
-                self.check_vr_env_thread.start()
-                
-                log_method_result("switch_vr_env", True, "线程已启动")
-            except Exception as e:
-                log_method_result("switch_vr_env", False, str(e))
-                self.textBrowser.append(f"切换VR环境失败: {e}")
-        else:
-            log_method_result("switch_vr_env", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """切换VR环境 - 委托给 vr_controller"""
+        self.vr_controller.switch_vr_env()
 
     def scroll_to_bottom(self):
+        """滚动到底部"""
         scrollbar = self.textBrowser.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    def get_running_app_info(self):
-        """获取当前运行的应用信息"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("get_running_app_info_button", "获取运行应用信息")
+    def skip_power_limit(self):
+        """跳过电源挡位限制 - 委托给 vr_controller"""
+        self.vr_controller.skip_power_limit()
 
-        if device_id in devices_id_lst:
-            try:
-                if self.connection_mode == 'u2':
-                    from Function_Moudle.get_running_app_info_thread import GetRunningAppInfoThread
-                    self.get_running_app_info_thread = GetRunningAppInfoThread(self.d)
-                elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_get_running_app_info_thread import ADBGetRunningAppInfoThread
-                    self.get_running_app_info_thread = ADBGetRunningAppInfoThread(device_id)
-                else:
-                    log_method_result("get_running_app_info", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-                    return
-                
-                self.get_running_app_info_thread.progress_signal.connect(self.textBrowser.append)
-                self.get_running_app_info_thread.result_signal.connect(self._handle_running_app_info_result)
-                self.get_running_app_info_thread.error_signal.connect(self.textBrowser.append)
-                self.get_running_app_info_thread.start()
-                
-                log_method_result("get_running_app_info", True, "线程已启动")
-            except Exception as e:
-                log_method_result("get_running_app_info", False, str(e))
-                self.textBrowser.append(f"启动获取运行应用信息线程失败: {e}")
-        else:
-            log_method_result("get_running_app_info", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-    
-    def _handle_running_app_info_result(self, app_info):
-        """处理运行应用信息结果"""
-        if app_info:
-            logger.info(f"✓ 当前运行应用: {app_info}")
-            self.textBrowser.append(f"✓ 当前运行应用: {app_info}")
-        else:
-            logger.warning("✗ 未获取到运行应用信息")
-            self.textBrowser.append("✗ 未获取到运行应用信息")
-
-    def view_apk_path_wrapper(self):
-        """查看应用安装路径"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("view_apk_path", "查看应用安装路径")
-
-        if device_id in devices_id_lst:
-            package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要查看安装路径的应用包名：")
-            if not ok:
-                logger.info("用户取消输入")
-                return
-            
-            logger.info(f"查看应用: {package_name}")
-            
-            try:
-                from Function_Moudle.view_apk_path_wrapper_thread import ViewApkPathWrapperThread
-                self.view_apk_thread = ViewApkPathWrapperThread(device_id, package_name)
-                self.view_apk_thread.progress_signal.connect(self.textBrowser.append)
-                self.view_apk_thread.result_signal.connect(self.textBrowser.append)
-                self.view_apk_thread.start()
-                
-                log_method_result("view_apk_path_wrapper", True, f"查询线程已启动: {package_name}")
-            except Exception as e:
-                log_method_result("view_apk_path_wrapper", False, str(e))
-                self.textBrowser.append(f"启动查询线程失败: {e}")
-        else:
-            log_method_result("view_apk_path_wrapper", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-
-    # @staticmethod
-    # def run_cmd():
-    #     user_directory = os.path.expanduser("~")
-    #     subprocess.Popen(["start", "cmd", "/k", "cd /d " + user_directory], shell=True)
-
-    def refresh_devices(self):
-        """刷新设备列表（多线程执行，避免阻塞主界面）"""
-        log_button_click("RefreshButton", "刷新设备列表")
-        
-        # 检查是否已经有刷新线程在运行
-        if hasattr(self, 'refresh_devices_thread') and self.refresh_devices_thread.isRunning():
-            logger.warning("刷新设备列表线程已在运行中")
-            self.textBrowser.append("刷新设备列表线程正在运行，请稍候...")
-            return
-        
-        # 使用线程刷新设备列表
-        try:
-            from Function_Moudle.refresh_devices_thread import RefreshDevicesThread
-            self.refresh_devices_thread = RefreshDevicesThread()
-            
-            # 连接信号
-            self.refresh_devices_thread.progress_signal.connect(self.textBrowser.append)
-            self.refresh_devices_thread.devices_signal.connect(self._handle_refreshed_devices)
-            self.refresh_devices_thread.error_signal.connect(self.textBrowser.append)
-            
-            # 连接线程完成信号
-            self.refresh_devices_thread.finished.connect(self._on_refresh_thread_finished)
-            
-            # 启动线程
-            self.refresh_devices_thread.start()
-            log_thread_start("RefreshDevicesThread", {"action": "刷新设备列表"})
-            self.textBrowser.append("开始刷新设备列表...")
-            
-        except Exception as e:
-            logger.error(f"启动刷新线程失败: {e}")
-            log_exception(logger, "refresh_devices", e)
-            self.textBrowser.append(f"启动刷新线程失败: {e}")
-    
-    def _on_refresh_thread_finished(self):
-        """刷新线程完成后的清理工作"""
-        logger.info("设备列表刷新完成")
-        self.textBrowser.append("设备列表刷新完成")
-        # 可以在这里添加其他清理工作
-    
-    def _connect_device_with_current_mode(self, device_id):
-        """使用当前选择的模式连接设备"""
-        if not device_id:
-            return
-            
-        # 清理旧连接
-        if self.d:
-            self._cleanup_u2_connection()
-        
-        # 使用当前选择的模式连接
-        if self.modeSwitchCheckBox.isChecked():
-            # U2模式
-            self.connection_mode = 'u2'
-            self.device_id = device_id
-            # 在单独的线程中尝试u2连接，避免阻塞主界面
-            self._try_u2_connection_in_thread(device_id)
-        else:
-            # ADB模式
-            self.connection_mode = 'adb'
-            self.device_id = device_id
-            self.textBrowser.append(f"使用ADB模式连接设备: {device_id}")
-            log_device_operation("connect_adb", device_id, {"mode": "adb", "status": "connected"})
-    
-    def _handle_refreshed_devices(self, device_ids):
-        """处理刷新后的设备列表（在主线程中执行）"""
-        # 清空 ComboxButton 并添加新的设备ID
-        self.ComboxButton.clear()
-        for device_id in device_ids:
-            self.ComboxButton.addItem(device_id)
-        
-        if device_ids:
-            # 只在有设备时尝试连接
-            device_id = self.get_selected_device()
-            if device_id and device_id != "请点击刷新设备":
-                # 检查设备ID是否改变，或者没有连接，则重新连接
-                if not self.d or device_id != self.device_id:
-                    # 设备ID改变了，需要清理旧连接并重新连接
-                    self._connect_device_with_current_mode(device_id)
-                else:
-                    mode_text = "U2" if self.connection_mode == 'u2' else "ADB"
-                    self.textBrowser.append(f"已使用{mode_text}模式连接到设备: {device_id}")
-        else:
-            self.textBrowser.append("未检测到任何设备")
-    
-    def _try_u2_connection_in_thread(self, device_id):
-        """在单独的线程中尝试u2连接"""
-        log_device_operation("u2_connect_attempt", device_id, {"mode": "u2", "action": "尝试u2连接"})
-        
-        try:
-            from Function_Moudle.u2_connect_thread import U2ConnectThread
-            self.u2_connect_thread = U2ConnectThread(device_id)
-            
-            # 连接信号
-            self.u2_connect_thread.progress_signal.connect(self.textBrowser.append)
-            self.u2_connect_thread.error_signal.connect(self.textBrowser.append)
-            self.u2_connect_thread.connected_signal.connect(self._handle_u2_connection_result)
-            
-            # 启动线程
-            self.u2_connect_thread.start()
-            log_thread_start("U2ConnectThread", {"device_id": device_id, "mode": "u2"})
-            
-        except Exception as e:
-            logger.error(f"启动u2连接线程失败: {e}")
-            self.textBrowser.append(f"启动u2连接线程失败: {e}")
-            # 回退到ADB模式
-            self.d = None
-            self.connection_mode = 'adb'
-            log_device_operation("fallback_to_adb", device_id, {"reason": "u2连接失败", "mode": "adb"})
-            self.textBrowser.append(f"切换到ADB模式: {device_id}")
-    
-    def _handle_u2_connection_result(self, u2_device, device_id):
-        """处理u2连接结果"""
-        if u2_device:
-            # u2连接成功
-            self.d = u2_device
-            self.connection_mode = 'u2'
-            self.device_id = device_id  # 确保更新设备ID
-            log_device_operation("u2_connect_success", device_id, {"mode": "u2", "status": "connected"})
-            log_thread_complete("U2ConnectThread", "success", {"device_id": device_id, "mode": "u2"})
-        else:
-            # u2连接失败或无法获取设备信息，降级到ADB模式
-            self.d = None
-            self.connection_mode = 'adb'
-            self.device_id = device_id  # 确保更新设备ID
-            
-            # 检查是否有降级提示（通过最近的日志消息判断）
-            log_messages = [self.textBrowser.toPlainText()]
-            recent_messages = log_messages[-5:] if log_messages else []
-            has_fallback_msg = any("降级到ADB模式" in msg for msg in recent_messages)
-            
-            if has_fallback_msg:
-                # 已经显示过降级消息，不再重复
-                log_device_operation("u2_connect_fallback", device_id, {"mode": "adb", "reason": "无法获取设备信息"})
-            else:
-                # 原始连接失败
-                self.textBrowser.append(f"u2连接失败，使用ADB模式: {device_id}")
-                log_device_operation("u2_connect_failed", device_id, {"mode": "adb", "reason": "u2连接失败"})
-            
-            log_thread_complete("U2ConnectThread", "failed", {"device_id": device_id, "fallback_mode": "adb"})
+    def list_package(self):
+        """列出包名 - 委托给 app_operations"""
+        self.app_operations.list_package()
 
     def adb_root_wrapper(self):
         """以root权限运行ADB"""
@@ -2287,593 +860,97 @@ class ADB_Mainwindow(QMainWindow):
             logger.warning("✗ 设备未连接")
             self.textBrowser.append("设备未连接！")
 
-    def reboot_device(self):
-        """重启设备"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("button_reboot", "重启设备")
-
-        if device_id in devices_id_lst:
-            reply = QMessageBox.question(
-                self,
-                '确认重启',
-                '确定要重启设备吗？此操作不可逆！',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-
-            if reply == QMessageBox.Yes:
-                try:
-                    from Function_Moudle.reboot_device_thread import RebootDeviceThread
-                    self.reboot_thread = RebootDeviceThread(device_id)
-                    self.reboot_thread.progress_signal.connect(self.textBrowser.append)
-                    self.reboot_thread.error_signal.connect(self.textBrowser.append)
-                    self.reboot_thread.start()
-                    log_method_result("reboot_device", True, "重启线程已启动")
-                except Exception as e:
-                    log_method_result("reboot_device", False, str(e))
-                    self.textBrowser.append(f"启动设备重启线程失败: {e}")
-            else:
-                logger.info("用户取消重启操作")
-        else:
-            log_method_result("reboot_device", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+    # ========== 文件操作 - 已委托给 file_operations ==========
 
     @staticmethod
     def get_screenshot(file_path, device_id):
-        command = f"adb -s {device_id} shell screencap -p /sdcard/screenshot.png && adb -s {device_id} pull /sdcard/screenshot.png {file_path} && adb -s {device_id} shell rm /sdcard/screenshot.png"
-        try:
-            subprocess.run(command, shell=True, check=True)
-            return f"截图已保存到 {file_path}"
-        except subprocess.CalledProcessError as e:
-            return f"截图失败: {e}"
+        """截取设备屏幕 - 委托给 adb_utils"""
+        return adb_utils.get_screenshot(file_path, device_id)
 
     def show_screenshot_dialog(self):
-        """截取设备屏幕"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("get_screenshot_button", "截取设备屏幕")
-
-        if device_id in devices_id_lst:
-            file_path, _ = QFileDialog.getSaveFileName(self, "保存截图", "", "PNG Files (*.png);;All Files (*)")
-            if file_path:
-                logger.info(f"保存截图到: {file_path}")
-                
-                try:
-                    if self.connection_mode == 'u2':
-                        # 使用u2截图
-                        from Function_Moudle.devices_screen_thread import DevicesScreenThread
-                        self.devices_screen_thread = DevicesScreenThread(self.d, file_path)
-                        self.devices_screen_thread.signal.connect(self.textBrowser.append)
-                        self.devices_screen_thread.start()
-                    elif self.connection_mode == 'adb':
-                        # 使用ADB截图
-                        from Function_Moudle.adb_screenshot_thread import ADBScreenshotThread
-                        self.devices_screen_thread = ADBScreenshotThread(device_id, file_path)
-                        self.devices_screen_thread.signal.connect(self.textBrowser.append)
-                        self.devices_screen_thread.start()
-                    else:
-                        log_method_result("show_screenshot_dialog", False, "设备未连接")
-                        self.textBrowser.append("设备未连接！")
-                        return
-                    
-                    log_method_result("show_screenshot_dialog", True, f"截图线程已启动: {os.path.basename(file_path)}")
-                except Exception as e:
-                    log_method_result("show_screenshot_dialog", False, str(e))
-                    self.textBrowser.append(f"启动截图线程失败: {e}")
-            else:
-                logger.info("用户取消文件选择")
-        else:
-            log_method_result("show_screenshot_dialog", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """截取设备屏幕 - 委托给 file_operations"""
+        self.file_operations.show_screenshot_dialog()
 
     def show_uninstall_dialog(self):
-        """卸载应用"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("adb_uninstall_button", "卸载应用")
-
-        if device_id in devices_id_lst:
-            package_name, ok = QInputDialog.getText(self, "输入应用包名", "请输入要卸载的应用包名：")
-            if ok and package_name:
-                logger.info(f"卸载应用: {package_name}")
-                
-                try:
-                    if self.connection_mode == 'u2' and self.d:
-                        from Function_Moudle.show_uninstall_thread import ShowUninstallThread
-                        self.uninstall_thread = ShowUninstallThread(self.d, package_name)
-                    elif self.connection_mode == 'adb':
-                        from Function_Moudle.adb_show_uninstall_thread import ADBShowUninstallThread
-                        self.uninstall_thread = ADBShowUninstallThread(device_id, package_name)
-                    else:
-                        log_method_result("show_uninstall_dialog", False, "设备未连接")
-                        self.textBrowser.append("设备未连接！")
-                        return
-                    
-                    self.uninstall_thread.progress_signal.connect(self.textBrowser.append)
-                    self.uninstall_thread.result_signal.connect(self.textBrowser.append)
-                    self.uninstall_thread.error_signal.connect(self.textBrowser.append)
-                    self.uninstall_thread.start()
-                    
-                    log_method_result("show_uninstall_dialog", True, f"卸载线程已启动: {package_name}")
-                except Exception as e:
-                    log_method_result("show_uninstall_dialog", False, str(e))
-                    self.textBrowser.append(f"启动卸载线程失败: {e}")
-            else:
-                logger.info("用户取消输入或输入为空")
-                self.textBrowser.append("已取消！")
-        else:
-            log_method_result("show_uninstall_dialog", False, "设备未连接")
-            self.textBrowser.append("未连接设备！")
+        """卸载应用 - 委托给 file_operations"""
+        self.file_operations.show_uninstall_dialog()
 
     def show_pull_file_dialog(self):
-        """从设备拉取文件"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("adb_pull_file_button", "从设备拉取文件")
-
-        if device_id in devices_id_lst:
-            try:
-                file_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径", "请输入车机上的文件路径:")
-                import pathlib
-                file_path = pathlib.Path(file_path_on_device)
-                apk_file_name = pathlib.Path(file_path).name
-                if ok and file_path_on_device:
-                    local_path = QFileDialog.getExistingDirectory(self, "选择文件夹", ".")
-                    if local_path:
-                        logger.info(f"拉取文件: {file_path_on_device} -> {local_path}")
-                        
-                        # 根据连接模式选择对应的线程类
-                        if self.connection_mode == 'u2' and self.d:
-                            from Function_Moudle.pull_files_thread import PullFilesThread
-                            self.pull_files_thread = PullFilesThread(
-                                self.d,
-                                file_path_on_device,
-                                local_path,
-                                apk_file_name
-                            )
-                        else:
-                            from Function_Moudle.adb_pull_files_thread import ADBPullFilesThread
-                            self.pull_files_thread = ADBPullFilesThread(
-                                device_id,
-                                file_path_on_device,
-                                local_path,
-                                apk_file_name
-                            )
-                        
-                        self.pull_files_thread.signal.connect(self.textBrowser.append)
-                        self.pull_files_thread.start()
-                        
-                        log_method_result("show_pull_file_dialog", True, f"拉取线程已启动: {apk_file_name}")
-                    else:
-                        logger.info("用户取消文件夹选择")
-                else:
-                    logger.info("用户取消输入或输入为空")
-            except Exception as e:
-                log_method_result("show_pull_file_dialog", False, str(e))
-                self.textBrowser.append(f"初始化线程失败: {e}")
-        else:
-            log_method_result("show_pull_file_dialog", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """从设备拉取文件 - 委托给 file_operations"""
+        self.file_operations.show_pull_file_dialog()
 
     def show_install_file_dialog(self):
-        """安装应用"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("adb_install_button", "安装应用")
-
-        if device_id in devices_id_lst:
-            package_path, ok = QFileDialog.getOpenFileName(self, "选择应用安装包", "",
-                                                          "APK Files (*.apk);;All Files (*)")
-            if ok:
-                logger.info(f"选择文件: {package_path}")
-                
-                try:
-                    from Function_Moudle.install_file_thread import InstallFileThread
-                    self.install_file_thread = InstallFileThread(self.d, package_path)
-                    self.install_file_thread.progress_signal.connect(self.textBrowser.append)
-                    self.install_file_thread.signal_status.connect(self.textBrowser.append)
-                    self.install_file_thread.start()
-                    
-                    log_method_result("show_install_file_dialog", True, f"安装线程已启动: {os.path.basename(package_path)}")
-                except Exception as e:
-                    log_method_result("show_install_file_dialog", False, str(e))
-                    self.textBrowser.append(f"启动安装线程失败: {e}")
-            else:
-                logger.info("用户取消文件选择")
-        else:
-            log_method_result("show_install_file_dialog", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """安装应用 - 委托给 file_operations"""
+        self.file_operations.show_install_file_dialog()
 
     @staticmethod
     def adb_push_file(local_file_path, target_path_on_device, device_id):
-        command = f"adb -s {device_id} push {local_file_path} {target_path_on_device}"
-        try:
-            subprocess.run(command, shell=True, check=True)
-            return "文件推送成功！"
-        except subprocess.CalledProcessError as e:
-            return f"文件推送失败: {e}"
+        """推送文件到设备 - 委托给 adb_utils"""
+        return adb_utils.push_file(local_file_path, target_path_on_device, device_id)
 
     def show_push_file_dialog(self):
-        """推送文件到设备"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("adb_push_file_button", "推送文件到设备")
-
-        if device_id in devices_id_lst:
-            local_file_path, _ = QFileDialog.getOpenFileName(self, "选择本地文件", "", "All Files (*)")
-            if local_file_path:
-                logger.info(f"选择文件: {local_file_path}")
-                
-                target_path_on_device, ok = QInputDialog.getText(self, "输入设备文件路径",
-                                                                 "请输入车机上的目标路径:")
-                if ok and target_path_on_device:
-                    logger.info(f"目标路径: {target_path_on_device}")
-                    
-                    res = self.adb_push_file(local_file_path, target_path_on_device, device_id)
-                    self.textBrowser.append(res)
-                    
-                    if "成功" in res:
-                        log_method_result("show_push_file_dialog", True, f"{os.path.basename(local_file_path)} -> {target_path_on_device}")
-                    else:
-                        log_method_result("show_push_file_dialog", False, res)
-                else:
-                    logger.info("用户取消输入目标路径")
-            else:
-                logger.info("用户取消文件选择")
-        else:
-            log_method_result("show_push_file_dialog", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        """推送文件到设备 - 委托给 file_operations"""
+        self.file_operations.show_push_file_dialog()
 
     @staticmethod
     def simulate_click(x, y, device_id):
-        command = f"adb -s {device_id} shell input tap {x} {y}"
-        try:
-            subprocess.run(command, shell=True, check=True)
-            return "点击成功！"
-        except subprocess.CalledProcessError as e:
-            return f"点击失败: {e}"
+        """模拟点击 - 委托给 adb_utils"""
+        return adb_utils.simulate_click(x, y, device_id)
 
     @staticmethod
     def simulate_long_press(x, y, duration, device_id):
-        command = f"adb -s {device_id} shell input swipe {x} {y} {x} {y} {duration}"
-        try:
-            subprocess.run(command, shell=True, check=True)
-            return "长按模拟成功！"
-        except subprocess.CalledProcessError as e:
-            return f"长按模拟失败: {e}"
+        """模拟长按 - 委托给 adb_utils"""
+        return adb_utils.simulate_long_press(x, y, duration, device_id)
+
+    # ========== 输入操作 - 已委托给 input_operations ==========
 
     def show_simulate_long_press_dialog(self):
-        """重启ADB服务"""
-        log_button_click("reboot_adb_service_button", "重启ADB服务")
-        
-        from Function_Moudle.simulate_long_press_dialog_thread import simulate_long_press_dialog_thread
-        self.simulate_long_press_dialog_thread = simulate_long_press_dialog_thread(self.d)
-        self.simulate_long_press_dialog_thread.result_signal.connect(self.textBrowser.append)
-        self.simulate_long_press_dialog_thread.error_signal.connect(self.textBrowser.append)
-        self.simulate_long_press_dialog_thread.start()
-        
-        log_method_result("show_simulate_long_press_dialog", True, "ADB服务重启线程已启动")
+        """显示模拟长按对话框 - 委托给 input_operations"""
+        self.input_operations.show_simulate_long_press_dialog()
 
     def show_input_text_dialog(self):
-        """输入文本到设备"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("input_text_via_adb_button", "输入文本到设备")
+        """显示输入文本对话框 - 委托给 input_operations"""
+        self.input_operations.show_input_text_dialog()
 
-        if device_id in devices_id_lst:
-            text_to_input, ok = QInputDialog.getText(self, "输入文本", "请输入要通过 ADB 输入的文本:")
-            if ok and text_to_input:
-                logger.info(f"输入文本: {text_to_input}")
-                
-                try:
-                    if self.connection_mode == 'u2':
-                        # 使用U2输入文本
-                        from Function_Moudle.input_text_thread import InputTextThread
-                        self.input_text_thread = InputTextThread(self.d, text_to_input)
-                    else:
-                        # 使用ADB输入文本
-                        from Function_Moudle.adb_input_text_thread import ADBInputTextThread
-                        self.input_text_thread = ADBInputTextThread(device_id, text_to_input)
-                    
-                    self.input_text_thread.progress_signal.connect(self.textBrowser.append)
-                    self.input_text_thread.error_signal.connect(self.textBrowser.append)
-                    self.input_text_thread.start()
-                    
-                    log_method_result("show_input_text_dialog", True, f"输入线程已启动: {text_to_input[:20]}...")
-                except Exception as e:
-                    log_method_result("show_input_text_dialog", False, str(e))
-                    self.textBrowser.append(f"启动输入线程失败: {e}")
-            else:
-                logger.info("用户取消输入或输入为空")
-        else:
-            log_method_result("show_input_text_dialog", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+    # ========== 应用操作 - 已委托给 app_operations ==========
 
-    def show_force_stop_app_dialog(self):
-        """强制停止应用"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("force_stop_app", "强制停止应用")
+    def start_app_action(self, app_name):
+        """启动应用 - 委托给 app_operations"""
+        self.app_operations.start_app_action(app_name)
 
-        if device_id in devices_id_lst:
-            try:
-                if self.connection_mode == 'u2':
-                    # u2连接成功，自动获取当前前台app并停止
-                    try:
-                        # 检查设备连接是否有效
-                        if self.d is None:
-                            logger.warning("设备连接无效，跳过获取当前应用")
-                            raise Exception("设备连接无效")
-                        # 获取当前前台应用信息
-                        current_app = self.d.app_current()
-                        if current_app and 'package' in current_app:
-                            package_name = current_app['package']
-                            logger.info(f"强制停止应用: {package_name}")
-                            
-                            from Function_Moudle.force_stop_app_thread import ForceStopAppThread
-                            self.Force_app_thread = ForceStopAppThread(self.d, package_name)
-                            self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
-                            self.Force_app_thread.result_signal.connect(self.textBrowser.append)
-                            self.Force_app_thread.start()
-                            
-                            log_method_result("show_force_stop_app_dialog", True, f"已停止: {package_name}")
-                        else:
-                            log_method_result("show_force_stop_app_dialog", False, "未获取到前台应用")
-                            self.textBrowser.append("未获取到当前前台应用！")
-                    except Exception as e:
-                        log_method_result("show_force_stop_app_dialog", False, str(e))
-                        self.textBrowser.append(f"获取前台应用失败: {e}")
-                elif self.connection_mode == 'adb':
-                    # ADB模式，需要手动输入包名
-                    package_name, ok = QInputDialog.getText(self, "强制停止应用", "请输入要停止的应用包名：")
-                    if not ok or not package_name.strip():
-                        logger.info("用户取消输入或输入为空")
-                        self.textBrowser.append("用户取消输入或输入为空")
-                        return
-                    
-                    logger.info(f"强制停止应用: {package_name}")
-                    
-                    from Function_Moudle.force_stop_app_thread import ForceStopAppThread
-                    self.Force_app_thread = ForceStopAppThread(self.d, package_name)
-                    self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
-                    self.Force_app_thread.result_signal.connect(self.textBrowser.append)
-                    self.Force_app_thread.start()
-                    
-                    log_method_result("show_force_stop_app_dialog", True, f"已停止: {package_name}")
-                else:
-                    log_method_result("show_force_stop_app_dialog", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-            except Exception as e:
-                log_method_result("show_force_stop_app_dialog", False, str(e))
-                self.textBrowser.append(f"强制停止应用失败: {e}")
-        else:
-            log_method_result("show_force_stop_app_dialog", False, "设备未连接")
-            self.textBrowser.append("未连接设备！")
-    
-    def _show_force_stop_input_dialog(self, device_id):
-        """显示强制停止应用输入对话框（用于ADB模式或u2失败时）"""
-        package_name, ok = QInputDialog.getText(self, "强制停止应用", "请输入要停止的应用包名：")
-        if not ok or not package_name.strip():
-            self.textBrowser.append("用户取消输入或输入为空")
-            return
-        
-        try:
-            if self.connection_mode == 'u2':
-                from Function_Moudle.force_stop_app_thread import ForceStopAppThread
-                self.Force_app_thread = ForceStopAppThread(self.d, package_name.strip())
-            elif self.connection_mode == 'adb':
-                from Function_Moudle.adb_force_stop_app_thread import ADBForceStopAppThread
-                self.Force_app_thread = ADBForceStopAppThread(device_id, package_name.strip())
-            else:
-                self.textBrowser.append("设备未连接！")
-                return
-            
-            self.Force_app_thread.progress_signal.connect(self.textBrowser.append)
-            self.Force_app_thread.error_signal.connect(self.textBrowser.append)
-            self.Force_app_thread.start()
-        except Exception as e:
-            self.textBrowser.append(f"强制停止应用失败: {e}")
+    def get_running_app_info(self):
+        """获取运行应用信息 - 委托给 app_operations"""
+        self.app_operations.get_running_app_info()
 
-    def show_clear_app_cache_dialog(self):
-        """清除应用缓存"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("clear_app_cache_button", "清除应用缓存")
-
-        try:
-            if device_id not in devices_id_lst:
-                log_method_result("show_clear_app_cache_dialog", False, "设备未连接")
-                self.textBrowser.append("设备未连接！")
-                return
-            
-            if self.connection_mode == 'u2':
-                # u2连接成功，自动获取当前前台app并清除缓存
-                self.textBrowser.append("正在获取当前前台应用...")
-                
-                # 检查设备连接是否有效
-                if self.d is None:
-                    logger.warning("设备连接无效，跳过获取当前应用")
-                    return
-                # 获取当前前台应用
-                current_app = self.d.app_current()
-                if current_app and 'package' in current_app:
-                    package_name = current_app['package']
-                    logger.info(f"清除缓存: {package_name}")
-                    self.textBrowser.append(f"当前前台应用: {package_name}")
-                    self.textBrowser.append(f"正在清除应用 {package_name} 的缓存...")
-                    
-                    from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
-                    self.Clear_app_cache_thread = ClearAppCacheThread(self.d, package_name)
-                    self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
-                    self.Clear_app_cache_thread.result_signal.connect(self.textBrowser.append)
-                    self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
-                    self.Clear_app_cache_thread.start()
-                    
-                    log_method_result("show_clear_app_cache_dialog", True, f"清除缓存线程已启动: {package_name}")
-                else:
-                    log_method_result("show_clear_app_cache_dialog", False, "未获取到前台应用")
-                    self.textBrowser.append("未获取到当前前台应用！")
-                    
-            elif self.connection_mode == 'adb':
-                # ADB模式，需要手动输入包名
-                package_name, ok = QInputDialog.getText(self, "清除应用缓存", "请输入要清除缓存的应用包名：")
-                if not ok or not package_name.strip():
-                    logger.info("用户取消输入或输入为空")
-                    self.textBrowser.append("用户取消输入或输入为空")
-                    return
-                
-                logger.info(f"清除缓存: {package_name}")
-                self.textBrowser.append(f"正在清除应用 {package_name} 的缓存...")
-                
-                from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
-                self.Clear_app_cache_thread = ClearAppCacheThread(self.d, package_name)
-                self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
-                self.Clear_app_cache_thread.result_signal.connect(self.textBrowser.append)
-                self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
-                self.Clear_app_cache_thread.start()
-                
-                log_method_result("show_clear_app_cache_dialog", True, f"清除缓存线程已启动: {package_name}")
-            else:
-                log_method_result("show_clear_app_cache_dialog", False, "设备未连接")
-                self.textBrowser.append("设备未连接！")
-                
-        except Exception as e:
-            log_method_result("show_clear_app_cache_dialog", False, str(e))
-            self.textBrowser.append(f"清除应用缓存失败: {e}")
-    
-    def _show_clear_cache_input_dialog(self, device_id):
-        """显示清除缓存输入对话框（用于ADB模式或u2失败时）"""
-        package_name, ok = QInputDialog.getText(self, "清除应用缓存", "请输入要清除缓存的应用包名：")
-        if not ok or not package_name.strip():
-            self.textBrowser.append("用户取消输入或输入为空")
-            return
-        
-        try:
-            if self.connection_mode == 'u2':
-                from Function_Moudle.clear_app_cache_thread import ClearAppCacheThread
-                self.Clear_app_cache_thread = ClearAppCacheThread(self.d, package_name.strip())
-            elif self.connection_mode == 'adb':
-                from Function_Moudle.adb_clear_app_cache_thread import ADBClearAppCacheThread
-                self.Clear_app_cache_thread = ADBClearAppCacheThread(device_id, package_name.strip())
-            else:
-                self.textBrowser.append("设备未连接！")
-                return
-            
-            self.Clear_app_cache_thread.progress_signal.connect(self.textBrowser.append)
-            self.Clear_app_cache_thread.error_signal.connect(self.textBrowser.append)
-            self.Clear_app_cache_thread.start()
-        except Exception as e:
-            self.textBrowser.append(f"清除应用缓存失败: {e}")
+    def view_apk_path_wrapper(self):
+        """查看APK路径 - 委托给 app_operations"""
+        self.app_operations.view_apk_path_wrapper()
 
     def get_foreground_package(self):
-        """获取当前前台应用包名"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("app_package_and_activity", "获取前台应用包名")
+        """获取前台应用包名 - 委托给 app_operations"""
+        self.app_operations.get_foreground_package()
 
-        if device_id in devices_id_lst:
-            try:
-                if self.connection_mode == 'u2':
-                    from Function_Moudle.get_foreground_package_thread import GetForegroundPackageThread
-                    self.GetForegroundPackageThread = GetForegroundPackageThread(self.d)
-                elif self.connection_mode == 'adb':
-                    from Function_Moudle.adb_get_foreground_package_thread import ADBGetForegroundPackageThread
-                    self.GetForegroundPackageThread = ADBGetForegroundPackageThread(device_id)
-                else:
-                    log_method_result("get_foreground_package", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
-                    return
-                
-                self.GetForegroundPackageThread.progress_signal.connect(self.textBrowser.append)
-                self.GetForegroundPackageThread.result_signal.connect(self._handle_foreground_package_result)
-                self.GetForegroundPackageThread.error_signal.connect(self.textBrowser.append)
-                self.GetForegroundPackageThread.start()
-                
-                log_method_result("get_foreground_package", True, "线程已启动")
-            except Exception as e:
-                log_method_result("get_foreground_package", False, str(e))
-                self.textBrowser.append(f"启动获取前台应用线程失败: {e}")
-        else:
-            log_method_result("get_foreground_package", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-    
-    def _handle_foreground_package_result(self, package_info):
-        """处理前台应用包名结果"""
-        if package_info:
-            logger.info(f"✓ 前台应用: {package_info}")
-            self.textBrowser.append(f"✓ 前台应用: {package_info}")
-        else:
-            logger.warning("✗ 未获取到前台应用信息")
-            self.textBrowser.append("✗ 未获取到前台应用信息")
+    def show_force_stop_app_dialog(self):
+        """强制停止应用 - 委托给 app_operations"""
+        self.app_operations.show_force_stop_app_dialog()
+
+    def show_clear_app_cache_dialog(self):
+        """清除应用缓存 - 委托给 app_operations"""
+        self.app_operations.show_clear_app_cache_dialog()
 
     @staticmethod
     def aapt_get_packagen_name(apk_path):
-        quoted_apk_path = f'"{apk_path}"'
-        command = f"aapt dump badging {quoted_apk_path} | findstr name"
-        try:
-            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
-            package_name = result.stdout.strip().split('\'')[1]
-            return package_name
-        except subprocess.CalledProcessError as e:
-            return f"获取包名失败: {e}"
+        """使用aapt获取包名 - 委托给 adb_utils"""
+        return adb_utils.aapt_get_package_name(apk_path)
 
     def aapt_getpackage_name_dilog(self):
-        """获取APK包名"""
-        log_button_click("aapt_getpackagename_button", "获取APK包名")
-        
-        file_path, _ = QFileDialog.getOpenFileName(self, "选择APK文件", "", "APK文件 (*.apk)")
-        if file_path:
-            logger.info(f"选择APK: {file_path}")
-            try:
-                from Function_Moudle.aapt_get_package_name_thread import AaptGetPackageNameThread
-                self.aapt_thread = AaptGetPackageNameThread(file_path)
-                self.aapt_thread.result_signal.connect(self.textBrowser.append)
-                self.aapt_thread.error_signal.connect(self.textBrowser.append)
-                self.aapt_thread.start()
-                log_method_result("aapt_getpackage_name_dilog", True, f"aapt线程已启动: {os.path.basename(file_path)}")
-            except Exception as e:
-                log_method_result("aapt_getpackage_name_dilog", False, str(e))
-                self.textBrowser.append(f"启动aapt线程失败: {e}")
-        else:
-            logger.info("未选择APK文件")
-            self.textBrowser.append("未选择APK文件")
-
+        """使用aapt获取APK包名 - 委托给 app_operations"""
+        self.app_operations.aapt_getpackage_name_dilog()
 
     def browse_log_save_path(self):
-        """浏览日志保存路径"""
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        log_button_click("browse_log_save_path_button", "浏览日志保存路径")
-        
-        if device_id in devices_id_lst:
-            if hasattr(self, 'PullLogSaveThread') and self.PullLogSaveThread and self.PullLogSaveThread.isRunning():
-                self.PullLogSaveThread.stop()
-                self.pull_log_button.setText("拉取日志")
-                logger.info("停止拉取日志")
-            else:
-                self.file_path = QFileDialog.getExistingDirectory(self, "选择保存路径", "")
-                if self.file_path:
-                    self.inputbox_log_path.setText(self.file_path)
-                    logger.info(f"选择路径: {self.file_path}")
-                else:
-                    logger.info("用户取消选择")
-                    self.textBrowser.append("已取消！")
-        else:
-            log_method_result("browse_log_save_path", False, "设备未连接")
-            self.textBrowser.append("未连接设备！")
-    
+        """浏览日志保存路径 - 委托给 log_operations"""
+        self.log_operations.browse_log_save_path()
+
     # ============================================
     # 窗口缩放功能相关方法
     # ============================================

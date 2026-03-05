@@ -458,6 +458,110 @@ class ADBUtils:
                 return True, version
         
         return False, "未找到版本信息"
+    
+    @classmethod
+    def get_device_list(cls):
+        """获取设备ID列表 - 从 ADB_module.py 移入"""
+        try:
+            result = cls.run_adb_command("devices")
+            devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
+            device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
+            return device_ids
+        except Exception:
+            return []
+    
+    @classmethod
+    def get_screenshot(cls, file_path, device_id):
+        """截取设备屏幕 - 从 ADB_module.py 移入"""
+        command = f"shell screencap -p /sdcard/screenshot.png"
+        result1 = cls.run_adb_command(command, device_id)
+        if result1.returncode != 0:
+            return f"截图失败: {result1.stderr}"
+        
+        command = f"pull /sdcard/screenshot.png {file_path}"
+        result2 = cls.run_adb_command(command, device_id)
+        if result2.returncode != 0:
+            return f"拉取截图失败: {result2.stderr}"
+        
+        command = f"shell rm /sdcard/screenshot.png"
+        cls.run_adb_command(command, device_id)
+        
+        return f"截图已保存到 {file_path}"
+    
+    @classmethod
+    def push_file(cls, local_file_path, target_path_on_device, device_id):
+        """推送文件到设备 - 从 ADB_module.py 移入"""
+        command = f"push {local_file_path} {target_path_on_device}"
+        result = cls.run_adb_command(command, device_id)
+        if result.returncode == 0:
+            return "文件推送成功！"
+        else:
+            return f"文件推送失败: {result.stderr}"
+    
+    @classmethod
+    def simulate_click(cls, x, y, device_id):
+        """模拟点击 - 从 ADB_module.py 移入"""
+        command = f"shell input tap {x} {y}"
+        result = cls.run_adb_command(command, device_id)
+        if result.returncode == 0:
+            return "点击成功！"
+        else:
+            return f"点击失败: {result.stderr}"
+    
+    @classmethod
+    def simulate_long_press(cls, x, y, duration, device_id):
+        """模拟长按 - 从 ADB_module.py 移入"""
+        command = f"shell input swipe {x} {y} {x} {y} {duration}"
+        result = cls.run_adb_command(command, device_id)
+        if result.returncode == 0:
+            return "长按模拟成功！"
+        else:
+            return f"长按模拟失败: {result.stderr}"
+    
+    @classmethod
+    def aapt_get_package_name(cls, apk_path):
+        """使用aapt获取APK包名 - 从 ADB_module.py 移入"""
+        import shutil
+        
+        # 查找aapt工具
+        aapt_path = shutil.which("aapt")
+        if not aapt_path:
+            # 尝试在常用位置查找
+            possible_paths = [
+                os.path.join(os.path.dirname(cls.get_adb_path()), "aapt.exe"),
+                os.path.join(os.path.dirname(cls.get_adb_path()), "aapt"),
+            ]
+            for path in possible_paths:
+                if os.path.isfile(path):
+                    aapt_path = path
+                    break
+        
+        if not aapt_path:
+            return "获取包名失败: 未找到aapt工具"
+        
+        command = f'dump badging "{apk_path}"'
+        try:
+            result = subprocess.run(
+                [aapt_path] + command.split(),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='ignore'
+            )
+            if result.returncode == 0:
+                # 解析包名
+                for line in result.stdout.split('\n'):
+                    if "package: name=" in line:
+                        # 提取包名
+                        import re
+                        match = re.search(r"name='([^']+)'", line)
+                        if match:
+                            return match.group(1)
+                return "获取包名失败: 未找到包名信息"
+            else:
+                return f"获取包名失败: {result.stderr}"
+        except Exception as e:
+            return f"获取包名失败: {e}"
 
 
 # 全局实例

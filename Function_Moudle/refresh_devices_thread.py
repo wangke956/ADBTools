@@ -47,10 +47,6 @@ class RefreshDevicesThread(QThread):
         # 使用性能监控
         with measure_performance("refresh_devices"):
             try:
-                self.progress_signal.emit("正在刷新设备列表...")
-                logger.info("发送进度信号: 正在刷新设备列表...")
-                
-                # 使用项目统一的ADB工具类执行命令
                 logger.info("准备执行 ADB 命令: devices")
                 result = ADBUtils.run_adb_command(
                     command="devices",
@@ -108,13 +104,11 @@ class RefreshDevicesThread(QThread):
                 
                 if device_ids:
                     device_count = len(device_ids)
-                    device_ids_str = "\n".join(device_ids)
                     logger.info(f"设备列表:")
                     for dev_id in device_ids:
                         logger.info(f"  - {dev_id}")
                     
-                    self.progress_signal.emit(f"找到 {device_count} 个设备：")
-                    self.progress_signal.emit(device_ids_str)
+                    self.progress_signal.emit(f"✓ 找到 {device_count} 个设备")
                     self.devices_signal.emit(device_ids)
                     
                     log_operation("refresh_devices_success", {
@@ -123,7 +117,7 @@ class RefreshDevicesThread(QThread):
                     }, result="success")
                 else:
                     logger.info("未检测到任何已连接的设备")
-                    self.progress_signal.emit("未检测到任何已连接的设备")
+                    self.progress_signal.emit("✗ 未检测到任何设备")
                     self.devices_signal.emit([])
                     
                     log_operation("refresh_devices_no_device", {

@@ -202,7 +202,23 @@ def update_config_version(version: str) -> bool:
         
         print(f"✅ 已更新 config_manager.py 中的版本号为: {version}")
         
-        # 2. 更新 adbtools_config.json 中的版本号
+        # 2. 更新 config_manager_enhanced.py 中的版本号
+        config_manager_enhanced_path = PROJECT_ROOT / "config_manager_enhanced.py"
+        if config_manager_enhanced_path.exists():
+            with open(config_manager_enhanced_path, 'r', encoding='utf-8') as f:
+                enhanced_content = f.read()
+            
+            # 替换版本配置
+            new_enhanced_content = re.sub(pattern, new_version_config, enhanced_content, flags=re.DOTALL)
+            
+            with open(config_manager_enhanced_path, 'w', encoding='utf-8') as f:
+                f.write(new_enhanced_content)
+            
+            print(f"✅ 已更新 config_manager_enhanced.py 中的版本号为: {version}")
+        else:
+            print(f"⚠  文件不存在: config_manager_enhanced.py，跳过更新")
+        
+        # 3. 更新 adbtools_config.json 中的版本号
         config_file_path = PROJECT_ROOT / CONFIG["config_file"]
         if config_file_path.exists():
             with open(config_file_path, 'r', encoding='utf-8') as f:
@@ -234,7 +250,7 @@ def update_config_version(version: str) -> bool:
         else:
             print(f"⚠  配置文件不存在: {CONFIG['config_file']}，跳过更新")
         
-        # 3. 更新 ADBTools_setup.iss 中的版本号
+        # 4. 更新 ADBTools_setup.iss 中的版本号
         iss_path = PROJECT_ROOT / CONFIG["iss_file"]
         if iss_path.exists():
             with open(iss_path, 'r', encoding='utf-8') as f:

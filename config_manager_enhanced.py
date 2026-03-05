@@ -16,8 +16,8 @@ class EnhancedConfigManager:
         # 版本配置 - 全局版本号定义
         "version": {
             "major": 1,
-            "minor": 6,
-            "patch": 2,
+            "minor": 7,
+            "patch": 3,
             "build": 0,
         },
         "adb": {
