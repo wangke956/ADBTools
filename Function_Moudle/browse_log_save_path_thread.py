@@ -58,7 +58,7 @@ class PullLogSaveThread(QThread):
             if self.process and self.process.poll() is None:
                 try:
                     self.process.kill()
-                except Exception:
+                except (OSError, ProcessLookupError):
                     pass
 
     def stop(self):

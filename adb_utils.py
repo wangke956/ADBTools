@@ -401,7 +401,7 @@ class ADBUtils:
         try:
             result = cls.run_adb_command("version")
             return result.returncode == 0
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             return False
     
     @classmethod
@@ -456,7 +456,7 @@ class ADBUtils:
             devices = result.stdout.strip().split('\n')[1:]  # 获取设备列表
             device_ids = [line.split('\t')[0] for line in devices if line]  # 提取设备ID
             return device_ids
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             return []
     
     @classmethod

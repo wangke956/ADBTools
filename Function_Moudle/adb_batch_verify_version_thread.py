@@ -56,7 +56,7 @@ class ADBBatchVerifyVersionThread(QThread):
                 )
                 if aapt_check.returncode != 0:
                     self.error_signal.emit("[警告] aapt工具可能未安装或不在PATH中")
-            except Exception:
+            except (subprocess.SubprocessError, FileNotFoundError):
                 self.error_signal.emit("[警告] 无法检查aapt工具，可能未安装")
             
             # 使用aapt工具获取包名和版本号

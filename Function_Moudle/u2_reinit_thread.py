@@ -6,6 +6,7 @@ u2重新初始化线程 - 重新初始化设备的uiautomator2服务
 from PyQt5.QtCore import QThread, pyqtSignal
 import uiautomator2 as u2
 import time
+import queue
 from logger_manager import get_logger, log_thread_start, log_thread_complete
 import os
 import sys
@@ -230,11 +231,10 @@ class U2ReinitThread(QThread):
                 
                 # 添加自定义的logging handler来捕获u2的日志
                 import logging
-                from queue import Queue
                 import threading
                 
                 # 创建一个队列来接收日志
-                log_queue = Queue()
+                log_queue = queue.Queue()
                 
                 # 创建自定义的handler
                 class QueueHandler(logging.Handler):
@@ -273,7 +273,7 @@ class U2ReinitThread(QThread):
                                 logger.info(f"  [U2] {log_msg}")
                             else:
                                 logger.debug(f"  [U2] {log_msg}")
-                        except Exception:
+                        except queue.Empty:
                             break
                 
                 log_thread = threading.Thread(target=process_logs, daemon=True)

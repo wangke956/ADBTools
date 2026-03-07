@@ -33,7 +33,7 @@ class ADBAppActionThread(QThread):
                 stdout = str(stdout) if stdout is not None else ""
             
             return self.package_name in stdout
-        except Exception:
+        except (subprocess.SubprocessError, AttributeError):
             return False
 
     def _get_main_activity(self):

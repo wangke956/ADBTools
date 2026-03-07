@@ -1200,8 +1200,3 @@ class ADB_Mainwindow(QMainWindow):
         if self.u2_reinit_thread:
             self.u2_reinit_thread.deleteLater()
             self.u2_reinit_thread = None
-    
-    def update_scaling_settings(self):
-        """更新缩放设置（可用于配置对话框）"""
-        # 这里可以添加从配置文件读取缩放设置的逻辑
-        pass

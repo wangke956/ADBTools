@@ -215,7 +215,7 @@ def get_nuitka_command(build_type="onefile"):
                 # 解析版本号（第一行）
                 version_line = result.stdout.strip().split('\n')[0]
                 nuitka_version = version_line.strip()
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             pass
         
         # 方法2: 尝试从模块获取版本
@@ -226,7 +226,7 @@ def get_nuitka_command(build_type="onefile"):
                     nuitka_version = nuitka.Version.getNuitkaVersion()
                 elif hasattr(nuitka, '__version__'):
                     nuitka_version = nuitka.__version__
-            except Exception:
+            except (ImportError, AttributeError):
                 pass
         
         if nuitka_version and nuitka_version.startswith('2.8.'):
