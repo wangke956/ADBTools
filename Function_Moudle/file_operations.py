@@ -8,7 +8,9 @@ import os
 import pathlib
 from PyQt5.QtWidgets import QFileDialog, QInputDialog
 
-from logger_manager import log_button_click, log_method_result
+from logger_manager import log_button_click, log_method_result, get_logger
+
+logger = get_logger("ADBTools.FileOperations")
 
 
 class FileOperationsManager:
@@ -33,11 +35,10 @@ class FileOperationsManager:
                 self.main_window, "保存截图", "", "PNG Files (*.png);;All Files (*)"
             )
             if file_path:
-                self.main_window.logger.info(f"保存截图到: {file_path}")
+                logger.info(f"保存截图到: {file_path}")
                 
                 try:
-                    if self.main_window.connection_mode == 'u2':
-                        # 使用u2截图
+                    if self.main_window.connection_mode == 'u2' and self.main_window.d:
                         from Function_Moudle.devices_screen_thread import DevicesScreenThread
                         self.main_window.devices_screen_thread = DevicesScreenThread(
                             self.main_window.d, file_path
@@ -45,7 +46,6 @@ class FileOperationsManager:
                         self.main_window.devices_screen_thread.signal.connect(self.textBrowser.append)
                         self.main_window.devices_screen_thread.start()
                     elif self.main_window.connection_mode == 'adb':
-                        # 使用ADB截图
                         from Function_Moudle.adb_screenshot_thread import ADBScreenshotThread
                         self.main_window.devices_screen_thread = ADBScreenshotThread(device_id, file_path)
                         self.main_window.devices_screen_thread.signal.connect(self.textBrowser.append)
@@ -60,11 +60,11 @@ class FileOperationsManager:
                     log_method_result("show_screenshot_dialog", False, str(e))
                     self.textBrowser.append(f"启动截图线程失败: {e}")
             else:
-                self.main_window.logger.info("用户取消文件选择")
+                logger.info("用户取消文件选择")
         else:
             log_method_result("show_screenshot_dialog", False, "设备未连接")
             self.textBrowser.append("设备未连接！")
-    
+
     def show_uninstall_dialog(self):
         """卸载应用"""
         device_id = self.main_window.get_selected_device()
@@ -77,7 +77,7 @@ class FileOperationsManager:
                 self.main_window, "输入应用包名", "请输入要卸载的应用包名："
             )
             if ok and package_name:
-                self.main_window.logger.info(f"卸载应用: {package_name}")
+                logger.info(f"卸载应用: {package_name}")
                 
                 try:
                     if self.main_window.connection_mode == 'u2' and self.main_window.d:
@@ -103,12 +103,12 @@ class FileOperationsManager:
                     log_method_result("show_uninstall_dialog", False, str(e))
                     self.textBrowser.append(f"启动卸载线程失败: {e}")
             else:
-                self.main_window.logger.info("用户取消输入或输入为空")
+                logger.info("用户取消输入或输入为空")
                 self.textBrowser.append("已取消！")
         else:
             log_method_result("show_uninstall_dialog", False, "设备未连接")
             self.textBrowser.append("未连接设备！")
-    
+
     def show_pull_file_dialog(self):
         """从设备拉取文件"""
         device_id = self.main_window.get_selected_device()
@@ -126,24 +126,17 @@ class FileOperationsManager:
                 if ok and file_path_on_device:
                     local_path = QFileDialog.getExistingDirectory(self.main_window, "选择文件夹", ".")
                     if local_path:
-                        self.main_window.logger.info(f"拉取文件: {file_path_on_device} -> {local_path}")
+                        logger.info(f"拉取文件: {file_path_on_device} -> {local_path}")
                         
-                        # 根据连接模式选择对应的线程类
                         if self.main_window.connection_mode == 'u2' and self.main_window.d:
                             from Function_Moudle.pull_files_thread import PullFilesThread
                             self.main_window.pull_files_thread = PullFilesThread(
-                                self.main_window.d,
-                                file_path_on_device,
-                                local_path,
-                                apk_file_name
+                                self.main_window.d, file_path_on_device, local_path, apk_file_name
                             )
                         else:
                             from Function_Moudle.adb_pull_files_thread import ADBPullFilesThread
                             self.main_window.pull_files_thread = ADBPullFilesThread(
-                                device_id,
-                                file_path_on_device,
-                                local_path,
-                                apk_file_name
+                                device_id, file_path_on_device, local_path, apk_file_name
                             )
                         
                         self.main_window.pull_files_thread.signal.connect(self.textBrowser.append)
@@ -151,16 +144,16 @@ class FileOperationsManager:
                         
                         log_method_result("show_pull_file_dialog", True, f"拉取线程已启动: {apk_file_name}")
                     else:
-                        self.main_window.logger.info("用户取消文件夹选择")
+                        logger.info("用户取消文件夹选择")
                 else:
-                    self.main_window.logger.info("用户取消输入或输入为空")
+                    logger.info("用户取消输入或输入为空")
             except Exception as e:
                 log_method_result("show_pull_file_dialog", False, str(e))
                 self.textBrowser.append(f"初始化线程失败: {e}")
         else:
             log_method_result("show_pull_file_dialog", False, "设备未连接")
             self.textBrowser.append("设备未连接！")
-    
+
     def show_install_file_dialog(self):
         """安装应用"""
         device_id = self.main_window.get_selected_device()
@@ -173,7 +166,7 @@ class FileOperationsManager:
                 self.main_window, "选择应用安装包", "", "APK Files (*.apk);;All Files (*)"
             )
             if ok:
-                self.main_window.logger.info(f"选择文件: {package_path}")
+                logger.info(f"选择文件: {package_path}")
                 
                 try:
                     from Function_Moudle.install_file_thread import InstallFileThread
@@ -189,11 +182,11 @@ class FileOperationsManager:
                     log_method_result("show_install_file_dialog", False, str(e))
                     self.textBrowser.append(f"启动安装线程失败: {e}")
             else:
-                self.main_window.logger.info("用户取消文件选择")
+                logger.info("用户取消文件选择")
         else:
             log_method_result("show_install_file_dialog", False, "设备未连接")
             self.textBrowser.append("设备未连接！")
-    
+
     def show_push_file_dialog(self):
         """推送文件到设备"""
         device_id = self.main_window.get_selected_device()
@@ -202,28 +195,37 @@ class FileOperationsManager:
         log_button_click("adb_push_file_button", "推送文件到设备")
 
         if device_id in devices_id_lst:
-            local_file_path, ok = QFileDialog.getOpenFileName(
+            local_file_path, ok1 = QFileDialog.getOpenFileName(
                 self.main_window, "选择要推送的文件", "", "All Files (*)"
             )
-            if ok:
+            if ok1 and local_file_path:
                 target_path, ok2 = QInputDialog.getText(
-                    self.main_window, "目标路径", "请输入设备上的目标路径："
+                    self.main_window, "目标路径", "请输入设备上的目标路径:",
+                    text="/sdcard/Download/"
                 )
                 if ok2 and target_path:
-                    self.main_window.logger.info(f"推送文件: {local_file_path} -> {target_path}")
+                    logger.info(f"推送文件: {local_file_path} -> {target_path}")
                     
                     try:
-                        import adb_utils
-                        result = adb_utils.push_file(local_file_path, target_path, device_id)
-                        self.textBrowser.append(result)
-                        log_method_result("show_push_file_dialog", True, f"已推送: {os.path.basename(local_file_path)}")
+                        if self.main_window.connection_mode == 'u2' and self.main_window.d:
+                            self.main_window.d.push(local_file_path, target_path)
+                            self.textBrowser.append(f"文件推送成功: {os.path.basename(local_file_path)}")
+                            log_method_result("show_push_file_dialog", True, f"推送成功: {os.path.basename(local_file_path)}")
+                        elif self.main_window.connection_mode == 'adb':
+                            import adb_utils
+                            result = adb_utils.push_file(local_file_path, target_path, device_id)
+                            self.textBrowser.append(result)
+                            log_method_result("show_push_file_dialog", True, f"推送完成")
+                        else:
+                            log_method_result("show_push_file_dialog", False, "设备未连接")
+                            self.textBrowser.append("设备未连接！")
                     except Exception as e:
                         log_method_result("show_push_file_dialog", False, str(e))
                         self.textBrowser.append(f"推送文件失败: {e}")
                 else:
-                    self.main_window.logger.info("用户取消输入或输入为空")
+                    logger.info("用户取消输入或输入为空")
             else:
-                self.main_window.logger.info("用户取消文件选择")
+                logger.info("用户取消文件选择")
         else:
             log_method_result("show_push_file_dialog", False, "设备未连接")
             self.textBrowser.append("设备未连接！")

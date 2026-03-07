@@ -3,6 +3,7 @@ import subprocess
 
 class ADBClearAppCacheThread(QThread):
     progress_signal = pyqtSignal(str)
+    result_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
 
     def __init__(self, device_id, package_name=None):
