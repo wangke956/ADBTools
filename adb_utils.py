@@ -446,16 +446,15 @@ class ADBUtils:
     @classmethod
     def get_app_version(cls, device_id, package_name):
         """获取应用版本信息"""
-        result = cls.run_adb_command(f"shell dumpsys package {package_name} | grep versionName", device_id)
+        result = cls.run_adb_command(f"shell dumpsys package {package_name}", device_id)
         if result.returncode != 0:
             return False, "获取版本信息失败"
         
-        # 解析版本信息
-        stdout = result.stdout
-        for line in stdout.split('\n'):
-            if 'versionName' in line:
-                version = line.split('=')[-1].strip()
-                return True, version
+        # 解析版本信息 - 在 Python 中过滤，不使用 grep
+        import re
+        version_match = re.search(r'versionName=(\S+)', result.stdout)
+        if version_match:
+            return True, version_match.group(1)
         
         return False, "未找到版本信息"
     

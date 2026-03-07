@@ -191,18 +191,27 @@ class U2ReinitThread(QThread):
                 import subprocess
                 adb_path = self._get_adb_path()
                 
-                # 清理进程
-                cmd = f'"{adb_path}" -s {self.device_id} shell "ps | grep uiautomator"'
+                # 清理进程 - 使用 ps -A 获取所有进程，然后在 Python 中过滤
+                cmd = f'"{adb_path}" -s {self.device_id} shell "ps -A"'
                 self.progress_signal.emit(f"  - 查找uiautomator2进程...")
                 logger.info(f"  - 查找uiautomator2进程")
                 
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
                 time.sleep(0.5)
                 
-                if result.stdout.strip():
-                    self.progress_signal.emit("  - 发现uiautomator2进程，正在清理...")
-                    logger.info("  - 发现uiautomator2进程，正在清理")
+                # 在 Python 中过滤包含 uiautomator 的进程
+                uiautomator_processes = []
+                for line in result.stdout.strip().split('\n'):
+                    if 'uiautomator' in line.lower():
+                        uiautomator_processes.append(line)
+                
+                if uiautomator_processes:
+                    self.progress_signal.emit(f"  - 发现 {len(uiautomator_processes)} 个uiautomator2进程，正在清理...")
+                    logger.info(f"  - 发现 {len(uiautomator_processes)} 个uiautomator2进程，正在清理")
                     time.sleep(1)
+                else:
+                    self.progress_signal.emit("  - 未发现uiautomator2进程")
+                    logger.info("  - 未发现uiautomator2进程")
                 
                 self.progress_signal.emit("  - ✓ 进程清理完成")
                 logger.info("  - ✓ 进程清理完成")

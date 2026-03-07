@@ -323,7 +323,7 @@ class ADBBatchInstallTestThread(QThread):
                 "设备ID": self.device_id,
                 "文件夹路径": self.folder_path,
                 "连接模式": self.connection_mode,
-                "特殊包名列表": self.special_packages,
+                "特殊包名列表": self.special_packages_config,
                 "选中的文件": self.selected_files if self.selected_files else "所有文件"
             }
             self._print_debug_info("初始化参数", init_info)
