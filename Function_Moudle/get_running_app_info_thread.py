@@ -74,8 +74,8 @@ class GetRunningAppInfoThread(QThread):
         try:
             # 使用 adb shell pm path 命令获取 APK 路径
             from adb_utils import ADBUtils
-            adb_utils = ADBUtils()
-            adb_path = adb_utils.get_adb_path()
+            adb = ADBUtils()
+            adb_path = adb.get_adb_path()
             
             device_id = self.d.serial
             cmd = f'"{adb_path}" -s {device_id} shell pm path {self.package_name}'
@@ -106,8 +106,8 @@ class GetRunningAppInfoThread(QThread):
             
             # 使用 adb pull 拉取 APK
             from adb_utils import ADBUtils
-            adb_utils = ADBUtils()
-            adb_path = adb_utils.get_adb_path()
+            adb = ADBUtils()
+            adb_path = adb.get_adb_path()
             device_id = self.d.serial
             
             pull_cmd = f'"{adb_path}" -s {device_id} pull "{apk_path}" "{local_apk_path}"'
