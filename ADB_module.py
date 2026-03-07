@@ -262,7 +262,7 @@ class ADB_Mainwindow(QMainWindow):
             self.reinit_u2_button = self.findChild(QtWidgets.QPushButton, 'reinit_u2_button')
             if self.reinit_u2_button:
                 self.reinit_u2_button.clicked.connect(self.reinit_uiautomator2)
-        except:
+        except Exception:
             pass
         
         # 添加配置菜单
@@ -273,7 +273,7 @@ class ADB_Mainwindow(QMainWindow):
             self.config_button = self.findChild(QtWidgets.QPushButton, 'config_button')
             if self.config_button:
                 self.config_button.clicked.connect(self.open_config_dialog)
-        except:
+        except Exception:
             pass
         
         # 窗口缩放功能初始化

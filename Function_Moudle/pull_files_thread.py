@@ -1,4 +1,5 @@
 from PyQt5.QtCore import QThread, pyqtSignal
+import os
 
 class PullFilesThread(QThread):
     signal = pyqtSignal(str)
@@ -8,7 +9,7 @@ class PullFilesThread(QThread):
         self.d = d
         self.apk_file_name = apk_file_name
         self.device_files_path = device_files_path
-        self.local_files_path = local_files_path + "/" + apk_file_name
+        self.local_files_path = os.path.join(local_files_path, apk_file_name)
 
     def run(self):
         try:

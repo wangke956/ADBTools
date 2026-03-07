@@ -273,7 +273,7 @@ class U2ReinitThread(QThread):
                                 logger.info(f"  [U2] {log_msg}")
                             else:
                                 logger.debug(f"  [U2] {log_msg}")
-                        except:
+                        except Exception:
                             break
                 
                 log_thread = threading.Thread(target=process_logs, daemon=True)
@@ -291,7 +291,7 @@ class U2ReinitThread(QThread):
                     # 尝试获取设备信息，这会触发u2服务初始化
                     device_info = d.info
                     self.progress_signal.emit("  - 设备连接成功，uiautomator2已就绪")
-                except:
+                except Exception:
                     # 如果获取设备信息失败，尝试手动安装
                     self.progress_signal.emit("  - 正在安装uiautomator2 APK...")
                     d.service("uiautomator").stop()
@@ -370,7 +370,7 @@ class U2ReinitThread(QThread):
         try:
             from adb_utils import adb_utils
             return adb_utils.get_adb_path()
-        except:
+        except Exception:
             return "adb"
     
     def stop(self):

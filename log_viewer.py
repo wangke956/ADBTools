@@ -104,7 +104,7 @@ class LogViewer:
                 if isinstance(op, str):
                     try:
                         parsed_operations.append(json.loads(op))
-                    except:
+                    except (json.JSONDecodeError, ValueError):
                         pass
                 else:
                     parsed_operations.append(op)

@@ -145,7 +145,7 @@ class DownloadDialog(QDialog):
                 self.download_thread.download_complete_signal.disconnect()
                 self.download_thread.error_signal.disconnect()
                 self.download_thread.download_canceled_signal.disconnect()
-            except:
+            except (TypeError, RuntimeError):
                 # 忽略断开连接时的错误
                 pass
         
@@ -335,7 +335,7 @@ class DownloadDialog(QDialog):
                 return f"{size/(1024*1024):.1f} MB"
             else:
                 return f"{size/(1024*1024*1024):.1f} GB"
-        except:
+        except (TypeError, ValueError):
             return "未知大小"
             
     def closeEvent(self, event):

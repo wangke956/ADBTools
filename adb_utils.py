@@ -411,7 +411,7 @@ class ADBUtils:
         try:
             result = cls.run_adb_command("version")
             return result.returncode == 0
-        except:
+        except Exception:
             return False
     
     @classmethod

@@ -129,7 +129,7 @@ class CommandLogger:
                 for line in f:
                     try:
                         commands.append(json.loads(line.strip()))
-                    except:
+                    except (json.JSONDecodeError, ValueError):
                         pass
             
             # 返回最近的记录
@@ -165,7 +165,7 @@ class CommandLogger:
                             results.append(cmd)
                             if len(results) >= limit:
                                 break
-                    except:
+                    except (json.JSONDecodeError, ValueError, KeyError):
                         pass
             
             return results
@@ -196,7 +196,7 @@ class CommandLogger:
                             failed.append(cmd)
                             if len(failed) >= limit:
                                 break
-                    except:
+                    except (json.JSONDecodeError, ValueError, KeyError):
                         pass
             
             return failed
