@@ -146,11 +146,7 @@ class DatongSetDatetimeThread(QThread):
             result = self.u2_device.shell(f"date {date_command}")
             
             # 构造一个模拟的subprocess结果对象
-            class MockResult:
-                def __init__(self, stdout, stderr, returncode):
-                    self.stdout = stdout
-                    self.stderr = stderr
-                    self.returncode = returncode
+            from fallbacks import MockResult
             
             # 处理ShellResponse对象
             if hasattr(result, 'error'):

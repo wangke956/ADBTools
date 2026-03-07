@@ -194,13 +194,8 @@ class ADBUtils:
         except Exception as e:
             logger.error(f"[{timestamp}] [Thread-{thread_id}] ADB命令执行异常: {command} | 错误: {str(e)}")
             # 创建模拟的subprocess结果对象
-            class MockResult:
-                def __init__(self):
-                    self.returncode = 1
-                    self.stdout = ""
-                    self.stderr = str(e)
-            
-            return MockResult()
+            from fallbacks import MockResult
+            return MockResult("", str(e), 1)
     
     @classmethod
     def run_adb_command_realtime(cls, command, device_id=None, output_callback=None, **kwargs):
@@ -397,13 +392,8 @@ class ADBUtils:
             }, device_id, "error")
             
             # 创建模拟的subprocess结果对象
-            class MockResult:
-                def __init__(self):
-                    self.returncode = 1
-                    self.stdout = ""
-                    self.stderr = str(e)
-            
-            return MockResult()
+            from fallbacks import MockResult
+            return MockResult("", str(e), 1)
     
     @classmethod
     def check_adb_available(cls):

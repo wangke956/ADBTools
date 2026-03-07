@@ -14,15 +14,7 @@ import time
 try:
     from config_manager import config_manager
 except ImportError:
-    # 简单的配置管理器回退
-    class ConfigManagerFallback:
-        def get(self, key, default=None):
-            return default
-        def set(self, key, value):
-            return True
-        def save_config(self):
-            return True
-    
+    from fallbacks import ConfigManagerFallback
     config_manager = ConfigManagerFallback()
 
 class ThreadPoolManager:

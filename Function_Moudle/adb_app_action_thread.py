@@ -10,27 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     from adb_utils import adb_utils
 except ImportError:
-    # 如果导入失败，创建简单的回退
-    class ADBUtilsFallback:
-        @staticmethod
-        def run_adb_command(command, device_id=None, **kwargs):
-            adb_cmd = "adb"
-            if device_id:
-                full_command = f'{adb_cmd} -s {device_id} {command}'
-            else:
-                full_command = f'{adb_cmd} {command}'
-            
-            default_kwargs = {
-                'shell': True,
-                'capture_output': True,
-                'text': True,
-                'encoding': 'utf-8',
-                'errors': 'ignore'
-            }
-            default_kwargs.update(kwargs)
-            
-            return subprocess.run(full_command, **default_kwargs)
-    
+    from fallbacks import ADBUtilsFallback
     adb_utils = ADBUtilsFallback()
 
 class ADBAppActionThread(QThread):

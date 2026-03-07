@@ -1,20 +1,15 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 import os
-import time
 from datetime import datetime
-import psutil
-import subprocess
 
 class PullLogThread(QThread):
     progress_signal = pyqtSignal(int)
     error_signal = pyqtSignal(str)
-    # cmd_process = pyqtSignal()
 
     def __init__(self, file_path, device_id):
         super().__init__()
         self.file_path = file_path
         self.device_id = device_id
-        self.cmd_process = None
 
     def run(self):
         # 在file_path目录打开一个cmd窗口，执行adb -s device_id logcat > file_path/log.txt命令， 且用当前时间命名

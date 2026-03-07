@@ -10,50 +10,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     from adb_utils import adb_utils
 except ImportError:
-    # 如果导入失败，创建简单的回退
-    class ADBUtilsFallback:
-        @staticmethod
-        def run_adb_command(command, device_id=None, **kwargs):
-            adb_cmd = "adb"
-            if device_id:
-                full_command = f'{adb_cmd} -s {device_id} {command}'
-            else:
-                full_command = f'{adb_cmd} {command}'
-            
-            default_kwargs = {
-                'shell': True,
-                'capture_output': True,
-                'text': True,
-                'encoding': 'utf-8',
-                'errors': 'ignore'
-            }
-            default_kwargs.update(kwargs)
-            
-            return subprocess.run(full_command, **default_kwargs)
-    
+    from fallbacks import ADBUtilsFallback
     adb_utils = ADBUtilsFallback()
 
 # 导入配置管理器
 try:
     from config_manager import config_manager
 except ImportError:
-    # 如果导入失败，创建简单的回退配置
-    class ConfigManagerFallback:
-        def get(self, key, default=None):
-            # 默认的特殊包名配置
-            if key == "batch_install.special_packages":
-                return {
-                    "@com.saicmotor.voiceservice": {
-                        "delete_before_push": False,
-                        "description": "voiceservice包，只push不删除"
-                    },
-                    "@com.saicmotor.adapterservice": {
-                        "delete_before_push": True,
-                        "description": "adapterservice包，先删除再push"
-                    }
-                }
-            return default
-    
+    from fallbacks import ConfigManagerFallback
     config_manager = ConfigManagerFallback()
 
 
@@ -118,13 +82,8 @@ class ADBBatchInstallTestThread(QThread):
             self.debug_signal.emit(f"[模拟ADB命令] 将执行: {full_command}")
             
             # 返回模拟结果
-            class MockResult:
-                def __init__(self):
-                    self.stdout = "[模拟输出] 命令执行成功"
-                    self.stderr = ""
-                    self.returncode = 0
-            
-            return MockResult()
+            from fallbacks import MockResult
+            return MockResult("[模拟输出] 命令执行成功")
         except Exception as e:
             self.error_signal.emit(f"模拟ADB命令失败: {str(e)}")
             return None
