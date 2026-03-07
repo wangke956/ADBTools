@@ -165,14 +165,19 @@ class FileOperationsManager:
             package_path, ok = QFileDialog.getOpenFileName(
                 self.main_window, "选择应用安装包", "", "APK Files (*.apk);;All Files (*)"
             )
-            if ok:
+            if ok and package_path:
                 logger.info(f"选择文件: {package_path}")
                 
                 try:
+                    # 检查连接状态
+                    if self.main_window.connection_mode == 'u2':
+                        if not self.main_window.d:
+                            self.main_window.connection_mode = 'adb'
+                            self.textBrowser.append("U2连接不可用，切换到ADB模式")
+                    
                     from Function_Moudle.install_file_thread import InstallFileThread
-                    self.main_window.install_file_thread = InstallFileThread(
-                        self.main_window.d, package_path
-                    )
+                    # InstallFileThread 内部使用 adb install 命令，传入 device_id
+                    self.main_window.install_file_thread = InstallFileThread(device_id, package_path)
                     self.main_window.install_file_thread.progress_signal.connect(self.textBrowser.append)
                     self.main_window.install_file_thread.signal_status.connect(self.textBrowser.append)
                     self.main_window.install_file_thread.start()

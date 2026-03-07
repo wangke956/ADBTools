@@ -522,6 +522,7 @@ class ADBUtils:
     def aapt_get_package_name(cls, apk_path):
         """使用aapt获取APK包名 - 从 ADB_module.py 移入"""
         import shutil
+        import re
         
         # 查找aapt工具
         aapt_path = shutil.which("aapt")
@@ -539,10 +540,10 @@ class ADBUtils:
         if not aapt_path:
             return "获取包名失败: 未找到aapt工具"
         
-        command = f'dump badging "{apk_path}"'
         try:
+            # 使用列表形式传递参数，避免路径解析问题
             result = subprocess.run(
-                [aapt_path] + command.split(),
+                [aapt_path, 'dump', 'badging', apk_path],
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
@@ -553,7 +554,6 @@ class ADBUtils:
                 for line in result.stdout.split('\n'):
                     if "package: name=" in line:
                         # 提取包名
-                        import re
                         match = re.search(r"name='([^']+)'", line)
                         if match:
                             return match.group(1)

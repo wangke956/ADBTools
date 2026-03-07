@@ -41,6 +41,12 @@ class InputOperationsManager:
                 logger.info(f"输入文本: {text}")
                 
                 try:
+                    # 检查连接状态
+                    if self.main_window.connection_mode == 'u2':
+                        if not self.main_window.d:
+                            self.main_window.connection_mode = 'adb'
+                            self.textBrowser.append("U2连接不可用，切换到ADB模式")
+                    
                     if self.main_window.connection_mode == 'u2' and self.main_window.d:
                         self.main_window.d.send_keys(text)
                         self.textBrowser.append(f"已输入文本: {text}")

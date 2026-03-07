@@ -19,22 +19,22 @@ class InstallFileThread(QThread):
     progress_signal = pyqtSignal(int)
     signal_status = pyqtSignal(str)
 
-    def __init__(self, d, package_path):
+    def __init__(self, device_id, package_path):
         super().__init__()
-        self.d = d
+        self.device_id = device_id
         self.package_path = package_path
-        logger.info(f"安装文件线程初始化: {package_path}")
+        logger.info(f"安装文件线程初始化: {package_path}, 设备: {device_id}")
 
     def run(self):
         logger.info("=" * 80)
         logger.info("开始安装应用")
         logger.info("=" * 80)
         logger.info(f"APK路径: {self.package_path}")
-        logger.info(f"设备: {self.d if self.d else 'N/A'}")
+        logger.info(f"设备ID: {self.device_id}")
         
         log_operation("install_apk", {
             "package_path": self.package_path,
-            "device": str(self.d) if self.d else None
+            "device_id": self.device_id
         })
         
         # 使用性能监控
@@ -43,8 +43,8 @@ class InstallFileThread(QThread):
                 self.signal_status.emit("正在开始安装...")
                 logger.info("发送状态信号: 正在开始安装...")
                 
-                # 构建安装命令
-                install_cmd = ["adb", "install", "-r", self.package_path]
+                # 构建安装命令，使用 -s 指定设备
+                install_cmd = ["adb", "-s", self.device_id, "install", "-r", self.package_path]
                 logger.info(f"执行安装命令: {' '.join(install_cmd)}")
                 
                 result = subprocess.run(

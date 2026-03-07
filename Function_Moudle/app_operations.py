@@ -303,8 +303,8 @@ class AppOperationsManager:
             logger.info(f"选择APK: {apk_path}")
             
             try:
-                import adb_utils
-                package_name = adb_utils.aapt_get_package_name(apk_path)
+                from adb_utils import ADBUtils
+                package_name = ADBUtils.aapt_get_package_name(apk_path)
                 
                 if package_name:
                     self.textBrowser.append(f"包名: {package_name}")
@@ -333,6 +333,12 @@ class AppOperationsManager:
                 logger.info("用户取消输入")
                 return
             
+            if not package_name or not package_name.strip():
+                logger.info("包名为空，跳过查询")
+                self.textBrowser.append("包名不能为空！")
+                return
+            
+            package_name = package_name.strip()
             logger.info(f"查看APK路径: {package_name}")
             
             try:
@@ -340,6 +346,7 @@ class AppOperationsManager:
                 self.main_window.view_apk_thread = ViewApkPathWrapperThread(device_id, package_name)
                 self.main_window.view_apk_thread.progress_signal.connect(self.textBrowser.append)
                 self.main_window.view_apk_thread.result_signal.connect(self.textBrowser.append)
+                self.main_window.view_apk_thread.error_signal.connect(self.textBrowser.append)
                 self.main_window.view_apk_thread.start()
                 
                 log_method_result("view_apk_path_wrapper", True, f"查询线程已启动: {package_name}")
@@ -351,30 +358,23 @@ class AppOperationsManager:
             self.textBrowser.append("设备未连接！")
     
     def app_version_check(self):
-        """应用版本检查"""
-        device_id = self.main_window.get_selected_device()
-        devices_id_lst = self.main_window.get_new_device_lst()
-        
+        """应用版本检查 - 读取本地集成清单文件，不需要设备连接"""
         log_button_click("start_check_button", "检查应用版本", f"集成清单: {self.main_window.releasenote_file}")
 
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.app_version_check_thread import AppVersionCheckThread
-                self.main_window.releasenote_dict = {}
-                self.main_window.app_version_check_thread = AppVersionCheckThread(
-                    None, self.main_window.releasenote_file
-                )
-                self.main_window.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
-                self.main_window.app_version_check_thread.error_signal.connect(self.textBrowser.append)
-                self.main_window.app_version_check_thread.release_note_signal.connect(
-                    self.main_window.handle_progress
-                )
-                self.main_window.app_version_check_thread.start()
-                
-                log_method_result("app_version_check", True, "版本检查线程已启动")
-            except Exception as e:
-                log_method_result("app_version_check", False, str(e))
-                self.textBrowser.append(f"启动版本检查线程失败: {e}")
-        else:
-            log_method_result("app_version_check", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        try:
+            from Function_Moudle.app_version_check_thread import AppVersionCheckThread
+            self.main_window.releasenote_dict = {}
+            self.main_window.app_version_check_thread = AppVersionCheckThread(
+                None, self.main_window.releasenote_file
+            )
+            self.main_window.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
+            self.main_window.app_version_check_thread.error_signal.connect(self.textBrowser.append)
+            self.main_window.app_version_check_thread.release_note_signal.connect(
+                self.main_window.handle_progress
+            )
+            self.main_window.app_version_check_thread.start()
+            
+            log_method_result("app_version_check", True, "版本检查线程已启动")
+        except Exception as e:
+            log_method_result("app_version_check", False, str(e))
+            self.textBrowser.append(f"启动版本检查线程失败: {e}")
