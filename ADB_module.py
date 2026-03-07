@@ -711,7 +711,7 @@ class ADB_Mainwindow(QMainWindow):
                         version_name = app_info.get('versionName', '未知版本')
                     elif self.connection_mode == 'adb':
                         # 使用ADB命令获取应用版本信息
-                        from Function_Moudle.adb_utils import get_app_version
+                        from Function_Moudle.adb_device_utils import get_app_version
                         version_success, version_info = get_app_version(device_id, i)
                         if not version_success:
                             self.textBrowser.append(f"应用 {i} 版本信息获取失败: {version_info}")

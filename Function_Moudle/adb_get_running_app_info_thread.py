@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QThread, pyqtSignal
-from Function_Moudle.adb_utils import get_foreground_app_info, get_app_version
+from Function_Moudle.adb_device_utils import get_foreground_app_info, get_app_version
 
 class ADBGetRunningAppInfoThread(QThread):
     progress_signal = pyqtSignal(str)

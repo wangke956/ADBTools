@@ -18,7 +18,7 @@ class ADBClearAppCacheThread(QThread):
                 return
             
             # 检查设备连接
-            from Function_Moudle.adb_utils import check_device_connection
+            from Function_Moudle.adb_device_utils import check_device_connection
             is_connected, error_msg = check_device_connection(self.device_id)
             if not is_connected:
                 self.error_signal.emit(error_msg)
