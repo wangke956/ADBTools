@@ -15,6 +15,11 @@ class ClearAppCacheThread(QThread):
     def run(self):
         """执行清除应用缓存操作"""
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.error_signal.emit("设备连接无效，无法清除缓存")
+                return
+            
             if not self.package_name:
                 error_msg = "未指定应用包名"
                 self.error_signal.emit(error_msg)

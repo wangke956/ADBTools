@@ -13,6 +13,11 @@ class ShowUninstallThread(QThread):
 
     def run(self):
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.error_signal.emit("设备连接无效，无法卸载应用")
+                return
+            
             self.progress_signal.emit("正在卸载...")
             self.d.app_uninstall(self.package_name)
             self.result_signal.emit("卸载完成!")

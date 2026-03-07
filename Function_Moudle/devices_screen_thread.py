@@ -11,6 +11,11 @@ class DevicesScreenThread(QThread):
     def run(self):
         # 请使用uiautomator2中的screenshot()方法截取当前屏幕
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.signal.emit("设备连接无效，无法截图")
+                return
+            
             self.d.screenshot(f"{self.file_path}")
             self.signal.emit(f"已保存截图到：{self.file_path}")
         except Exception as e:

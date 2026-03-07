@@ -13,6 +13,11 @@ class ForceStopAppThread(QThread):
 
     def run(self):
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.error_signal.emit("设备连接无效，无法停止应用")
+                return
+            
             if not self.package_name:
                 self.error_signal.emit("未指定应用包名")
                 return

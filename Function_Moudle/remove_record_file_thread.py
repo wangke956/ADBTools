@@ -13,6 +13,11 @@ class RemoveRecordFileThread(QThread):
 
     def run(self):
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.signal_remove_voice_record_file.emit("设备连接无效，无法删除录音文件")
+                return
+            
             self.signal_remove_voice_record_file.emit('正在删除录音文件...')
             # command = f'start cmd /k "adb -s {self.device_id}shell rm -rf /vr/speech/assistant/files/tmp/audioDump"'
             res = self.d.shell(f'rm -rf {self.device_record_file_path}')

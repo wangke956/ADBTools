@@ -34,6 +34,11 @@ class ListPackageThread(QThread):
 
     def run(self):
         try:
+            # 检查设备连接是否有效
+            if self.device is None:
+                self.error_signal.emit("设备连接无效，无法获取应用列表")
+                return
+            
             app_list = self.device.app_list(self.findstr)
             total_apps = len(app_list)
 

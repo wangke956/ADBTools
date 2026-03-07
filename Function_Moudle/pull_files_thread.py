@@ -12,6 +12,11 @@ class PullFilesThread(QThread):
 
     def run(self):
         try:
+            # 检查设备连接是否有效
+            if self.d is None:
+                self.signal.emit("设备连接无效，无法拉取文件")
+                return
+            
             self.d.pull(self.device_files_path, self.local_files_path)
             self.signal.emit(self.device_files_path)
             self.signal.emit(self.local_files_path)
