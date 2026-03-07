@@ -84,28 +84,61 @@ def get_foreground_app_info(device_id):
         if not is_connected:
             return False, error_msg
         
-        # 尝试多种方法获取前台应用
-        commands = [
-            f"adb -s {device_id} shell dumpsys activity activities | grep 'mCurrentFocus'",
-            f"adb -s {device_id} shell dumpsys window windows | grep 'mCurrentFocus'",
-            f"adb -s {device_id} shell dumpsys activity | grep 'mFocusedActivity'",
-        ]
+        # 方法1: 使用 dumpsys activity top (更可靠)
+        command = f"adb -s {device_id} shell dumpsys activity top"
+        result = safe_subprocess_run(command, capture_output=True, text=True, timeout=30)
         
-        for command in commands:
-            result = safe_subprocess_run(command, capture_output=True, text=True, timeout=10)
-            if result.returncode == 0 and result.stdout.strip():
-                focus_info = result.stdout.strip()
-                if focus_info and ('mCurrentFocus' in focus_info or 'mFocusedActivity' in focus_info):
-                    # 解析包名和活动名
-                    package_match = re.search(r'\{([^}]+)\}', focus_info)
-                    if package_match:
-                        package_info = package_match.group(1)
-                        parts = package_info.split('/')
-                        package_name = parts[0]
-                        activity_name = parts[1] if len(parts) > 1 else ""
-                        return True, f"包名: {package_name}, 活动名: {activity_name}"
+        focus_info = None
+        if result.returncode == 0 and result.stdout:
+            # 在 Python 中过滤包含 ACTIVITY 的行
+            for line in result.stdout.split('\n'):
+                if 'ACTIVITY' in line:
+                    focus_info = line.strip()
+                    break
         
-        return False, "无法获取前台应用信息"
+        # 方法2: 如果方法1失败，尝试 dumpsys window
+        if not focus_info:
+            command2 = f"adb -s {device_id} shell dumpsys window windows"
+            result2 = safe_subprocess_run(command2, capture_output=True, text=True, timeout=30)
+            
+            if result2.returncode == 0 and result2.stdout:
+                for line in result2.stdout.split('\n'):
+                    if 'mCurrentFocus' in line or 'mFocusedApp' in line:
+                        focus_info = line.strip()
+                        break
+        
+        if not focus_info:
+            return False, "无法获取前台应用信息"
+        
+        # 解析包名和活动名
+        package_name = None
+        activity_name = None
+        
+        # 尝试匹配 ACTIVITY 格式
+        activity_match = re.search(r'ACTIVITY\s+(\S+)', focus_info)
+        if activity_match:
+            full_name = activity_match.group(1)
+            if '/' in full_name:
+                parts = full_name.split('/')
+                package_name = parts[0]
+                activity_name = parts[1] if len(parts) > 1 else ""
+            else:
+                package_name = full_name
+        
+        # 尝试匹配 mCurrentFocus 格式
+        if not package_name:
+            focus_match = re.search(r'\{[^}]*\s+(\S+)/(\S*)\}', focus_info)
+            if focus_match:
+                package_name = focus_match.group(1)
+                activity_name = focus_match.group(2) if focus_match.group(2) else ""
+        
+        if package_name:
+            if activity_name:
+                return True, f"包名: {package_name}, 活动名: {activity_name}"
+            else:
+                return True, f"包名: {package_name}"
+        
+        return False, "无法解析前台应用信息"
         
     except subprocess.TimeoutExpired:
         return False, "获取前台应用信息超时"
