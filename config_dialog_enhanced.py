@@ -17,6 +17,8 @@ import json
 import copy
 from datetime import datetime
 
+from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
+
 try:
     from config_manager_enhanced import enhanced_config_manager as config_manager
     from config_manager_enhanced import ConfigBackupManager
@@ -37,6 +39,9 @@ class EnhancedConfigDialog(QDialog):
         self.setMinimumWidth(800)
         self.setMinimumHeight(600)
         
+        # 应用统一样式
+        apply_dialog_style(self)
+        
         # 备份管理器
         self.backup_manager = ConfigBackupManager(config_manager)
         
@@ -56,6 +61,8 @@ class EnhancedConfigDialog(QDialog):
     def init_ui(self):
         """初始化UI"""
         main_layout = QVBoxLayout()
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(15, 15, 15, 15)
         
         # 创建主分割器
         splitter = QSplitter(Qt.Horizontal)
@@ -94,9 +101,7 @@ class EnhancedConfigDialog(QDialog):
         # 状态栏
         status_layout = QHBoxLayout()
         self.status_label = QLabel("就绪")
-        self.status_label.setStyleSheet("color: gray;")
         self.modified_label = QLabel("")
-        self.modified_label.setStyleSheet("color: red; font-weight: bold;")
         
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
@@ -175,14 +180,17 @@ class EnhancedConfigDialog(QDialog):
         """创建通用编辑页面"""
         page = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 标题
         self.edit_title = QLabel("选择配置项进行编辑")
-        self.edit_title.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        self.edit_title.setStyleSheet(TITLE_LABEL_STYLE)
         layout.addWidget(self.edit_title)
         
         # 编辑表单
         self.edit_form = QFormLayout()
+        self.edit_form.setSpacing(6)
         layout.addLayout(self.edit_form)
         
         # 占位符
@@ -195,10 +203,12 @@ class EnhancedConfigDialog(QDialog):
         """创建JSON编辑页面"""
         page = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 标题
         json_title = QLabel("JSON编辑器 (直接编辑配置)")
-        json_title.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        json_title.setStyleSheet(TITLE_LABEL_STYLE)
         layout.addWidget(json_title)
         
         # JSON编辑器
@@ -229,10 +239,12 @@ class EnhancedConfigDialog(QDialog):
         """创建备份管理页面"""
         page = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 标题
         backup_title = QLabel("配置备份管理")
-        backup_title.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        backup_title.setStyleSheet(TITLE_LABEL_STYLE)
         layout.addWidget(backup_title)
         
         # 备份列表
@@ -271,10 +283,12 @@ class EnhancedConfigDialog(QDialog):
         """创建验证页面"""
         page = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 标题
         validation_title = QLabel("配置验证")
-        validation_title.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        validation_title.setStyleSheet(TITLE_LABEL_STYLE)
         layout.addWidget(validation_title)
         
         # 验证结果
@@ -493,8 +507,10 @@ class EnhancedConfigDialog(QDialog):
         """更新修改标签"""
         if self.modified:
             self.modified_label.setText("已修改")
+            self.modified_label.setStyleSheet("color: #e06060; font-weight: bold;")
         else:
             self.modified_label.setText("")
+            self.modified_label.setStyleSheet("")
     
     def load_json_editor(self):
         """加载JSON到编辑器"""
@@ -611,8 +627,12 @@ class EnhancedConfigDialog(QDialog):
             dialog = QDialog(self)
             dialog.setWindowTitle(f"查看备份: {os.path.basename(backup_path)}")
             dialog.setMinimumSize(600, 400)
+            apply_dialog_style(dialog)
             
             layout = QVBoxLayout()
+            layout.setSpacing(8)
+            layout.setContentsMargins(15, 15, 15, 15)
+            
             text_edit = QTextEdit()
             text_edit.setPlainText(content)
             text_edit.setReadOnly(True)
@@ -639,19 +659,19 @@ class EnhancedConfigDialog(QDialog):
             output = "配置验证结果:\n\n"
             
             if result["errors"]:
-                output += "❌ 错误:\n"
+                output += "[错误]:\n"
                 for error in result["errors"]:
-                    output += f"  • {error}\n"
+                    output += f"  - {error}\n"
                 output += "\n"
             
             if result["warnings"]:
-                output += "⚠️ 警告:\n"
+                output += "[警告]:\n"
                 for warning in result["warnings"]:
-                    output += f"  • {warning}\n"
+                    output += f"  - {warning}\n"
                 output += "\n"
             
             if not result["errors"] and not result["warnings"]:
-                output += "✅ 配置验证通过，没有发现问题。\n"
+                output += "[成功] 配置验证通过，没有发现问题。\n"
             
             self.validation_result.setPlainText(output)
             self.status_label.setText("验证完成")

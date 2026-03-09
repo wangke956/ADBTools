@@ -11,6 +11,8 @@ import sys
 import threading
 import time
 
+from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
+
 try:
     from config_manager import config_manager
 except ImportError:
@@ -351,6 +353,9 @@ class ConfigDialog(QDialog):
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
         
+        # 应用统一样式
+        apply_dialog_style(self)
+        
         # 任务ID跟踪
         self._current_tasks = {
             'status_check': None,
@@ -372,6 +377,8 @@ class ConfigDialog(QDialog):
     def init_ui(self):
         """初始化UI"""
         layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
         
         # 创建标签页
         self.tab_widget = QTabWidget()
@@ -396,6 +403,7 @@ class ConfigDialog(QDialog):
         
         # 按钮
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(8)
         
         self.test_adb_button = QPushButton("测试ADB (多线程)")
         self.test_adb_button.clicked.connect(self.test_adb)
@@ -423,10 +431,13 @@ class ConfigDialog(QDialog):
         """创建ADB配置标签页"""
         tab = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # ADB路径组
         adb_group = QGroupBox("ADB路径设置 (高性能多线程)")
         adb_layout = QFormLayout()
+        adb_layout.setSpacing(6)
         
         # 自定义ADB路径
         self.adb_path_edit = QLineEdit()
@@ -445,12 +456,11 @@ class ConfigDialog(QDialog):
         
         # 当前ADB状态
         self.adb_status_label = QLabel("ADB状态: 等待检查...")
-        self.adb_status_label.setStyleSheet("font-weight: bold;")
         adb_layout.addRow("状态:", self.adb_status_label)
         
         # 性能信息
         self.performance_label = QLabel("线程池: 就绪 | 缓存: 0")
-        self.performance_label.setStyleSheet("color: gray; font-size: 10pt;")
+        self.performance_label.setStyleSheet("color: #909090;")
         adb_layout.addRow("性能:", self.performance_label)
         
         adb_group.setLayout(adb_layout)
@@ -462,7 +472,6 @@ class ConfigDialog(QDialog):
         
         self.search_paths_text = QLabel("点击'扫描ADB路径'按钮开始多线程扫描")
         self.search_paths_text.setWordWrap(True)
-        self.search_paths_text.setStyleSheet("background-color: #f0f0f0; padding: 5px;")
         search_layout.addWidget(self.search_paths_text)
         
         search_group.setLayout(search_layout)
@@ -476,9 +485,12 @@ class ConfigDialog(QDialog):
         """创建UI配置标签页"""
         tab = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         ui_group = QGroupBox("界面设置")
         ui_layout = QFormLayout()
+        ui_layout.setSpacing(6)
         
         # 主题
         self.theme_combo = QComboBox()
@@ -507,9 +519,12 @@ class ConfigDialog(QDialog):
         """创建设备配置标签页"""
         tab = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         devices_group = QGroupBox("设备设置")
         devices_layout = QFormLayout()
+        devices_layout.setSpacing(6)
         
         # 自动刷新
         self.auto_refresh_check = QCheckBox("自动刷新设备列表")
@@ -536,13 +551,16 @@ class ConfigDialog(QDialog):
         """创建性能监控标签页"""
         tab = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 线程池状态
         pool_group = QGroupBox("线程池状态")
         pool_layout = QVBoxLayout()
+        pool_layout.setSpacing(4)
         
         self.thread_pool_status = QLabel("线程池: 初始化中...")
-        self.thread_pool_status.setStyleSheet("font-weight: bold; color: blue;")
+        self.thread_pool_status.setStyleSheet("color: #5a9bd5; font-weight: bold;")
         pool_layout.addWidget(self.thread_pool_status)
         
         self.active_threads_label = QLabel("活动线程: 0")
@@ -560,6 +578,7 @@ class ConfigDialog(QDialog):
         # 性能统计
         stats_group = QGroupBox("性能统计")
         stats_layout = QVBoxLayout()
+        stats_layout.setSpacing(4)
         
         self.status_check_time = QLabel("状态检查平均时间: -- ms")
         stats_layout.addWidget(self.status_check_time)
@@ -575,6 +594,7 @@ class ConfigDialog(QDialog):
         
         # 控制按钮
         control_layout = QHBoxLayout()
+        control_layout.setSpacing(8)
         
         self.clear_cache_button = QPushButton("清除缓存")
         self.clear_cache_button.clicked.connect(self.clear_cache)
@@ -622,7 +642,6 @@ class ConfigDialog(QDialog):
         
         # 设置初始ADB状态
         self.adb_status_label.setText("ADB状态: 检查中...")
-        self.adb_status_label.setStyleSheet("color: gray; font-weight: bold;")
     
     def start_adb_status_check(self, force_refresh=False):
         """启动ADB状态检查（高性能多线程版）"""
@@ -636,7 +655,7 @@ class ConfigDialog(QDialog):
         
         # 更新UI
         self.adb_status_label.setText("ADB状态: 检查中...")
-        self.adb_status_label.setStyleSheet("color: blue; font-weight: bold;")
+        self.adb_status_label.setStyleSheet("color: #5a9bd5;")
     
     def test_adb(self):
         """测试ADB连接（高性能多线程版）"""
@@ -662,7 +681,7 @@ class ConfigDialog(QDialog):
         
         # 更新UI
         self.adb_status_label.setText("ADB测试: 进行中...")
-        self.adb_status_label.setStyleSheet("color: orange; font-weight: bold;")
+        self.adb_status_label.setStyleSheet("color: #d0a060;")
     
     def scan_adb_paths(self):
         """扫描ADB路径（高性能多线程版）"""
@@ -682,10 +701,11 @@ class ConfigDialog(QDialog):
         
         # 更新UI
         self.search_paths_text.setText("ADB路径扫描中...")
-        self.search_paths_text.setStyleSheet("background-color: #fff0cc; padding: 5px;")
     
     def _check_task_status(self):
         """检查任务状态（定时调用）"""
+        from Function_Moudle.dialog_styles import SUCCESS_STYLE, ERROR_STYLE
+        
         # 检查ADB状态任务
         if self._current_tasks['status_check']:
             status = thread_pool.get_task_status(self._current_tasks['status_check'])
@@ -694,7 +714,9 @@ class ConfigDialog(QDialog):
                     result = status['result']
                     self.adb_status_label.setText(result['status'])
                     color = result.get('color', 'black')
-                    self.adb_status_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+                    # 使用统一颜色
+                    color_map = {'green': SUCCESS_STYLE, 'red': ERROR_STYLE, 'orange': 'color: #d0a060;', 'blue': 'color: #5a9bd5;'}
+                    self.adb_status_label.setStyleSheet(color_map.get(color, ''))
                 self._current_tasks['status_check'] = None
         
         # 检查ADB测试任务
@@ -706,11 +728,11 @@ class ConfigDialog(QDialog):
                     if result['success']:
                         QMessageBox.information(self, "成功", result['message'])
                         self.adb_status_label.setText("ADB状态: 测试成功")
-                        self.adb_status_label.setStyleSheet("color: green; font-weight: bold;")
+                        self.adb_status_label.setStyleSheet(SUCCESS_STYLE)
                     else:
                         QMessageBox.warning(self, "警告", result['message'])
                         self.adb_status_label.setText("ADB状态: 测试失败")
-                        self.adb_status_label.setStyleSheet("color: red; font-weight: bold;")
+                        self.adb_status_label.setStyleSheet(ERROR_STYLE)
                 
                 # 恢复按钮状态
                 self.test_adb_button.setEnabled(True)
@@ -728,25 +750,24 @@ class ConfigDialog(QDialog):
                     if result.get('system_paths'):
                         paths_text += "系统PATH中的adb:\n"
                         for path in result['system_paths']:
-                            paths_text += f"  • {path}\n"
+                            paths_text += f"  - {path}\n"
                         paths_text += "\n"
                     
                     if result.get('common_paths'):
                         paths_text += "常见Android SDK路径:\n"
                         for path in result['common_paths']:
-                            paths_text += f"  • {path}\n"
+                            paths_text += f"  - {path}\n"
                         paths_text += "\n"
                     
                     if result.get('local_paths'):
                         paths_text += "程序同目录路径:\n"
                         for path in result['local_paths']:
-                            paths_text += f"  • {path}\n"
+                            paths_text += f"  - {path}\n"
                     
                     if not result.get('system_paths') and not result.get('common_paths') and not result.get('local_paths'):
                         paths_text = "未找到任何ADB路径"
                     
                     self.search_paths_text.setText(paths_text)
-                    self.search_paths_text.setStyleSheet("background-color: #f0f0f0; padding: 5px;")
                 
                 # 恢复按钮状态
                 self.scan_paths_button.setEnabled(True)
@@ -794,7 +815,7 @@ class ConfigDialog(QDialog):
         
         info += f"活动任务 ({len(active_tasks)}):\n"
         for task_id in active_tasks:
-            info += f"  • {task_id}\n"
+            info += f"  - {task_id}\n"
         
         info += f"\n任务队列: {len(thread_pool._task_queue)} 个任务等待\n"
         info += f"最大工作线程: {thread_pool._max_workers}\n"

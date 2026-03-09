@@ -148,6 +148,7 @@ class ADB_Mainwindow(QMainWindow):
         try:
             # 尝试从当前目录加载
             uic.loadUi('adbtool.ui', self)
+            # uic.loadUi('adbtool_modern.ui', self)
         except Exception as e:
             print(f"加载 adbtool.ui 失败: {e}")
             # 尝试从项目根目录加载
@@ -213,7 +214,7 @@ class ADB_Mainwindow(QMainWindow):
         self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
         self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
         self.adb_root_button.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
-        self.start_app.clicked.connect(self.start_app_action)  # 启动应用
+        self.start_app.clicked.connect(self.app_operations.show_start_app_dialog)  # 启动应用
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
@@ -264,6 +265,9 @@ class ADB_Mainwindow(QMainWindow):
                 self.reinit_u2_button.clicked.connect(self.reinit_uiautomator2)
         except Exception:
             pass
+        
+        # ========== 侧边栏导航按钮绑定 ==========
+        self._init_navigation_buttons()
         
         # 添加配置菜单
         self.add_config_menu()
@@ -327,6 +331,79 @@ class ADB_Mainwindow(QMainWindow):
                 
         except Exception as e:
             print(f"初始化大通页面布局时出错: {e}")
+
+    def _init_navigation_buttons(self):
+        """初始化侧边栏导航按钮"""
+        from PyQt5 import QtWidgets
+        
+        # 导航按钮名称列表（对应UI中的按钮名称）
+        self.nav_buttons = []
+        self.nav_button_names = [
+            'nav_adb_button',        # ADB工具
+            'nav_datong_button',     # 大通项目
+            'nav_cr_button',         # CR项目
+            'nav_pulllog_button',    # Pull Log
+            'nav_internet_button',   # 网联版项目
+            'nav_voice_button',      # 语音相关
+            'nav_checkversion_button' # 集成版本检查
+        ]
+        
+        # 获取所有导航按钮
+        for name in self.nav_button_names:
+            btn = self.findChild(QtWidgets.QPushButton, name)
+            if btn:
+                self.nav_buttons.append(btn)
+        
+        # 绑定点击事件
+        for index, btn in enumerate(self.nav_buttons):
+            btn.clicked.connect(lambda checked, idx=index: self._on_nav_button_clicked(idx))
+        
+        # 默认选中第一个按钮
+        if self.nav_buttons:
+            self._update_nav_button_style(0)
+    
+    def _on_nav_button_clicked(self, index):
+        """导航按钮点击事件处理"""
+        # 切换tabWidget页面
+        if hasattr(self, 'tabWidget') and self.tabWidget:
+            self.tabWidget.setCurrentIndex(index)
+        
+        # 更新按钮样式
+        self._update_nav_button_style(index)
+    
+    def _update_nav_button_style(self, active_index):
+        """更新导航按钮的选中状态样式"""
+        active_style = """QPushButton {
+    background: #3d5a80;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    text-align: left;
+    padding-left: 10px;
+}
+QPushButton:hover {
+    background: #5a7ba8;
+    border: 1px solid #8ab4f8;
+}"""
+        
+        inactive_style = """QPushButton {
+    background: transparent;
+    color: #909090;
+    border: none;
+    border-radius: 6px;
+    text-align: left;
+    padding-left: 10px;
+}
+QPushButton:hover {
+    background: rgba(61, 90, 128, 0.3);
+    color: #b0c4de;
+}"""
+        
+        for i, btn in enumerate(self.nav_buttons):
+            if i == active_index:
+                btn.setStyleSheet(active_style)
+            else:
+                btn.setStyleSheet(inactive_style)
 
     def add_config_menu(self):
         """添加配置菜单"""
@@ -409,7 +486,8 @@ class ADB_Mainwindow(QMainWindow):
 
     def handle_update_available(self, update_info):
         """处理有更新可用的信号"""
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+        from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
         
         current_version = update_info.get('current_version', '未知')
         latest_version = update_info.get('latest_version', '未知')
@@ -485,13 +563,19 @@ class ADB_Mainwindow(QMainWindow):
             # 有安装文件可用，提供更多选项
             if setup_file:
                 # 创建自定义对话框
-                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
-                
                 dialog = QDialog(self)
                 dialog.setWindowTitle("发现新版本")
-                dialog.setMinimumWidth(400)
+                dialog.setMinimumWidth(450)
+                apply_dialog_style(dialog)
                 
                 layout = QVBoxLayout()
+                layout.setSpacing(10)
+                layout.setContentsMargins(20, 20, 20, 20)
+                
+                # 标题
+                title_label = QLabel("发现新版本")
+                title_label.setStyleSheet(TITLE_LABEL_STYLE)
+                layout.addWidget(title_label)
                 
                 # 消息标签
                 msg_label = QLabel(message)
@@ -500,6 +584,7 @@ class ADB_Mainwindow(QMainWindow):
                 
                 # 按钮布局
                 button_layout = QHBoxLayout()
+                button_layout.setSpacing(8)
                 
                 # 自动下载并安装按钮
                 auto_download_btn = QPushButton("自动下载并安装")

@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTextEdit,
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
 from logger_manager import get_logger
+from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE, SUCCESS_STYLE, ERROR_STYLE
 
 logger = get_logger("ADBTools.U2ReinitDialog")
 
@@ -28,6 +29,9 @@ class U2ReinitDialog(QDialog):
         self.setModal(True)
         self.setWindowFlags(Qt.Window | Qt.WindowTitleHint | Qt.CustomizeWindowHint)
         
+        # 应用统一样式
+        apply_dialog_style(self)
+        
         # 创建UI
         self._init_ui()
         
@@ -41,19 +45,9 @@ class U2ReinitDialog(QDialog):
         
         # 标题
         title_label = QLabel("uiautomator2 重新初始化")
-        title_font = QFont()
-        title_font.setPointSize(12)
-        title_font.setBold(True)
-        title_label.setFont(title_font)
+        title_label.setStyleSheet(TITLE_LABEL_STYLE)
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
-        
-        # 分隔线
-        from PyQt5.QtWidgets import QFrame
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-        layout.addWidget(line)
         
         # 进度显示区域
         self.progress_text = QTextEdit()
@@ -110,10 +104,10 @@ class U2ReinitDialog(QDialog):
         Args:
             error_message: 错误消息
         """
-        self.progress_text.append(f"\n❌ 错误: {error_message}")
+        self.progress_text.append(f"\n[错误] {error_message}")
         self.progress_bar.setRange(0, 1)  # 停止进度条
         self.status_label.setText("初始化失败")
-        self.status_label.setStyleSheet("color: red;")
+        self.status_label.setStyleSheet(ERROR_STYLE)
         self.close_button.setEnabled(True)
         
         logger.error(f"初始化失败: {error_message}")
@@ -125,11 +119,11 @@ class U2ReinitDialog(QDialog):
         Args:
             success_message: 成功消息
         """
-        self.progress_text.append(f"\n✓ {success_message}")
+        self.progress_text.append(f"\n[成功] {success_message}")
         self.progress_bar.setRange(0, 1)  # 停止进度条
         self.progress_bar.setValue(1)
         self.status_label.setText("初始化成功")
-        self.status_label.setStyleSheet("color: green;")
+        self.status_label.setStyleSheet(SUCCESS_STYLE)
         self.close_button.setEnabled(True)
         
         logger.info(f"初始化成功: {success_message}")
@@ -139,11 +133,11 @@ class U2ReinitDialog(QDialog):
         self.progress_text.clear()
         self.progress_bar.setRange(0, 0)  # 不确定进度
         self.status_label.setText("正在初始化...")
-        self.status_label.setStyleSheet("color: black;")
+        self.status_label.setStyleSheet("")
         self.close_button.setEnabled(False)
-        self.progress_text.append("=" * 60)
+        self.progress_text.append("=" * 50)
         self.progress_text.append("开始重新初始化 uiautomator2 服务")
-        self.progress_text.append("=" * 60)
+        self.progress_text.append("=" * 50)
     
     def closeEvent(self, event):
         """关闭事件"""

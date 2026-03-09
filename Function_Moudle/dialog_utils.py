@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QFileDialog, QMessageBox
 )
 from PyQt5.QtCore import Qt
+from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
 
 
 class ApkMultiSelectDialog(QDialog):
@@ -20,6 +21,9 @@ class ApkMultiSelectDialog(QDialog):
         self.selected_files = []
         self.folder_path = folder_path
         
+        # 应用统一样式
+        apply_dialog_style(self)
+        
         # 获取APK文件列表
         self.apk_files = [f for f in os.listdir(folder_path) if f.endswith('.apk')]
         
@@ -28,9 +32,13 @@ class ApkMultiSelectDialog(QDialog):
     def _init_ui(self):
         """初始化UI"""
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(15, 15, 15, 15)
         
         # 标签
-        layout.addWidget(QLabel(f"从 {len(self.apk_files)} 个APK文件中选择:"))
+        title_label = QLabel(f"从 {len(self.apk_files)} 个APK文件中选择:")
+        title_label.setStyleSheet(TITLE_LABEL_STYLE)
+        layout.addWidget(title_label)
         
         # 文件列表
         self.file_list = QListWidget(self)
@@ -45,6 +53,7 @@ class ApkMultiSelectDialog(QDialog):
         
         # 按钮布局
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(8)
         
         select_all_btn = QPushButton("全选")
         select_all_btn.clicked.connect(self._select_all)
@@ -58,7 +67,9 @@ class ApkMultiSelectDialog(QDialog):
         clear_btn.clicked.connect(self._clear_selection)
         button_layout.addWidget(clear_btn)
         
-        confirm_btn = QPushButton("确认选择")
+        button_layout.addStretch()
+        
+        confirm_btn = QPushButton("确认")
         confirm_btn.clicked.connect(self.accept)
         button_layout.addWidget(confirm_btn)
         

@@ -8,6 +8,8 @@ import sys
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
+
 
 class DownloadDialog(QDialog):
     """下载更新对话框"""
@@ -19,6 +21,10 @@ class DownloadDialog(QDialog):
         self.update_info = update_info
         self.download_thread = None
         self.downloaded_file_path = None
+        
+        # 应用统一样式
+        apply_dialog_style(self)
+        
         self.setup_ui()
         
     def setup_ui(self):
@@ -29,10 +35,13 @@ class DownloadDialog(QDialog):
         
         # 主布局
         main_layout = QVBoxLayout()
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(20, 20, 20, 20)
         
         # 标题
         title_label = QLabel("下载新版本")
-        title_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        title_label.setStyleSheet(TITLE_LABEL_STYLE)
+        title_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(title_label)
         
         # 版本信息
@@ -40,6 +49,7 @@ class DownloadDialog(QDialog):
             version_text = f"当前版本: v{self.update_info.get('current_version', '未知')}\n"
             version_text += f"最新版本: v{self.update_info.get('latest_version', '未知')}"
             version_label = QLabel(version_text)
+            version_label.setAlignment(Qt.AlignCenter)
             main_layout.addWidget(version_label)
             
             # 更新说明
@@ -60,6 +70,7 @@ class DownloadDialog(QDialog):
         # 状态标签
         self.status_label = QLabel("准备下载...")
         self.status_label.setWordWrap(True)
+        self.status_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.status_label)
         
         # 详细日志

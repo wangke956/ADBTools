@@ -22,6 +22,28 @@ class AppOperationsManager:
     def textBrowser(self):
         return self.main_window.textBrowser
     
+    def show_start_app_dialog(self):
+        """显示启动应用对话框"""
+        device_id = self.main_window.get_selected_device()
+        devices_id_lst = self.main_window.get_new_device_lst()
+        
+        log_button_click("start_app_button", "启动应用")
+
+        if device_id in devices_id_lst:
+            package_name, ok = QInputDialog.getText(
+                self.main_window, "输入包名", "请输入要启动的应用包名："
+            )
+            if ok and package_name:
+                package_name = package_name.strip()
+                if package_name:
+                    self.start_app_action(package_name)
+                else:
+                    self.textBrowser.append("包名不能为空！")
+            else:
+                logger.info("用户取消输入或输入为空")
+        else:
+            self.textBrowser.append("设备未连接！")
+
     def start_app_action(self, app_name):
         """启动应用"""
         device_id = self.main_window.get_selected_device()
