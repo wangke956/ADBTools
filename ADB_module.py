@@ -418,6 +418,11 @@ QPushButton:hover {
         config_action.triggered.connect(self.open_enhanced_config_dialog)
         settings_menu.addAction(config_action)
         
+        # 打开日志目录
+        open_log_dir_action = QtWidgets.QAction('打开日志目录', self)
+        open_log_dir_action.triggered.connect(self.open_log_directory)
+        settings_menu.addAction(open_log_dir_action)
+        
         # 分隔线
         settings_menu.addSeparator()
         
@@ -452,6 +457,34 @@ QPushButton:hover {
             "支持多种设备管理功能\n\n"
             "作者: 王克\n"
             "GitHub: https://github.com/wangke956/ADBTools")
+
+    def open_log_directory(self):
+        """打开日志目录"""
+        import os
+        import subprocess
+        import sys
+        from logger_manager import logger_manager
+        
+        try:
+            log_dir = logger_manager.log_dir
+            
+            # 确保日志目录存在
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True)
+            
+            # 根据操作系统打开目录
+            if sys.platform == 'win32':
+                os.startfile(log_dir)
+            elif sys.platform == 'darwin':  # macOS
+                subprocess.run(['open', log_dir])
+            else:  # Linux
+                subprocess.run(['xdg-open', log_dir])
+                
+            self.textBrowser.append(f"已打开日志目录: {log_dir}")
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "错误", f"无法打开日志目录: {e}")
+            self.textBrowser.append(f"打开日志目录失败: {e}")
 
     def check_for_updates(self):
         """检查更新"""
