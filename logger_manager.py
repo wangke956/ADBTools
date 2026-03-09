@@ -233,18 +233,27 @@ class LoggerManager:
         self.loggers = {}
         self.operation_logger = None
         self.performance_monitor = None
+        self.log_dir = "."  # 默认值，防止初始化失败时属性不存在
+        self._init_error = None  # 记录初始化错误
         
-        # 加载配置
-        self._load_config()
-        
-        # 初始化日志目录
-        self._init_log_dir()
-        
-        # 检查并清理旧日志（控制日志目录大小）
-        self._cleanup_old_logs()
-        
-        # 初始化操作日志和性能监控
-        self._init_special_loggers()
+        try:
+            # 加载配置
+            self._load_config()
+            
+            # 初始化日志目录
+            self._init_log_dir()
+            
+            # 检查并清理旧日志（控制日志目录大小）
+            self._cleanup_old_logs()
+            
+            # 初始化操作日志和性能监控
+            self._init_special_loggers()
+        except Exception as e:
+            self._init_error = str(e)
+            print(f"日志管理器初始化警告: {e}")
+            # 使用默认值确保程序能继续运行
+            if not hasattr(self, 'log_dir') or not self.log_dir:
+                self.log_dir = "."
     
     def _load_config(self):
         """加载日志配置"""
@@ -476,13 +485,58 @@ class LoggerManager:
         self._init_special_loggers()
 
 
-# 全局日志管理器实例
-logger_manager = LoggerManager()
+# 全局日志管理器实例（延迟初始化）
+_logger_manager_instance = None
+_logger_manager_lock = threading.Lock()
+
+
+def _get_logger_manager():
+    """获取日志管理器实例（延迟初始化）"""
+    global _logger_manager_instance
+    if _logger_manager_instance is None:
+        with _logger_manager_lock:
+            if _logger_manager_instance is None:
+                try:
+                    _logger_manager_instance = LoggerManager()
+                except Exception as e:
+                    print(f"创建日志管理器失败: {e}")
+                    # 创建一个最小化的回退实例
+                    _logger_manager_instance = LoggerManager.__new__(LoggerManager)
+                    _logger_manager_instance._initialized = True
+                    _logger_manager_instance.loggers = {}
+                    _logger_manager_instance.operation_logger = None
+                    _logger_manager_instance.performance_monitor = None
+                    _logger_manager_instance.log_dir = "."
+                    _logger_manager_instance._init_error = str(e)
+    return _logger_manager_instance
+
+
+# 兼容性属性访问
+class LoggerManagerProxy:
+    """日志管理器代理类，支持延迟初始化和属性访问"""
+    
+    def __getattr__(self, name):
+        return getattr(_get_logger_manager(), name)
+
+
+logger_manager = LoggerManagerProxy()
+
 
 # 便捷函数
 def get_logger(name: str = "ADBTools") -> logging.Logger:
     """获取日志记录器"""
-    return logger_manager.get_logger(name)
+    try:
+        return logger_manager.get_logger(name)
+    except Exception as e:
+        # 如果日志管理器完全无法工作，返回一个基本的控制台logger
+        print(f"获取日志记录器失败: {e}")
+        fallback_logger = logging.getLogger(name)
+        if not fallback_logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+            fallback_logger.addHandler(handler)
+            fallback_logger.setLevel(logging.INFO)
+        return fallback_logger
 
 
 def log_operation(operation_type: str, details: Dict[str, Any], 
