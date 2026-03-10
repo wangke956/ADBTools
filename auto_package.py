@@ -21,6 +21,9 @@ import sys
 import shutil
 import subprocess
 import re
+import urllib.request
+import urllib.parse
+import urllib.error
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -45,6 +48,52 @@ CONFIG = {
     "iss_file": "ADBTools_setup.iss",
     "icon_file": "icon.ico",
 }
+
+
+def send_serverchan_notification(title: str, content: str) -> bool:
+    """
+    通过 Server酱 发送推送通知
+    
+    Args:
+        title: 消息标题
+        content: 消息内容（支持 Markdown）
+    
+    Returns:
+        bool: 发送成功返回 True，失败返回 False
+    """
+    api_key = os.environ.get("SERVERCHAN_API_KEY")
+    
+    if not api_key:
+        print("⚠ SERVERCHAN_API_KEY 环境变量未设置，跳过推送通知")
+        return False
+    
+    try:
+        url = f"https://sctapi.ftqq.com/{api_key}.send"
+        
+        data = urllib.parse.urlencode({
+            "title": title,
+            "desp": content
+        }).encode('utf-8')
+        
+        req = urllib.request.Request(url, data=data, method='POST')
+        req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+        
+        with urllib.request.urlopen(req, timeout=10) as response:
+            result = response.read().decode('utf-8')
+            
+            if '"code":0' in result or '"success":true' in result.lower():
+                print("✅ Server酱 推送发送成功")
+                return True
+            else:
+                print(f"⚠ Server酱 推送发送失败: {result}")
+                return False
+                
+    except urllib.error.URLError as e:
+        print(f"⚠ Server酱 推送网络错误: {e}")
+        return False
+    except Exception as e:
+        print(f"⚠ Server酱 推送发送异常: {e}")
+        return False
 
 
 def get_user_inputs() -> Tuple[str, Optional[Path]]:
@@ -556,9 +605,11 @@ def cleanup_temp_files() -> None:
 
 def main():
     """主函数"""
+    version = None
+    platform_tools_path = None
+    
     try:
         # 检查是否为非交互式运行
-        import sys
         if len(sys.argv) > 1 and sys.argv[1] == "--non-interactive":
             # 非交互式运行，使用默认版本号和路径
             version = "1.6.7"
@@ -577,7 +628,6 @@ def main():
         print("=" * 60)
         
         # 检查是否为非交互式运行
-        import sys
         if len(sys.argv) > 1 and sys.argv[1] == "--non-interactive":
             print("非交互式运行，自动开始打包...")
             confirm = 'y'
@@ -585,16 +635,31 @@ def main():
             confirm = input("\n是否开始打包? (y/n): ").strip().lower()
             if confirm not in ['y', 'yes', '是']:
                 print("打包已取消")
+                # 发送取消通知
+                send_serverchan_notification(
+                    "ADBTools 打包已取消",
+                    f"用户取消了打包操作\n\n版本号: {version}"
+                )
                 return
         
         # 2. 更新配置文件中的版本号
         if not update_config_version(version):
-            print("❌ 版本号更新失败，打包中止")
+            error_msg = "版本号更新失败，打包中止"
+            print(f"❌ {error_msg}")
+            send_serverchan_notification(
+                "ADBTools 打包失败",
+                f"**错误原因:** {error_msg}\n\n版本号: {version}"
+            )
             return
         
         # 3. 执行 Nuitka 构建
         if not run_nuitka_build():
-            print("❌ Nuitka 构建失败，打包中止")
+            error_msg = "Nuitka 构建失败，打包中止"
+            print(f"❌ {error_msg}")
+            send_serverchan_notification(
+                "ADBTools 打包失败",
+                f"**错误原因:** {error_msg}\n\n版本号: {version}"
+            )
             return
         
         # 4. 复制所有必要文件到 build_nuitka
@@ -603,12 +668,22 @@ def main():
         
         # 5. 验证构建文件
         if not verify_build_files(platform_tools_path):
-            print("❌ 构建文件验证失败，打包中止")
+            error_msg = "构建文件验证失败，打包中止"
+            print(f"❌ {error_msg}")
+            send_serverchan_notification(
+                "ADBTools 打包失败",
+                f"**错误原因:** {error_msg}\n\n版本号: {version}"
+            )
             return
         
         # 6. 运行 Inno Setup 编译器
         if not run_inno_setup():
-            print("❌ Inno Setup 打包失败")
+            error_msg = "Inno Setup 打包失败"
+            print(f"❌ {error_msg}")
+            send_serverchan_notification(
+                "ADBTools 打包失败",
+                f"**错误原因:** {error_msg}\n\n版本号: {version}"
+            )
             return
         
         # 7. 清理临时文件（可选）
@@ -621,12 +696,17 @@ def main():
             if cleanup_choice in ['y', 'yes', '是']:
                 cleanup_temp_files()
         
+        # 获取安装包大小
+        setup_exe = CONFIG['output_dir'] / "ADBTools_Setup.exe"
+        setup_size = f"{setup_exe.stat().st_size / (1024*1024):.2f} MB" if setup_exe.exists() else "未知"
+        
         print("\n" + "=" * 60)
         print("✅ 自动打包完成!")
         print("=" * 60)
         print(f"\n版本号: {version}")
         print(f"platform-tools 路径: {platform_tools_path}")
         print(f"安装包位置: {CONFIG['output_dir']}\\ADBTools_Setup.exe")
+        print(f"安装包大小: {setup_size}")
         print(f"构建目录: {CONFIG['build_dir']}")
         print(f"分发目录: {CONFIG['dist_dir']}")
         print("\n打包流程总结:")
@@ -636,12 +716,44 @@ def main():
         print("4. ✓ Inno Setup 打包")
         print("\n可以开始分发安装包了!")
         
+        # 发送成功通知
+        send_serverchan_notification(
+            f"ADBTools v{version} 打包成功",
+            f"""## 打包完成
+
+**版本号:** v{version}
+
+**安装包位置:** `{CONFIG['output_dir']}\\ADBTools_Setup.exe`
+
+**安装包大小:** {setup_size}
+
+### 打包流程
+1. ✅ 版本号更新
+2. ✅ Nuitka 构建
+3. ✅ 文件复制 (platform-tools + 配置文件)
+4. ✅ Inno Setup 打包
+
+可以开始分发安装包了!
+"""
+        )
+        
     except KeyboardInterrupt:
-        print("\n\n❌ 打包被用户中断")
+        error_msg = "打包被用户中断"
+        print(f"\n\n❌ {error_msg}")
+        send_serverchan_notification(
+            "ADBTools 打包中断",
+            f"**错误原因:** {error_msg}\n\n版本号: {version or '未知'}"
+        )
     except Exception as e:
-        print(f"\n❌ 打包过程中发生错误: {e}")
+        error_msg = f"打包过程中发生错误: {e}"
+        print(f"\n❌ {error_msg}")
         import traceback
         traceback.print_exc()
+        
+        send_serverchan_notification(
+            "ADBTools 打包异常",
+            f"**错误原因:** {str(e)}\n\n版本号: {version or '未知'}\n\n**错误详情:**\n```\n{traceback.format_exc()}\n```"
+        )
 
 
 if __name__ == "__main__":

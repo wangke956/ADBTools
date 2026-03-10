@@ -16,10 +16,59 @@ import sys
 import subprocess
 import re
 import json
+import urllib.request
+import urllib.parse
+import urllib.error
 from pathlib import Path
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.absolute()
+
+
+def send_serverchan_notification(title: str, content: str) -> bool:
+    """
+    通过 Server酱 发送推送通知
+    
+    Args:
+        title: 消息标题
+        content: 消息内容（支持 Markdown）
+    
+    Returns:
+        bool: 发送成功返回 True，失败返回 False
+    """
+    api_key = os.environ.get("SERVERCHAN_API_KEY")
+    
+    if not api_key:
+        print("⚠ SERVERCHAN_API_KEY 环境变量未设置，跳过推送通知")
+        return False
+    
+    try:
+        url = f"https://sctapi.ftqq.com/{api_key}.send"
+        
+        data = urllib.parse.urlencode({
+            "title": title,
+            "desp": content
+        }).encode('utf-8')
+        
+        req = urllib.request.Request(url, data=data, method='POST')
+        req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+        
+        with urllib.request.urlopen(req, timeout=10) as response:
+            result = response.read().decode('utf-8')
+            
+            if '"code":0' in result or '"success":true' in result.lower():
+                print("✅ Server酱 推送发送成功")
+                return True
+            else:
+                print(f"⚠ Server酱 推送发送失败: {result}")
+                return False
+                
+    except urllib.error.URLError as e:
+        print(f"⚠ Server酱 推送网络错误: {e}")
+        return False
+    except Exception as e:
+        print(f"⚠ Server酱 推送发送异常: {e}")
+        return False
 
 def get_version_from_auto_package() -> str:
     """从 auto_package.py 配置中读取版本号"""
@@ -147,8 +196,13 @@ def main():
     # 1. 从 auto_package.py 配置中读取版本号
     version = get_version_from_auto_package()
     if not version:
-        print("❌ 无法从配置文件读取版本号")
+        error_msg = "无法从配置文件读取版本号"
+        print(f"❌ {error_msg}")
         print("请先运行 auto_package.py 设置版本号")
+        send_serverchan_notification(
+            "ADBTools 发布失败",
+            f"**错误原因:** {error_msg}\n\n请先运行 auto_package.py 设置版本号"
+        )
         return
     
     print(f"\n开始发布版本: {version}")
@@ -160,16 +214,23 @@ def main():
         print("=" * 60)
         
         tag_name = f"v{version}"
+        tag_push_success = True
         try:
             subprocess.run(["git", "push", "origin", tag_name], check=True, cwd=PROJECT_ROOT)
             print(f"✅ 标签已推送到远程仓库")
         except subprocess.CalledProcessError as e:
             print(f"⚠ 推送标签失败: {e}")
             print("请手动推送标签: git push origin " + tag_name)
+            tag_push_success = False
         
         # 3. 创建 GitHub 发布
         if not create_github_release(version):
-            print("❌ 创建 GitHub 发布失败")
+            error_msg = "创建 GitHub 发布失败"
+            print(f"❌ {error_msg}")
+            send_serverchan_notification(
+                "ADBTools 发布失败",
+                f"**错误原因:** {error_msg}\n\n版本号: v{version}"
+            )
             return
         
         # 4. 完成
@@ -180,12 +241,41 @@ def main():
         print(f"安装包位置: Output/ADBTools_Setup.exe")
         print(f"GitHub 发布: https://github.com/wangke956/ADBTools/releases/tag/v{version}")
         
+        # 发送成功通知
+        tag_status = "✅ 已推送" if tag_push_success else "⚠ 需手动推送"
+        send_serverchan_notification(
+            f"ADBTools v{version} 发布成功",
+            f"""## 发布完成
+
+**版本号:** v{version}
+
+**安装包位置:** `Output/ADBTools_Setup.exe`
+
+**GitHub 发布:** [查看发布](https://github.com/wangke956/ADBTools/releases/tag/v{version})
+
+### 发布状态
+- 标签推送: {tag_status}
+- GitHub Release: ✅ 创建成功
+"""
+        )
+        
     except KeyboardInterrupt:
-        print("\n\n❌ 发布被用户中断")
+        error_msg = "发布被用户中断"
+        print(f"\n\n❌ {error_msg}")
+        send_serverchan_notification(
+            "ADBTools 发布中断",
+            f"**错误原因:** {error_msg}\n\n版本号: v{version}"
+        )
     except Exception as e:
-        print(f"\n❌ 发布过程中发生错误: {e}")
+        error_msg = f"发布过程中发生错误: {e}"
+        print(f"\n❌ {error_msg}")
         import traceback
         traceback.print_exc()
+        
+        send_serverchan_notification(
+            "ADBTools 发布异常",
+            f"**错误原因:** {str(e)}\n\n版本号: v{version}\n\n**错误详情:**\n```\n{traceback.format_exc()}\n```"
+        )
 
 if __name__ == "__main__":
     main()
