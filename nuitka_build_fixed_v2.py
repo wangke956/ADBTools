@@ -314,13 +314,13 @@ def build_onefile():
         else:
             print("警告: uiautomator2 assets 目录不存在")
         
-        print(f"\n✅ 构建成功!")
+        print(f"\n 构建成功!")
         print(f"可执行文件: {exe_dst}")
         print(f"构建目录: {CONFIG['build_dir']}")
         print("注意: ADB工具文件将由 auto_package.py 脚本复制到 build_nuitka 目录")
         return True
     else:
-        print(f"❌ 未找到生成的可执行文件: {exe_src}")
+        print(f" 未找到生成的可执行文件: {exe_src}")
         return False
 
 
@@ -379,14 +379,14 @@ def build_standalone():
                     dst_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src_path, dst_path)
         
-        print(f"\n✅ 构建成功!")
+        print(f"\n 构建成功!")
         print(f"程序目录: {CONFIG['dist_dir']}")
         print(f"主程序: {CONFIG['dist_dir'] / CONFIG['output_name']}.exe")
         print(f"构建目录: {CONFIG['build_dir']}")
         print("注意: ADB工具文件将由 auto_package.py 脚本复制到 build_nuitka 目录")
         return True
     else:
-        print(f"❌ 未找到生成的目录: {dist_src}")
+        print(f" 未找到生成的目录: {dist_src}")
         return False
 
 
@@ -417,7 +417,7 @@ def clean_build():
         except Exception as e:
             print(f"  删除失败 {pyc_file}: {e}")
     
-    print("✅ 清理完成")
+    print(" 清理完成")
 
 
 def check_dependencies():
@@ -446,12 +446,12 @@ def check_dependencies():
             print(f"  Error {package} (未安装)")
     
     if missing_packages:
-        print(f"\n❌ 缺少依赖包: {', '.join(missing_packages)}")
+        print(f"\n 缺少依赖包: {', '.join(missing_packages)}")
         print("请使用以下命令安装:")
         print(f"pip install {' '.join(missing_packages)}")
         return False
     
-    print("✅ 所有依赖已安装")
+    print(" 所有依赖已安装")
     return True
 
 
@@ -509,7 +509,7 @@ def main():
             print("2. 独立目录版本: 运行 dist_nuitka/ADBTools_nuitka.exe")
             print("\n注意: 确保ADB工具文件已正确复制到分发目录")
         else:
-            print("\n❌ 构建失败，请检查错误信息")
+            print("\n 构建失败，请检查错误信息")
     else:
         parser.print_help()
         print("\n示例:")
