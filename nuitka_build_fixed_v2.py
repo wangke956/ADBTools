@@ -440,10 +440,10 @@ def check_dependencies():
     for package in required_packages:
         try:
             __import__(package.replace("-", "_"))
-            print(f"  ✓ {package}")
+            print(f"  OK {package}")
         except ImportError:
             missing_packages.append(package)
-            print(f"  ✗ {package} (未安装)")
+            print(f"  Error {package} (未安装)")
     
     if missing_packages:
         print(f"\n❌ 缺少依赖包: {', '.join(missing_packages)}")
