@@ -686,15 +686,8 @@ def main():
             )
             return
         
-        # 7. 清理临时文件（可选）
-        # 检查是否为非交互式运行
-        if len(sys.argv) > 1 and sys.argv[1] == "--non-interactive":
-            print("非交互式运行，跳过清理临时文件确认...")
-            cleanup_choice = 'n'
-        else:
-            cleanup_choice = input("\n是否清理临时文件? (y/n): ").strip().lower()
-            if cleanup_choice in ['y', 'yes', '是']:
-                cleanup_temp_files()
+        # 7. 自动清理临时文件
+        cleanup_temp_files()
         
         # 获取安装包大小
         setup_exe = CONFIG['output_dir'] / "ADBTools_Setup.exe"

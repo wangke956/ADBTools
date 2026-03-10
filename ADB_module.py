@@ -285,6 +285,10 @@ class ADB_Mainwindow(QMainWindow):
         
         # 设置窗口标题包含版本号
         self.setWindowTitle(f"ADBTools v{self.VERSION}")
+        
+        # 启动时自动检查更新（延迟3秒执行，避免阻塞启动）
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(3000, self.check_for_updates_silent)
 
     def init_window_scaling(self):
         """初始化窗口缩放功能"""
@@ -516,6 +520,127 @@ QPushButton:hover {
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(self, "检查更新失败", 
                 f"启动检查更新时发生错误:\n\n{str(e)}")
+
+    def check_for_updates_silent(self):
+        """
+        静默检查更新（启动时自动调用）
+        
+        - 有更新：弹窗提示
+        - 无更新：不做任何提示
+        - 检查失败：不做任何提示
+        """
+        try:
+            from Function_Moudle.check_update_thread import CheckUpdateThread
+            
+            # 创建检查更新线程
+            self.check_update_thread_silent = CheckUpdateThread(current_version=self.VERSION)
+            
+            # 只连接更新可用的信号，无更新和失败时不做任何提示
+            self.check_update_thread_silent.update_available_signal.connect(self.handle_update_available_silent)
+            
+            # 启动线程（静默，不显示任何进度信息）
+            self.check_update_thread_silent.start()
+            
+        except Exception as e:
+            # 静默失败，不提示用户
+            logger.debug(f"启动时静默检查更新失败: {e}")
+
+    def handle_update_available_silent(self, update_info):
+        """
+        静默处理有更新可用的信号（启动时自动检查用）
+        
+        只弹窗提示有新版本，不显示在 textBrowser 中
+        """
+        from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+        from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
+        
+        current_version = update_info.get('current_version', '未知')
+        latest_version = update_info.get('latest_version', '未知')
+        release_name = update_info.get('release_name', '')
+        release_body = update_info.get('release_body', '')
+        html_url = update_info.get('html_url', 'https://github.com/wangke956/ADBTools')
+        is_fallback = update_info.get('is_fallback', False)
+        setup_file = update_info.get('setup_file')
+        
+        # 如果是备用信息（无发布版本），不弹窗提示
+        if is_fallback:
+            return
+        
+        # 构建消息
+        message = f"发现新版本！\n\n"
+        message += f"当前版本: v{current_version}\n"
+        message += f"最新版本: v{latest_version}\n\n"
+        
+        if release_name:
+            message += f"名称: {release_name}\n\n"
+        
+        if release_body:
+            # 限制更新说明的长度
+            if len(release_body) > 300:
+                release_body = release_body[:300] + "..."
+            message += f"说明:\n{release_body}\n\n"
+        
+        # 有安装文件可用，提供更多选项
+        if setup_file:
+            # 创建自定义对话框
+            dialog = QDialog(self)
+            dialog.setWindowTitle("发现新版本")
+            dialog.setMinimumWidth(450)
+            apply_dialog_style(dialog)
+            
+            layout = QVBoxLayout()
+            layout.setSpacing(10)
+            layout.setContentsMargins(20, 20, 20, 20)
+            
+            # 标题
+            title_label = QLabel("发现新版本")
+            title_label.setStyleSheet(TITLE_LABEL_STYLE)
+            layout.addWidget(title_label)
+            
+            # 消息标签
+            msg_label = QLabel(message)
+            msg_label.setWordWrap(True)
+            layout.addWidget(msg_label)
+            
+            # 按钮布局
+            button_layout = QHBoxLayout()
+            button_layout.setSpacing(8)
+            
+            # 自动下载并安装按钮
+            auto_download_btn = QPushButton("自动下载并安装")
+            auto_download_btn.clicked.connect(lambda: self._start_auto_download(update_info, dialog))
+            
+            # 手动下载按钮
+            manual_download_btn = QPushButton("手动下载")
+            manual_download_btn.clicked.connect(lambda: self._open_browser(html_url, dialog))
+            
+            # 稍后提醒按钮
+            later_btn = QPushButton("稍后提醒")
+            later_btn.clicked.connect(dialog.reject)
+            
+            button_layout.addWidget(auto_download_btn)
+            button_layout.addWidget(manual_download_btn)
+            button_layout.addWidget(later_btn)
+            
+            layout.addLayout(button_layout)
+            dialog.setLayout(layout)
+            
+            dialog.exec_()
+        else:
+            # 没有安装文件，只有手动下载选项
+            message += f"GitHub地址: {html_url}\n\n"
+            message += "是否要打开浏览器访问下载页面？"
+            
+            reply = QMessageBox.information(
+                self,
+                "发现新版本",
+                message,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                self._open_browser(html_url)
 
     def handle_update_available(self, update_info):
         """处理有更新可用的信号"""
