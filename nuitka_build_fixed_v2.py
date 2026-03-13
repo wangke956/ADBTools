@@ -198,6 +198,45 @@ def get_nuitka_command(build_type="onefile"):
     else:
         print("警告: uiautomator2 assets 目录不存在")
     
+    # 添加adbutils的binaries目录文件（包含adb.exe等）
+    adbutils_binaries_dir = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "adbutils" / "binaries"
+    if adbutils_binaries_dir.exists():
+        # 复制到 dist_nuitka 目录
+        dist_binaries_dir = PROJECT_ROOT / "dist_nuitka" / "adbutils" / "binaries"
+        if dist_binaries_dir.exists():
+            shutil.rmtree(dist_binaries_dir)
+        dist_binaries_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(adbutils_binaries_dir, dist_binaries_dir)
+        print(f"已复制 adbutils binaries 目录到: {dist_binaries_dir}")
+        
+        # 复制到 build_nuitka 目录
+        build_binaries_dir = CONFIG["build_dir"] / "adbutils" / "binaries"
+        if build_binaries_dir.exists():
+            shutil.rmtree(build_binaries_dir)
+        build_binaries_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(adbutils_binaries_dir, build_binaries_dir)
+        print(f"已复制 adbutils binaries 目录到: {build_binaries_dir}")
+        
+        # 添加到Nuitka构建命令
+        cmd.append(f"--include-package-data=adbutils")
+        
+        # 列出复制的文件
+        binary_files = list(dist_binaries_dir.rglob("*"))
+        binary_files = [f for f in binary_files if f.is_file()]
+        print(f"已包含 {len(binary_files)} 个adbutils binaries文件")
+        
+        # 验证关键文件
+        critical_binary_files = ["adb.exe", "__init__.py"]
+        missing_binary_files = []
+        for file_name in critical_binary_files:
+            if not (dist_binaries_dir / file_name).exists():
+                missing_binary_files.append(file_name)
+        
+        if missing_binary_files:
+            print(f"警告: 缺少以下关键binaries文件: {missing_binary_files}")
+    else:
+        print("警告: adbutils binaries 目录不存在")
+    
     # Nuitka 2.8.x 兼容性修复
     try:
         # 尝试多种方式获取 Nuitka 版本
@@ -313,6 +352,18 @@ def build_onefile():
             print(f"已复制 uiautomator2 assets 到: {u2_assets_dst}")
         else:
             print("警告: uiautomator2 assets 目录不存在")
+        
+        # 确保adbutils binaries目录存在
+        adbutils_binaries_src = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "adbutils" / "binaries"
+        adbutils_binaries_dst = CONFIG["dist_dir"] / "adbutils" / "binaries"
+        
+        if adbutils_binaries_src.exists():
+            if adbutils_binaries_dst.exists():
+                shutil.rmtree(adbutils_binaries_dst)
+            shutil.copytree(adbutils_binaries_src, adbutils_binaries_dst)
+            print(f"已复制 adbutils binaries 到: {adbutils_binaries_dst}")
+        else:
+            print("警告: adbutils binaries 目录不存在")
         
         print(f"\n 构建成功!")
         print(f"可执行文件: {exe_dst}")

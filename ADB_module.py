@@ -229,6 +229,7 @@ class ADB_Mainwindow(QMainWindow):
         # 设备管理信号连接
         self.RefreshButton.clicked.connect(self.device_manager.refresh_devices)  # 刷新设备列表
         self.button_reboot.clicked.connect(self.device_manager.reboot_device)  # 重启设备
+        self.DisconnectButton.clicked.connect(self.device_manager.disconnect_device)  # 断开设备连接
         
         # 日志操作信号连接
         self.browse_log_save_path_button.clicked.connect(self.log_operations.browse_log_save_path)  # 浏览日志保存路径
@@ -1038,6 +1039,10 @@ QPushButton:hover {
         """重启设备 - 委托给 device_manager"""
         self.device_manager.reboot_device()
     
+    def disconnect_device(self):
+        """断开设备连接 - 委托给 device_manager"""
+        self.device_manager.disconnect_device()
+    
     def reinit_uiautomator2(self):
         """重新初始化u2 - 委托给 device_manager"""
         self.device_manager.reinit_uiautomator2()
@@ -1244,15 +1249,15 @@ QPushButton:hover {
     
                     
     
-                    # 对于刷新设备按钮，使用更保守的缩放
+                    # 对于刷新设备和断开设备按钮，使用更保守的缩放
     
-                    if button_name == 'RefreshButton':
+                    if button_name in ('RefreshButton', 'DisconnectButton'):
     
-                        # 刷新按钮保持相对固定的大小
+                        # 这两个按钮保持相对固定的大小
     
-                        button.setMinimumSize(120, 30)
+                        button.setMinimumSize(100, 30)
     
-                        button.setMaximumSize(300, 50)
+                        button.setMaximumSize(100, 50)
     
                     else:
     

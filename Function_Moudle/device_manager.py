@@ -134,6 +134,52 @@ class DeviceManager:
                 logger.warning(f"清理u2连接时出错: {e}")
                 self.main_window.d = None
     
+    def disconnect_device(self):
+        """断开当前设备连接"""
+        log_button_click("DisconnectButton", "断开设备连接")
+        
+        device_id = self.main_window.device_id
+        connection_mode = self.main_window.connection_mode
+        
+        if not device_id:
+            self.main_window.textBrowser.append("当前没有连接的设备")
+            log_device_operation("disconnect_device", "无设备", {"status": "no_device"})
+            return
+        
+        try:
+            # 显示当前连接信息
+            mode_text = "U2" if connection_mode == 'u2' else "ADB"
+            
+            # 如果是 U2 模式，清理 u2 连接
+            if connection_mode == 'u2' and self.main_window.d is not None:
+                self._cleanup_u2_connection()
+                self.main_window.textBrowser.append(f"已断开 U2 连接: {device_id}")
+            else:
+                # ADB 模式，只需清理状态
+                self.main_window.textBrowser.append(f"已断开 ADB 连接: {device_id}")
+            
+            # 重置连接状态
+            self.main_window.d = None
+            self.main_window.device_id = None
+            self.main_window.connection_mode = None
+            
+            log_device_operation("disconnect_device", device_id, {
+                "mode": connection_mode,
+                "status": "success"
+            })
+            
+            log_method_result("disconnect_device", True, f"已断开 {mode_text} 连接: {device_id}")
+            
+        except Exception as e:
+            error_msg = f"断开设备连接失败: {e}"
+            self.main_window.textBrowser.append(error_msg)
+            log_device_operation("disconnect_device", device_id, {
+                "mode": connection_mode,
+                "status": "error",
+                "error": str(e)
+            })
+            log_method_result("disconnect_device", False, str(e))
+    
     def refresh_devices(self):
         """刷新设备列表（多线程执行，避免阻塞主界面）"""
         log_button_click("RefreshButton", "刷新设备列表")
