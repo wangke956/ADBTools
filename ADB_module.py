@@ -244,6 +244,7 @@ class ADB_Mainwindow(QMainWindow):
         self.list_package_button.clicked.connect(self.list_package)
         self.enter_engineering_mode_button.clicked.connect(self.open_engineering_mode)  # 进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering)
+        self.AS33R_open_engineering_mode_button.clicked.connect(self.as33r_open_engineering_mode)  # AS33R国项目打开工程模式
         self.open_update_page_button.clicked.connect(self.open_soimt_update)  # 打开资源升级页面
         self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
         self.start_check_button.clicked.connect(self.app_version_check)
@@ -855,6 +856,50 @@ QPushButton:hover {
         """AS33 CR 进入工程模式"""
         log_button_click("AS33_CR_enter_engineering_mode_button", "启动AS33 CR工程模式", "com.saicmotor.diag")
         self.start_app_action(app_name = "com.saicmotor.diag")
+
+    def as33r_open_engineering_mode(self):
+        """AS33R国项目打开工程模式 - 启动特定的Activity"""
+        log_button_click("AS33R_open_engineering_mode_button", "启动AS33R国工程模式", "com.saicmotor.diag/.ui.main.MainActivity")
+        
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        # 完整的Activity路径
+        activity = "com.saicmotor.diag/.ui.main.MainActivity"
+
+        if device_id in devices_id_lst:
+            try:
+                # 检查连接状态
+                if self.connection_mode == 'u2':
+                    if not self.d:
+                        self.connection_mode = 'adb'
+                        self.textBrowser.append("U2连接不可用，切换到ADB模式")
+                
+                if self.connection_mode == 'u2' and self.d:
+                    # U2模式：使用app_start启动Activity
+                    self.d.app_start(activity)
+                    self.textBrowser.append(f"已启动AS33R国工程模式: {activity}")
+                    logger.info(f"U2模式启动Activity: {activity}")
+                elif self.connection_mode == 'adb':
+                    # ADB模式：执行 adb shell am start 命令
+                    from adb_utils import adb_utils
+                    result = adb_utils.run_adb_command(f"shell am start -n {activity}", device_id)
+                    
+                    if result.returncode == 0:
+                        self.textBrowser.append(f"已启动AS33R国工程模式: {activity}")
+                        logger.info(f"ADB模式启动Activity成功: {activity}")
+                    else:
+                        self.textBrowser.append(f"启动失败: {result.stderr}")
+                        logger.error(f"ADB模式启动Activity失败: {result.stderr}")
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    logger.warning("设备未连接")
+            except Exception as e:
+                self.textBrowser.append(f"启动AS33R国工程模式失败: {e}")
+                logger.error(f"启动AS33R国工程模式失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+            logger.warning("设备未连接")
 
     # ========== 大通功能 - 已委托给 datong_manager ==========
     
