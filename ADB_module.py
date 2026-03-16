@@ -876,8 +876,8 @@ QPushButton:hover {
                         self.textBrowser.append("U2连接不可用，切换到ADB模式")
                 
                 if self.connection_mode == 'u2' and self.d:
-                    # U2模式：使用app_start启动Activity
-                    self.d.app_start(activity)
+                    # U2模式：使用app_start启动Activity，需要分开包名和Activity
+                    self.d.app_start("com.saicmotor.diag", ".ui.main.MainActivity")
                     self.textBrowser.append(f"已启动AS33R国工程模式: {activity}")
                     logger.info(f"U2模式启动Activity: {activity}")
                 elif self.connection_mode == 'adb':
