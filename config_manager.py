@@ -15,7 +15,7 @@ class ConfigManager:
         "version": {
             "major": 1,
             "minor": 7,
-            "patch": 72,
+            "patch": 73,
             "build": 0,
         },
         "adb": {
