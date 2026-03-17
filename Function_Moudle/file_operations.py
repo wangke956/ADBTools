@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 文件操作管理器
-负责文件拉取、推送、截图等文件相关操作
+负责文件推送、截图、文件管理等文件相关操作
 """
 
 import os
-import pathlib
 from PyQt5.QtWidgets import QFileDialog, QInputDialog
 
 from logger_manager import log_button_click, log_method_result, get_logger
@@ -109,51 +108,6 @@ class FileOperationsManager:
             log_method_result("show_uninstall_dialog", False, "设备未连接")
             self.textBrowser.append("未连接设备！")
 
-    def show_pull_file_dialog(self):
-        """从设备拉取文件"""
-        device_id = self.main_window.get_selected_device()
-        devices_id_lst = self.main_window.get_new_device_lst()
-        
-        log_button_click("adb_pull_file_button", "从设备拉取文件")
-
-        if device_id in devices_id_lst:
-            try:
-                file_path_on_device, ok = QInputDialog.getText(
-                    self.main_window, "输入设备文件路径", "请输入车机上的文件路径:"
-                )
-                file_path = pathlib.Path(file_path_on_device)
-                apk_file_name = pathlib.Path(file_path).name
-                if ok and file_path_on_device:
-                    local_path = QFileDialog.getExistingDirectory(self.main_window, "选择文件夹", ".")
-                    if local_path:
-                        logger.info(f"拉取文件: {file_path_on_device} -> {local_path}")
-                        
-                        if self.main_window.connection_mode == 'u2' and self.main_window.d:
-                            from Function_Moudle.pull_files_thread import PullFilesThread
-                            self.main_window.pull_files_thread = PullFilesThread(
-                                self.main_window.d, file_path_on_device, local_path, apk_file_name
-                            )
-                        else:
-                            from Function_Moudle.adb_pull_files_thread import ADBPullFilesThread
-                            self.main_window.pull_files_thread = ADBPullFilesThread(
-                                device_id, file_path_on_device, local_path, apk_file_name
-                            )
-                        
-                        self.main_window.pull_files_thread.signal.connect(self.textBrowser.append)
-                        self.main_window.pull_files_thread.start()
-                        
-                        log_method_result("show_pull_file_dialog", True, f"拉取线程已启动: {apk_file_name}")
-                    else:
-                        logger.info("用户取消文件夹选择")
-                else:
-                    logger.info("用户取消输入或输入为空")
-            except Exception as e:
-                log_method_result("show_pull_file_dialog", False, str(e))
-                self.textBrowser.append(f"初始化线程失败: {e}")
-        else:
-            log_method_result("show_pull_file_dialog", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
-
     def show_install_file_dialog(self):
         """安装应用"""
         device_id = self.main_window.get_selected_device()
@@ -233,4 +187,37 @@ class FileOperationsManager:
                 logger.info("用户取消文件选择")
         else:
             log_method_result("show_push_file_dialog", False, "设备未连接")
+            self.textBrowser.append("设备未连接！")
+
+    def show_file_manager_dialog(self):
+        """打开文件管理器对话框"""
+        device_id = self.main_window.get_selected_device()
+        devices_id_lst = self.main_window.get_new_device_lst()
+        
+        log_button_click("file_manager_button", "打开文件管理器")
+
+        if device_id in devices_id_lst:
+            try:
+                from Function_Moudle.file_manager_dialog import FileManagerDialog
+                
+                # 获取连接模式和设备对象，默认使用adb模式
+                connection_mode = getattr(self.main_window, 'connection_mode', None)
+                if connection_mode is None:
+                    connection_mode = 'adb'
+                d = getattr(self.main_window, 'd', None)
+                
+                dialog = FileManagerDialog(
+                    self.main_window, 
+                    device_id, 
+                    connection_mode, 
+                    d
+                )
+                dialog.exec_()
+                
+                log_method_result("show_file_manager_dialog", True, "文件管理器已打开")
+            except Exception as e:
+                log_method_result("show_file_manager_dialog", False, str(e))
+                self.textBrowser.append(f"打开文件管理器失败: {e}")
+        else:
+            log_method_result("show_file_manager_dialog", False, "设备未连接")
             self.textBrowser.append("设备未连接！")

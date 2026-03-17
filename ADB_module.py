@@ -205,16 +205,11 @@ class ADB_Mainwindow(QMainWindow):
         self.get_screenshot_button.clicked.connect(self.show_screenshot_dialog)  # 截图
         self.force_stop_app.clicked.connect(self.show_force_stop_app_dialog)  # 强制停止应用
         self.adb_uninstall_button.clicked.connect(self.show_uninstall_dialog)  # 卸载应用
-        self.adb_pull_file_button.clicked.connect(self.show_pull_file_dialog)  # 拉取文件
+        self.file_manager_button.clicked.connect(self.file_operations.show_file_manager_dialog)  # 文件管理
         self.reboot_adb_service_button.clicked.connect(self.show_simulate_long_press_dialog)  # 模拟长按
         self.adb_install_button.clicked.connect(self.show_install_file_dialog)  # 安装应用
         self.clear_app_cache_button.clicked.connect(self.show_clear_app_cache_dialog)  # 清除应用缓存
         self.app_package_and_activity.clicked.connect(self.get_foreground_package)
-        self.adb_push_file_button.clicked.connect(self.show_push_file_dialog)  # 推送文件
-        self.button_reboot.clicked.connect(self.reboot_device)  # 重启设备
-        self.RefreshButton.clicked.connect(self.refresh_devices)  # 刷新设备列表
-        self.adb_root_button.clicked.connect(self.adb_root_wrapper)  # 以 root 权限运行 ADB
-        self.start_app.clicked.connect(self.app_operations.show_start_app_dialog)  # 启动应用
         self.get_running_app_info_button.clicked.connect(self.get_running_app_info)  # 获取当前运行的应用信息
         self.aapt_getpackagename_button.clicked.connect(self.aapt_getpackage_name_dilog)  # 获取apk包名
         self.textBrowser.textChanged.connect(self.scroll_to_bottom)  # 自动滚动到底部
@@ -1167,10 +1162,6 @@ QPushButton:hover {
     def show_uninstall_dialog(self):
         """卸载应用 - 委托给 file_operations"""
         self.file_operations.show_uninstall_dialog()
-
-    def show_pull_file_dialog(self):
-        """从设备拉取文件 - 委托给 file_operations"""
-        self.file_operations.show_pull_file_dialog()
 
     def show_install_file_dialog(self):
         """安装应用 - 委托给 file_operations"""
