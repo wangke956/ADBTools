@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-文件管理对话框 - 提供设备文件浏览、上传、下载、删除、权限管理功能
+文件管理对话框 - 提供设备文件浏览、上传、下载、删除功能
 """
 
 import os
@@ -12,13 +12,84 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QLineEdit, QComboBox, QMessageBox, QProgressBar,
     QHeaderView, QMenu, QAction, QInputDialog, QWidget, QFileDialog
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QIcon, QCursor
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData, QUrl
+from PyQt5.QtGui import QIcon, QCursor, QDropEvent, QDrag
 
 from Function_Moudle.dialog_styles import apply_dialog_style, DIALOG_STYLE
 from logger_manager import get_logger
 
 logger = get_logger("ADBTools.FileManager")
+
+
+class LocalFileTree(QTreeWidget):
+    """本地文件树 - 支持拖拽文件到设备"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setDragEnabled(True)
+        self.setDragDropMode(QTreeWidget.DragOnly)
+    
+    def startDrag(self, supportedActions):
+        """重写拖拽开始事件 - 设置文件URL"""
+        selected_items = self.selectedItems()
+        if not selected_items:
+            return
+        
+        mime_data = QMimeData()
+        urls = []
+        
+        for item in selected_items:
+            data = item.data(0, Qt.UserRole)
+            if isinstance(data, dict) and 'path' in data:
+                file_path = data['path']
+                if os.path.exists(file_path):
+                    urls.append(QUrl.fromLocalFile(file_path))
+        
+        if urls:
+            mime_data.setUrls(urls)
+            drag = QDrag(self)
+            drag.setMimeData(mime_data)
+            drag.exec_(Qt.CopyAction)
+
+
+class DeviceFileTree(QTreeWidget):
+    """设备文件树 - 支持拖放上传"""
+    
+    # 定义信号：拖放文件上传
+    files_dropped = pyqtSignal(list)  # 传递文件路径列表
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+    
+    def dragEnterEvent(self, event):
+        """拖拽进入事件"""
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+    
+    def dragMoveEvent(self, event):
+        """拖拽移动事件"""
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+    
+    def dropEvent(self, event):
+        """拖放事件 - 处理文件上传"""
+        if event.mimeData().hasUrls():
+            files = []
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if os.path.exists(file_path):
+                    files.append(file_path)
+            if files:
+                self.files_dropped.emit(files)
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
 
 class DeviceListThread(QThread):
@@ -177,35 +248,6 @@ class FileDeleteThread(QThread):
             self.finished_signal.emit(False, f"删除失败: {str(e)}")
 
 
-class PermissionChangeThread(QThread):
-    """修改文件权限线程"""
-    finished_signal = pyqtSignal(bool, str)
-    
-    def __init__(self, device_id, path, permissions, connection_mode='adb', d=None):
-        super().__init__()
-        self.device_id = device_id
-        self.path = path
-        self.permissions = permissions
-        self.connection_mode = connection_mode
-        self.d = d
-    
-    def run(self):
-        try:
-            chmod_cmd = f'chmod {self.permissions} "{self.path}"'
-            
-            if self.connection_mode == 'u2' and self.d:
-                self.d.shell(chmod_cmd)
-            else:
-                cmd = f'adb -s {self.device_id} shell {chmod_cmd}'
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
-                if result.returncode != 0:
-                    raise Exception(result.stderr)
-            
-            self.finished_signal.emit(True, f"权限修改成功: {self.permissions}")
-        except Exception as e:
-            self.finished_signal.emit(False, f"权限修改失败: {str(e)}")
-
-
 class FileManagerDialog(QDialog):
     """文件管理对话框"""
     
@@ -223,7 +265,6 @@ class FileManagerDialog(QDialog):
         self.list_thread = None
         self.transfer_thread = None
         self.delete_thread = None
-        self.permission_thread = None
         
         self._init_ui()
         self._refresh_device_files()
@@ -300,13 +341,14 @@ class FileManagerDialog(QDialog):
         device_header.addStretch()
         device_layout.addLayout(device_header)
         
-        self.device_tree = QTreeWidget()
+        self.device_tree = DeviceFileTree()
         self.device_tree.setHeaderLabels(['名称', '大小', '权限', '修改日期'])
         self.device_tree.setColumnWidth(0, 200)
         self.device_tree.setSortingEnabled(True)
         self.device_tree.itemDoubleClicked.connect(self._on_device_item_double_clicked)
         self.device_tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.device_tree.customContextMenuRequested.connect(self._show_device_context_menu)
+        self.device_tree.files_dropped.connect(self._on_files_dropped)  # 拖放上传信号
         device_layout.addWidget(self.device_tree, 1)  # stretch=1
         
         splitter.addWidget(device_widget)
@@ -344,7 +386,7 @@ class FileManagerDialog(QDialog):
         local_header.addStretch()
         local_layout.addLayout(local_header)
         
-        self.local_tree = QTreeWidget()
+        self.local_tree = LocalFileTree()
         self.local_tree.setHeaderLabels(['名称', '大小', '类型', '修改日期'])
         self.local_tree.setColumnWidth(0, 200)
         self.local_tree.setSortingEnabled(True)
@@ -549,30 +591,22 @@ class FileManagerDialog(QDialog):
             return
         
         data = item.data(0, Qt.UserRole)
-        if data == 'parent':
+        if not isinstance(data, dict):
             return
         
         menu = QMenu(self)
         
-        if isinstance(data, dict):
-            # 下载
-            download_action = QAction("⬇ 下载到本地", self)
-            download_action.triggered.connect(lambda: self._download_item(data))
-            menu.addAction(download_action)
-            
-            menu.addSeparator()
-            
-            # 删除
-            delete_action = QAction("🗑 删除", self)
-            delete_action.triggered.connect(lambda: self._delete_device_item(data))
-            menu.addAction(delete_action)
-            
-            # 权限管理
-            if not data.get('is_dir'):
-                menu.addSeparator()
-                perm_action = QAction("🔒 修改权限", self)
-                perm_action.triggered.connect(lambda: self._show_permission_dialog(data))
-                menu.addAction(perm_action)
+        # 下载
+        download_action = QAction("⬇ 下载到本地", self)
+        download_action.triggered.connect(lambda: self._download_item(data))
+        menu.addAction(download_action)
+        
+        menu.addSeparator()
+        
+        # 删除
+        delete_action = QAction("🗑 删除", self)
+        delete_action.triggered.connect(lambda: self._delete_device_item(data))
+        menu.addAction(delete_action)
         
         menu.exec_(self.device_tree.viewport().mapToGlobal(pos))
     
@@ -652,6 +686,50 @@ class FileManagerDialog(QDialog):
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
+    def _on_files_dropped(self, file_paths):
+        """处理拖放文件上传"""
+        if not file_paths:
+            return
+        
+        # 确认上传
+        reply = QMessageBox.question(
+            self, '确认上传',
+            f"确定要上传 {len(file_paths)} 个文件/文件夹到设备吗？\n目标路径: {self.device_current_path}",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+        )
+        
+        if reply == QMessageBox.Yes:
+            self._upload_files_batch(file_paths)
+    
+    def _upload_files_batch(self, file_paths):
+        """批量上传文件"""
+        self.progress_bar.setVisible(True)
+        total = len(file_paths)
+        
+        for i, src_path in enumerate(file_paths):
+            file_name = os.path.basename(src_path)
+            dst_path = self._join_device_path(self.device_current_path, file_name)
+            
+            self.status_label.setText(f"上传中 ({i+1}/{total}): {file_name}")
+            
+            try:
+                if self.connection_mode == 'u2' and self.d:
+                    self.d.push(src_path, dst_path)
+                else:
+                    cmd = f'adb -s {self.device_id} push "{src_path}" "{dst_path}"'
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+                    if result.returncode != 0:
+                        raise Exception(result.stderr)
+                
+                logger.info(f"上传成功: {file_name}")
+            except Exception as e:
+                logger.error(f"上传失败: {file_name} - {str(e)}")
+                self.status_label.setText(f"上传失败: {file_name}")
+        
+        self.progress_bar.setVisible(False)
+        self.status_label.setText(f"上传完成: {total} 个文件")
+        self._refresh_device_files()
+    
     def _select_local_file(self):
         """选择本地文件"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -726,158 +804,10 @@ class FileManagerDialog(QDialog):
             except Exception as e:
                 QMessageBox.warning(self, "创建失败", f"创建文件夹失败: {str(e)}")
     
-    def _show_permission_dialog(self, file_info):
-        """显示权限修改对话框"""
-        current_perm = file_info.get('permissions', '-rw-r--r--')
-        # 提取数字权限
-        perm_str = current_perm[1:] if current_perm.startswith('-') else current_perm
-        
-        dialog = PermissionDialog(self, perm_str, file_info['name'])
-        if dialog.exec_() == QDialog.Accepted:
-            new_perm = dialog.get_permissions()
-            self._change_permission(file_info, new_perm)
-    
-    def _change_permission(self, file_info, permissions):
-        """修改文件权限"""
-        path = self._join_device_path(self.device_current_path, file_info['name'])
-        
-        self.permission_thread = PermissionChangeThread(
-            self.device_id, path, permissions,
-            self.connection_mode, self.d
-        )
-        self.permission_thread.finished_signal.connect(self._on_permission_changed)
-        self.permission_thread.start()
-    
-    def _on_permission_changed(self, success, message):
-        """权限修改完成"""
-        self.status_label.setText(message)
-        if not success:
-            QMessageBox.warning(self, "权限修改失败", message)
-        else:
-            self._refresh_device_files()
-    
     def closeEvent(self, event):
         """关闭事件"""
         # 确保线程结束
-        for thread in [self.list_thread, self.transfer_thread, 
-                       self.delete_thread, self.permission_thread]:
+        for thread in [self.list_thread, self.transfer_thread, self.delete_thread]:
             if thread and thread.isRunning():
                 thread.wait(1000)
         event.accept()
-
-
-class PermissionDialog(QDialog):
-    """权限修改对话框"""
-    
-    def __init__(self, parent=None, current_perms="", file_name=""):
-        super().__init__(parent)
-        self.setWindowTitle(f"修改权限 - {file_name}")
-        self.setMinimumWidth(350)
-        apply_dialog_style(self)
-        
-        layout = QVBoxLayout(self)
-        
-        layout.addWidget(QLabel("请选择新的权限设置:"))
-        
-        # 权限复选框
-        self.perm_checks = {}
-        perm_names = {
-            'ur': '用户读', 'uw': '用户写', 'ux': '用户执行',
-            'gr': '组读', 'gw': '组写', 'gx': '组执行',
-            'or': '其他读', 'ow': '其他写', 'ox': '其他执行'
-        }
-        
-        grid_layout = QVBoxLayout()
-        
-        for group, group_name in [('u', '用户'), ('g', '组'), ('o', '其他')]:
-            group_layout = QHBoxLayout()
-            group_layout.addWidget(QLabel(f"{group_name}:"))
-            
-            for perm, perm_name in [('r', '读'), ('w', '写'), ('x', '执行')]:
-                key = f"{group}{perm}"
-                check = QCheckBox(perm_name)
-                self.perm_checks[key] = check
-                group_layout.addWidget(check)
-            
-            grid_layout.addLayout(group_layout)
-        
-        layout.addLayout(grid_layout)
-        
-        # 常用权限预设
-        preset_layout = QHBoxLayout()
-        preset_layout.addWidget(QLabel("预设:"))
-        self.preset_combo = QComboBox()
-        self.preset_combo.addItems([
-            "自定义",
-            "644 (rw-r--r--)",
-            "755 (rwxr-xr-x)",
-            "777 (rwxrwxrwx)",
-            "600 (rw-------)",
-            "700 (rwx------)"
-        ])
-        self.preset_combo.currentIndexChanged.connect(self._apply_preset)
-        preset_layout.addWidget(self.preset_combo)
-        layout.addLayout(preset_layout)
-        
-        # 数字权限显示
-        self.perm_label = QLabel("数字权限: 000")
-        self.perm_label.setStyleSheet("font-weight: bold; color: #5a9bd5;")
-        layout.addWidget(self.perm_label)
-        
-        # 连接信号更新显示
-        for check in self.perm_checks.values():
-            check.stateChanged.connect(self._update_perm_display)
-        
-        # 按钮
-        btn_layout = QHBoxLayout()
-        btn_ok = QPushButton("确定")
-        btn_ok.clicked.connect(self.accept)
-        btn_cancel = QPushButton("取消")
-        btn_cancel.clicked.connect(self.reject)
-        btn_layout.addWidget(btn_ok)
-        btn_layout.addWidget(btn_cancel)
-        layout.addLayout(btn_layout)
-    
-    def _apply_preset(self, index):
-        """应用预设权限"""
-        presets = {
-            0: None,  # 自定义
-            1: '644',
-            2: '755',
-            3: '777',
-            4: '600',
-            5: '700'
-        }
-        
-        perm = presets.get(index)
-        if perm:
-            self._set_from_octal(perm)
-    
-    def _set_from_octal(self, octal_str):
-        """从八进制设置权限"""
-        if len(octal_str) != 3:
-            return
-        
-        for i, group in enumerate(['u', 'g', 'o']):
-            val = int(octal_str[i])
-            self.perm_checks[f"{group}r"].setChecked(bool(val & 4))
-            self.perm_checks[f"{group}w"].setChecked(bool(val & 2))
-            self.perm_checks[f"{group}x"].setChecked(bool(val & 1))
-    
-    def _update_perm_display(self):
-        """更新权限数字显示"""
-        self.perm_label.setText(f"数字权限: {self.get_permissions()}")
-    
-    def get_permissions(self):
-        """获取权限数字字符串"""
-        result = ""
-        for group in ['u', 'g', 'o']:
-            val = 0
-            if self.perm_checks[f"{group}r"].isChecked():
-                val += 4
-            if self.perm_checks[f"{group}w"].isChecked():
-                val += 2
-            if self.perm_checks[f"{group}x"].isChecked():
-                val += 1
-            result += str(val)
-        return result
