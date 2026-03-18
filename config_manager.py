@@ -14,8 +14,8 @@ class ConfigManager:
         # 版本配置 - 全局版本号定义
         "version": {
             "major": 1,
-            "minor": 7,
-            "patch": 73,
+            "minor": 8,
+            "patch": 11,
             "build": 0,
         },
         "adb": {

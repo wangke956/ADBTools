@@ -159,14 +159,8 @@ def create_github_release(version: str) -> bool:
     # 添加发布描述
     description = f"""
 ## ADBTools v{version}
-✦ v1.7.73 更新日志
-
-  新功能：
-   - CR项目页面新增"AS33R国项目打开工程模式"按钮
-   - 支持ADB和U2两种模式启动 com.saicmotor.diag/.ui.main.MainActivity
-
-✦ Bug修复：
-   - 修复U2模式启动Activity参数问题（app_start 需分开传递包名和Activity名）
+v1.8.11 新增功能
+   - 修复部分已知问题
 """
     
     # 临时创建描述文件

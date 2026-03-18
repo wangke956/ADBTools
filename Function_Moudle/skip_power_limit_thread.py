@@ -5,6 +5,7 @@ import time
 class SkipPowerLimitThread(QThread):
     progress_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
+    result_signal = pyqtSignal(str)  # 添加结果信号，与其他线程保持一致
 
     def __init__(self, device_id):
         super().__init__()
@@ -38,6 +39,7 @@ class SkipPowerLimitThread(QThread):
             
             if setprop_result.returncode == 0:
                 self.progress_signal.emit("成功跳过电源挡位限制")
+                self.result_signal.emit("跳过电源限制完成")
             else:
                 self.error_signal.emit(f"执行失败: {setprop_result.stderr}")
             

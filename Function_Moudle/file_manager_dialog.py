@@ -117,12 +117,12 @@ class DeviceListThread(QThread):
             logger.info(f"DeviceListThread: device_id={self.device_id}, path={path}, mode={self.connection_mode}, use_u2={use_u2}")
             
             if use_u2:
-                # 使用uiautomator2方式，使用-L跟随符号链接
-                result = self.d.shell(f'ls -laL "{path}" 2>/dev/null || ls -la "{path}"')
+                # 使用uiautomator2方式，不使用-L避免跟随符号链接导致重复
+                result = self.d.shell(f'ls -la "{path}" 2>/dev/null')
                 output = result.output if hasattr(result, 'output') else str(result)
             else:
-                # 使用ADB命令，使用-L跟随符号链接
-                cmd = f'adb -s {self.device_id} shell ls -laL "{path}"'
+                # 使用ADB命令，不使用-L避免跟随符号链接导致重复
+                cmd = f'adb -s {self.device_id} shell ls -la "{path}"'
                 logger.info(f"执行命令: {cmd}")
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
                 output = result.stdout
@@ -131,29 +131,58 @@ class DeviceListThread(QThread):
             # 解析ls -la输出
             lines = output.strip().split('\n')
             logger.info(f"解析行数: {len(lines)}")
+            
+            # 用于去重的集合
+            seen_names = set()
+            
             for line in lines:
                 line = line.strip()
                 if not line or line.startswith('total '):
                     continue
-                # Android ls -laL 格式: drwxr-xr-x  29 root root 820 2009-01-01 05:30 .
+                # Android ls -la 格式: drwxr-xr-x  29 root root 820 2009-01-01 05:30 filename
+                # 符号链接格式: lrwxrwxrwx   1 root root   21 2009-01-01 00:00 sdcard -> /storage/self/primary
                 # 共8列: 权限 链接数 所有者 组 大小 日期 时间 文件名
                 parts = line.split(None, 7)  # 最多分割成8部分，文件名可能含空格
                 logger.info(f"解析行: '{line}' -> parts={len(parts)}: {parts}")
                 if len(parts) >= 8:
+                    is_link = line.startswith('l')
+                    is_dir = line.startswith('d')
+                    
+                    # 解析文件名（可能包含 -> 目标路径）
+                    name_part = parts[7] if len(parts) > 7 else ''
+                    
+                    if is_link and ' -> ' in name_part:
+                        # 符号链接: 分离名称和目标
+                        name, link_target = name_part.split(' -> ', 1)
+                        name = name.strip()
+                        link_target = link_target.strip()
+                    else:
+                        name = name_part
+                        link_target = None
+                    
+                    # 跳过 . 和 ..
+                    if name in ['.', '..']:
+                        continue
+                    
+                    # 去重：跳过已存在的文件名
+                    if name in seen_names:
+                        logger.info(f"跳过重复文件: {name}")
+                        continue
+                    seen_names.add(name)
+                    
                     file_info = {
                         'permissions': parts[0],
                         'owner': parts[2] if len(parts) > 2 else '',
                         'group': parts[3] if len(parts) > 3 else '',
                         'size': parts[4] if len(parts) > 4 else '0',
                         'date': ' '.join(parts[5:7]) if len(parts) > 6 else '',  # 日期+时间
-                        'name': parts[7] if len(parts) > 7 else '',
-                        'is_dir': line.startswith('d'),
-                        'is_link': line.startswith('l'),
+                        'name': name,
+                        'is_dir': is_dir,
+                        'is_link': is_link,
+                        'link_target': link_target,  # 符号链接目标
                     }
-                    # 跳过 . 和 ..
-                    if file_info['name'] not in ['.', '..']:
-                        files.append(file_info)
-                        logger.info(f"添加文件: {file_info['name']}")
+                    files.append(file_info)
+                    logger.info(f"添加文件: {file_info['name']}")
             
             logger.info(f"最终文件列表数量: {len(files)}")
             self.finished_signal.emit(files)
@@ -212,6 +241,69 @@ class FileTransferThread(QThread):
                 raise Exception(result.stderr)
         
         self.finished_signal.emit(True, f"上传成功: {os.path.basename(self.src_path)}")
+
+
+class BatchFileTransferThread(QThread):
+    """批量文件传输线程"""
+    progress_signal = pyqtSignal(str)  # 进度信息
+    finished_signal = pyqtSignal(int, int)  # 完成信号(成功数, 失败数)
+    
+    def __init__(self, device_id, file_paths, dst_dir, transfer_type='upload', 
+                 connection_mode='adb', d=None):
+        super().__init__()
+        self.device_id = device_id
+        self.file_paths = file_paths
+        self.dst_dir = dst_dir
+        self.transfer_type = transfer_type  # 'upload' or 'download'
+        self.connection_mode = connection_mode
+        self.d = d
+    
+    def run(self):
+        success_count = 0
+        fail_count = 0
+        total = len(self.file_paths)
+        
+        for i, src_path in enumerate(self.file_paths):
+            file_name = os.path.basename(src_path)
+            
+            if self.transfer_type == 'upload':
+                # 上传：src_path 是本地文件，dst 是设备路径
+                dst_path = self.dst_dir.rstrip('/') + '/' + file_name
+                self.progress_signal.emit(f"上传中 ({i+1}/{total}): {file_name}")
+                
+                try:
+                    if self.connection_mode == 'u2' and self.d:
+                        self.d.push(src_path, dst_path)
+                    else:
+                        cmd = f'adb -s {self.device_id} push "{src_path}" "{dst_path}"'
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+                        if result.returncode != 0:
+                            raise Exception(result.stderr)
+                    success_count += 1
+                    logger.info(f"上传成功: {file_name}")
+                except Exception as e:
+                    fail_count += 1
+                    logger.error(f"上传失败: {file_name} - {str(e)}")
+            else:
+                # 下载：src_path 是设备文件，dst 是本地路径
+                dst_path = os.path.join(self.dst_dir, file_name)
+                self.progress_signal.emit(f"下载中 ({i+1}/{total}): {file_name}")
+                
+                try:
+                    if self.connection_mode == 'u2' and self.d:
+                        self.d.pull(src_path, dst_path)
+                    else:
+                        cmd = f'adb -s {self.device_id} pull "{src_path}" "{dst_path}"'
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+                        if result.returncode != 0:
+                            raise Exception(result.stderr)
+                    success_count += 1
+                    logger.info(f"下载成功: {file_name}")
+                except Exception as e:
+                    fail_count += 1
+                    logger.error(f"下载失败: {file_name} - {str(e)}")
+        
+        self.finished_signal.emit(success_count, fail_count)
 
 
 class FileDeleteThread(QThread):
@@ -385,6 +477,7 @@ class FileManagerDialog(QDialog):
         # 线程引用
         self.list_thread = None
         self.transfer_thread = None
+        self.batch_transfer_thread = None
         self.delete_thread = None
         self.rename_thread = None
         self.text_read_thread = None
@@ -563,11 +656,19 @@ class FileManagerDialog(QDialog):
             name = file_info['name']
             is_dir = file_info['is_dir']
             is_link = file_info['is_link']
+            link_target = file_info.get('link_target')
             
-            size_str = '<DIR>' if is_dir else self._format_size(int(file_info['size']) if file_info['size'].isdigit() else 0)
+            # 显示名称：符号链接显示为 name -> target
+            display_name = f"{name} -> {link_target}" if is_link and link_target else name
+            
+            # 符号链接的大小通常很小，如果是链接到目录，显示 <LINK>
+            if is_link:
+                size_str = '<LINK>' if not file_info['size'].isdigit() or int(file_info['size']) < 100 else self._format_size(int(file_info['size']))
+            else:
+                size_str = '<DIR>' if is_dir else self._format_size(int(file_info['size']) if file_info['size'].isdigit() else 0)
             
             item = QTreeWidgetItem([
-                name,
+                display_name,
                 size_str,
                 file_info['permissions'],
                 file_info['date']
@@ -575,10 +676,11 @@ class FileManagerDialog(QDialog):
             item.setData(0, Qt.UserRole, file_info)
             
             # 设置图标
-            if is_dir:
-                item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
-            elif is_link:
+            if is_link:
+                # 符号链接使用链接图标
                 item.setIcon(0, self.style().standardIcon(self.style().SP_FileLinkIcon))
+            elif is_dir:
+                item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
             else:
                 item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
             
@@ -693,13 +795,18 @@ class FileManagerDialog(QDialog):
         """设备文件双击事件"""
         data = item.data(0, Qt.UserRole)
         
-        if isinstance(data, dict) and data.get('is_dir'):
-            # 进入目录 - 使用正斜杠拼接
-            if self.device_current_path.endswith('/'):
-                self.device_current_path = self.device_current_path + data['name']
-            else:
-                self.device_current_path = self.device_current_path + '/' + data['name']
-            self._refresh_device_files()
+        if isinstance(data, dict):
+            is_dir = data.get('is_dir')
+            is_link = data.get('is_link')
+            
+            # 目录或符号链接（可能指向目录）都可以尝试进入
+            if is_dir or is_link:
+                # 进入目录 - 使用正斜杠拼接
+                if self.device_current_path.endswith('/'):
+                    self.device_current_path = self.device_current_path + data['name']
+                else:
+                    self.device_current_path = self.device_current_path + '/' + data['name']
+                self._refresh_device_files()
     
     def _on_local_item_double_clicked(self, item, column):
         """本地文件双击事件"""
@@ -798,10 +905,38 @@ class FileManagerDialog(QDialog):
             QMessageBox.information(self, "提示", "请先选择要下载的文件")
             return
         
+        # 收集要下载的文件路径
+        file_paths = []
         for item in selected_items:
             data = item.data(0, Qt.UserRole)
-            if isinstance(data, dict):
-                self._download_item(data)
+            if isinstance(data, dict) and not data.get('is_dir'):
+                src_path = self._join_device_path(self.device_current_path, data['name'])
+                file_paths.append(src_path)
+        
+        if not file_paths:
+            QMessageBox.information(self, "提示", "请选择文件（不支持下载文件夹）")
+            return
+        
+        if len(file_paths) == 1:
+            # 单个文件使用原有的单文件下载方法
+            data = selected_items[0].data(0, Qt.UserRole)
+            self._download_item(data)
+        else:
+            # 多个文件使用批量下载线程
+            self._download_files_batch(file_paths)
+    
+    def _download_files_batch(self, file_paths):
+        """批量下载文件（使用线程，不阻塞界面）"""
+        self.progress_bar.setVisible(True)
+        self.status_label.setText(f"准备下载 {len(file_paths)} 个文件...")
+        
+        self.batch_transfer_thread = BatchFileTransferThread(
+            self.device_id, file_paths, self.local_current_path,
+            'download', self.connection_mode, self.d
+        )
+        self.batch_transfer_thread.progress_signal.connect(self.status_label.setText)
+        self.batch_transfer_thread.finished_signal.connect(self._on_batch_transfer_finished)
+        self.batch_transfer_thread.start()
     
     def _download_item(self, file_info):
         """下载单个文件"""
@@ -826,10 +961,23 @@ class FileManagerDialog(QDialog):
             QMessageBox.information(self, "提示", "请先选择要上传的文件")
             return
         
+        # 收集要上传的文件路径
+        file_paths = []
         for item in selected_items:
             data = item.data(0, Qt.UserRole)
             if isinstance(data, dict) and not data.get('is_dir'):
-                self._upload_item(data)
+                file_paths.append(data['path'])
+        
+        if file_paths:
+            # 确认上传
+            reply = QMessageBox.question(
+                self, '确认上传',
+                f"确定要上传 {len(file_paths)} 个文件到设备吗？\n目标路径: {self.device_current_path}",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                self._upload_files_batch(file_paths)
     
     def _upload_item(self, file_info):
         """上传单个文件"""
@@ -863,33 +1011,29 @@ class FileManagerDialog(QDialog):
             self._upload_files_batch(file_paths)
     
     def _upload_files_batch(self, file_paths):
-        """批量上传文件"""
+        """批量上传文件（使用线程，不阻塞界面）"""
         self.progress_bar.setVisible(True)
-        total = len(file_paths)
+        self.status_label.setText(f"准备上传 {len(file_paths)} 个文件...")
         
-        for i, src_path in enumerate(file_paths):
-            file_name = os.path.basename(src_path)
-            dst_path = self._join_device_path(self.device_current_path, file_name)
-            
-            self.status_label.setText(f"上传中 ({i+1}/{total}): {file_name}")
-            
-            try:
-                if self.connection_mode == 'u2' and self.d:
-                    self.d.push(src_path, dst_path)
-                else:
-                    cmd = f'adb -s {self.device_id} push "{src_path}" "{dst_path}"'
-                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-                    if result.returncode != 0:
-                        raise Exception(result.stderr)
-                
-                logger.info(f"上传成功: {file_name}")
-            except Exception as e:
-                logger.error(f"上传失败: {file_name} - {str(e)}")
-                self.status_label.setText(f"上传失败: {file_name}")
-        
+        self.batch_transfer_thread = BatchFileTransferThread(
+            self.device_id, file_paths, self.device_current_path,
+            'upload', self.connection_mode, self.d
+        )
+        self.batch_transfer_thread.progress_signal.connect(self.status_label.setText)
+        self.batch_transfer_thread.finished_signal.connect(self._on_batch_upload_finished)
+        self.batch_transfer_thread.start()
+    
+    def _on_batch_upload_finished(self, success_count, fail_count):
+        """批量上传完成"""
         self.progress_bar.setVisible(False)
-        self.status_label.setText(f"上传完成: {total} 个文件")
+        self.status_label.setText(f"上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
+    
+    def _on_batch_transfer_finished(self, success_count, fail_count):
+        """批量下载完成"""
+        self.progress_bar.setVisible(False)
+        self.status_label.setText(f"下载完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self._refresh_local_files()
     
     def _select_local_file(self):
         """选择本地文件"""
@@ -1081,8 +1225,9 @@ class FileManagerDialog(QDialog):
     def closeEvent(self, event):
         """关闭事件"""
         # 确保线程结束
-        for thread in [self.list_thread, self.transfer_thread, self.delete_thread,
-                       self.rename_thread, self.text_read_thread, self.text_write_thread]:
+        for thread in [self.list_thread, self.transfer_thread, self.batch_transfer_thread,
+                       self.delete_thread, self.rename_thread, self.text_read_thread, 
+                       self.text_write_thread]:
             if thread and thread.isRunning():
                 thread.wait(1000)
         event.accept()

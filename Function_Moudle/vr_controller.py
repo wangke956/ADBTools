@@ -63,10 +63,16 @@ class VRController:
         self.main_window.textBrowser.append(text)
     
     def _connect_thread_signals(self, thread):
-        """连接线程的通用信号"""
-        thread.progress_signal.connect(self._append_output)
-        thread.error_signal.connect(self._append_output)
-        thread.result_signal.connect(self._append_output)
+        """连接线程的通用信号（安全模式：检查信号是否存在）"""
+        if hasattr(thread, 'progress_signal'):
+            thread.progress_signal.connect(self._append_output)
+        if hasattr(thread, 'error_signal'):
+            thread.error_signal.connect(self._append_output)
+        if hasattr(thread, 'result_signal'):
+            thread.result_signal.connect(self._append_output)
+        # 兼容旧的信号名称
+        if hasattr(thread, 'signal_timeout'):
+            thread.signal_timeout.connect(self._append_output)
     
     # ========== VR激活 ==========
     

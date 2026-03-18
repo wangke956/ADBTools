@@ -174,6 +174,7 @@ class ADB_Mainwindow(QMainWindow):
         self.d = None
         self.device_id = None
         self.connection_mode = None  # 'u2' 或 'adb'
+        self.u2_connecting = False  # U2正在连接中的标志
         # 重定向输出流为textBrowser
         self.text_edit_output_stream = TextEditOutputStream(self.textBrowser)
         
@@ -237,6 +238,7 @@ class ADB_Mainwindow(QMainWindow):
         
         # 其他信号连接
         self.list_package_button.clicked.connect(self.list_package)
+        self.adb_root_button.clicked.connect(self.adb_root_wrapper)  # 获取root权限
         self.enter_engineering_mode_button.clicked.connect(self.open_engineering_mode)  # 进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering)
         self.AS33R_open_engineering_mode_button.clicked.connect(self.as33r_open_engineering_mode)  # AS33R国项目打开工程模式
@@ -244,6 +246,7 @@ class ADB_Mainwindow(QMainWindow):
         self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
         self.start_check_button.clicked.connect(self.app_version_check)
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
+        self.start_app.clicked.connect(self.app_operations.show_start_app_dialog)  # 启动应用
         
         # 大通功能信号连接
         self.datong_factory_button.clicked.connect(self.datong_manager.factory_action)  # 拉起中环工厂

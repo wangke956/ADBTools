@@ -260,6 +260,9 @@ class DeviceManager:
         """在单独的线程中尝试u2连接"""
         log_device_operation("u2_connect_attempt", device_id, {"mode": "u2", "action": "尝试u2连接"})
         
+        # 设置正在连接标志
+        self.main_window.u2_connecting = True
+        
         try:
             from Function_Moudle.u2_connect_thread import U2ConnectThread
             self.main_window.u2_connect_thread = U2ConnectThread(device_id)
@@ -279,16 +282,21 @@ class DeviceManager:
             # 回退到ADB模式
             self.main_window.d = None
             self.main_window.connection_mode = 'adb'
+            self.main_window.u2_connecting = False  # 清除连接标志
             log_device_operation("fallback_to_adb", device_id, {"reason": "u2连接失败", "mode": "adb"})
             self.main_window.textBrowser.append(f"切换到ADB模式: {device_id}")
     
     def _handle_u2_connection_result(self, u2_device, device_id):
         """处理u2连接结果"""
+        # 清除正在连接标志
+        self.main_window.u2_connecting = False
+        
         if u2_device:
             # u2连接成功
             self.main_window.d = u2_device
             self.main_window.connection_mode = 'u2'
             self.main_window.device_id = device_id
+            self.main_window.textBrowser.append(f"U2连接成功: {device_id}")
             log_device_operation("u2_connect_success", device_id, {"mode": "u2", "status": "connected"})
             log_thread_complete("U2ConnectThread", "success", {"device_id": device_id, "mode": "u2"})
         else:
@@ -296,7 +304,7 @@ class DeviceManager:
             self.main_window.d = None
             self.main_window.connection_mode = 'adb'
             self.main_window.device_id = device_id
-            self.main_window.textBrowser.append(f"u2连接失败，使用ADB模式: {device_id}")
+            self.main_window.textBrowser.append(f"U2连接失败，使用ADB模式: {device_id}")
             log_device_operation("u2_connect_failed", device_id, {"mode": "adb", "reason": "u2连接失败"})
             log_thread_complete("U2ConnectThread", "failed", {"device_id": device_id, "fallback_mode": "adb"})
     

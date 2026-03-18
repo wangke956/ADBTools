@@ -4,6 +4,7 @@ import subprocess
 class ActivateVrThread(QThread):
     progress_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
+    result_signal = pyqtSignal(str)  # 添加结果信号，与其他线程保持一致
     
     def __init__(self, device_id, keyevent_value, connection_mode='adb', u2_device=None):
         super().__init__()
@@ -22,6 +23,7 @@ class ActivateVrThread(QThread):
                 try:
                     self.u2_device.shell(f'input keyevent {keycode}')
                     self.progress_signal.emit("VR唤醒命令执行成功！(u2模式)")
+                    self.result_signal.emit("VR唤醒完成")
                 except Exception as u2_error:
                     self.error_signal.emit(f"u2 shell命令执行失败: {u2_error}")
                     
@@ -39,6 +41,7 @@ class ActivateVrThread(QThread):
                 
                 if result.returncode == 0:
                     self.progress_signal.emit("VR唤醒命令执行成功！(ADB模式)")
+                    self.result_signal.emit("VR唤醒完成")
                 else:
                     self.error_signal.emit(f"VR唤醒命令执行失败: {result.stderr}")
             else:
