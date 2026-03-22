@@ -17,7 +17,7 @@ class EnhancedConfigManager:
         "version": {
             "major": 1,
             "minor": 8,
-            "patch": 11,
+            "patch": 13,
             "build": 0,
         },
         "adb": {

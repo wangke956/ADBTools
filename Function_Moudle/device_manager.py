@@ -3,6 +3,11 @@
 """设备管理器 - 处理设备连接、刷新、模式切换等功能"""
 
 import uiautomator2 as u2
+
+# 确保 Nuitka 兼容性（必须在 import uiautomator2 之后调用）
+from nuitka_compat import ensure_nuitka_compatibility
+ensure_nuitka_compatibility()
+
 from PyQt5.QtCore import Qt
 from logger_manager import (
     get_logger, log_operation, log_exception,

@@ -3,6 +3,11 @@ import io
 import subprocess
 from Function_Moudle.adb_root_wrapper_thread import AdbRootWrapperThread
 import uiautomator2 as u2
+
+# 确保 Nuitka 兼容性（必须在 import uiautomator2 之后调用）
+from nuitka_compat import ensure_nuitka_compatibility
+ensure_nuitka_compatibility()
+
 import os
 from PyQt5 import uic
 from PyQt5.QtCore import QSize, Qt

@@ -198,6 +198,16 @@ except Exception as e:
     logger = None
 
 
+# ==================== Nuitka 兼容性初始化 ====================
+_log("[STEP] 初始化 Nuitka 兼容性")
+try:
+    from nuitka_compat import ensure_nuitka_compatibility
+    ensure_nuitka_compatibility()
+    _log("Nuitka 兼容性初始化成功")
+except Exception as e:
+    _log(f"Nuitka 兼容性初始化失败（非致命）: {e}")
+
+
 # ==================== 加载主窗口 ====================
 _log("[STEP] 加载主窗口模块")
 try:

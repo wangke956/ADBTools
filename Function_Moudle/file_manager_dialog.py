@@ -370,6 +370,262 @@ class RenameThread(QThread):
             self.finished_signal.emit(False, f"重命名失败: {str(e)}")
 
 
+class FolderUploadThread(QThread):
+    """文件夹上传线程 - 递归上传整个文件夹到设备"""
+    progress_signal = pyqtSignal(str)  # 进度信息
+    file_progress_signal = pyqtSignal(int, int)  # 当前文件数, 总文件数
+    finished_signal = pyqtSignal(int, int, int)  # 成功数, 失败数, 跳过数
+    
+    def __init__(self, device_id, local_folder, device_folder, connection_mode='adb', d=None):
+        super().__init__()
+        self.device_id = device_id
+        self.local_folder = local_folder
+        self.device_folder = device_folder
+        self.connection_mode = connection_mode
+        self.d = d
+    
+    def run(self):
+        success_count = 0
+        fail_count = 0
+        skip_count = 0
+        
+        # 获取文件夹名称
+        folder_name = os.path.basename(self.local_folder)
+        target_folder = self.device_folder.rstrip('/') + '/' + folder_name
+        
+        # 统计总文件数
+        total_files = sum(len(files) for _, _, files in os.walk(self.local_folder))
+        current_file = 0
+        
+        self.progress_signal.emit(f"准备上传文件夹: {folder_name} ({total_files} 个文件)")
+        
+        # 在设备上创建根目录
+        if not self._create_device_dir(target_folder):
+            self.finished_signal.emit(0, 0, 0)
+            return
+        
+        # 递归遍历本地文件夹
+        for root, dirs, files in os.walk(self.local_folder):
+            # 计算相对路径
+            rel_path = os.path.relpath(root, self.local_folder)
+            if rel_path == '.':
+                rel_path = ''
+            
+            # 在设备上创建子目录
+            for dir_name in dirs:
+                if rel_path:
+                    device_subdir = f"{target_folder}/{rel_path}/{dir_name}".replace('\\', '/')
+                else:
+                    device_subdir = f"{target_folder}/{dir_name}"
+                self._create_device_dir(device_subdir)
+            
+            # 上传文件
+            for file_name in files:
+                current_file += 1
+                local_file = os.path.join(root, file_name)
+                
+                if rel_path:
+                    device_file = f"{target_folder}/{rel_path}/{file_name}".replace('\\', '/')
+                else:
+                    device_file = f"{target_folder}/{file_name}"
+                
+                self.file_progress_signal.emit(current_file, total_files)
+                self.progress_signal.emit(f"上传中 ({current_file}/{total_files}): {file_name}")
+                
+                try:
+                    if self.connection_mode == 'u2' and self.d:
+                        self.d.push(local_file, device_file)
+                    else:
+                        cmd = f'adb -s {self.device_id} push "{local_file}" "{device_file}"'
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+                        if result.returncode != 0:
+                            raise Exception(result.stderr)
+                    success_count += 1
+                    logger.info(f"上传成功: {file_name}")
+                except Exception as e:
+                    fail_count += 1
+                    logger.error(f"上传失败: {file_name} - {str(e)}")
+        
+        self.finished_signal.emit(success_count, fail_count, skip_count)
+    
+    def _create_device_dir(self, dir_path):
+        """在设备上创建目录"""
+        try:
+            mkdir_cmd = f'mkdir -p "{dir_path}"'
+            
+            if self.connection_mode == 'u2' and self.d:
+                self.d.shell(mkdir_cmd)
+            else:
+                cmd = f'adb -s {self.device_id} shell {mkdir_cmd}'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                if result.returncode != 0:
+                    logger.error(f"创建目录失败: {dir_path}")
+                    return False
+            return True
+        except Exception as e:
+            logger.error(f"创建目录异常: {dir_path} - {str(e)}")
+            return False
+
+
+class FolderDownloadThread(QThread):
+    """文件夹下载线程 - 从设备递归下载文件夹到本地"""
+    progress_signal = pyqtSignal(str)  # 进度信息
+    file_progress_signal = pyqtSignal(int, int)  # 当前文件数, 总文件数
+    finished_signal = pyqtSignal(int, int, int)  # 成功数, 失败数, 跳过数
+    
+    def __init__(self, device_id, device_folder, local_folder, connection_mode='adb', d=None):
+        super().__init__()
+        self.device_id = device_id
+        self.device_folder = device_folder
+        self.local_folder = local_folder
+        self.connection_mode = connection_mode
+        self.d = d
+    
+    def run(self):
+        success_count = 0
+        fail_count = 0
+        skip_count = 0
+        
+        # 获取文件夹名称
+        folder_name = self.device_folder.rstrip('/').split('/')[-1]
+        target_folder = os.path.join(self.local_folder, folder_name)
+        
+        # 统计总文件数
+        total_files = self._count_files_recursive(self.device_folder)
+        current_file = 0
+        
+        self.progress_signal.emit(f"准备下载文件夹: {folder_name} ({total_files} 个文件)")
+        
+        # 在本地创建根目录
+        os.makedirs(target_folder, exist_ok=True)
+        
+        # 递归下载
+        success_count, fail_count, skip_count, current_file = self._download_recursive(
+            self.device_folder, target_folder, current_file, total_files
+        )
+        
+        self.finished_signal.emit(success_count, fail_count, skip_count)
+    
+    def _count_files_recursive(self, device_path):
+        """递归统计设备文件夹中的文件数量"""
+        count = 0
+        try:
+            if self.connection_mode == 'u2' and self.d:
+                result = self.d.shell(f'ls -la "{device_path}"')
+                output = result.output if hasattr(result, 'output') else str(result)
+            else:
+                cmd = f'adb -s {self.device_id} shell ls -la "{device_path}"'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                output = result.stdout
+            
+            lines = output.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('total '):
+                    continue
+                
+                parts = line.split(None, 7)
+                if len(parts) >= 8:
+                    is_dir = line.startswith('d')
+                    name_part = parts[7] if len(parts) > 7 else ''
+                    
+                    # 处理符号链接
+                    if ' -> ' in name_part:
+                        name = name_part.split(' -> ')[0].strip()
+                    else:
+                        name = name_part
+                    
+                    if name in ['.', '..']:
+                        continue
+                    
+                    full_path = f"{device_path.rstrip('/')}/{name}"
+                    
+                    if is_dir:
+                        count += self._count_files_recursive(full_path)
+                    else:
+                        count += 1
+        except Exception as e:
+            logger.error(f"统计文件数失败: {device_path} - {str(e)}")
+        
+        return count
+    
+    def _download_recursive(self, device_path, local_path, current_file, total_files):
+        """递归下载文件夹"""
+        success_count = 0
+        fail_count = 0
+        skip_count = 0
+        
+        try:
+            if self.connection_mode == 'u2' and self.d:
+                result = self.d.shell(f'ls -la "{device_path}"')
+                output = result.output if hasattr(result, 'output') else str(result)
+            else:
+                cmd = f'adb -s {self.device_id} shell ls -la "{device_path}"'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                output = result.stdout
+            
+            lines = output.strip().split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('total '):
+                    continue
+                
+                parts = line.split(None, 7)
+                if len(parts) >= 8:
+                    is_dir = line.startswith('d')
+                    is_link = line.startswith('l')
+                    name_part = parts[7] if len(parts) > 7 else ''
+                    
+                    # 处理符号链接
+                    if ' -> ' in name_part:
+                        name = name_part.split(' -> ')[0].strip()
+                    else:
+                        name = name_part
+                    
+                    if name in ['.', '..']:
+                        continue
+                    
+                    device_full_path = f"{device_path.rstrip('/')}/{name}"
+                    local_full_path = os.path.join(local_path, name)
+                    
+                    if is_dir:
+                        # 创建本地目录并递归下载
+                        os.makedirs(local_full_path, exist_ok=True)
+                        s, f, sk, current_file = self._download_recursive(
+                            device_full_path, local_full_path, current_file, total_files
+                        )
+                        success_count += s
+                        fail_count += f
+                        skip_count += sk
+                    elif not is_link:  # 跳过符号链接
+                        # 下载文件
+                        current_file += 1
+                        self.file_progress_signal.emit(current_file, total_files)
+                        self.progress_signal.emit(f"下载中 ({current_file}/{total_files}): {name}")
+                        
+                        try:
+                            if self.connection_mode == 'u2' and self.d:
+                                self.d.pull(device_full_path, local_full_path)
+                            else:
+                                cmd = f'adb -s {self.device_id} pull "{device_full_path}" "{local_full_path}"'
+                                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+                                if result.returncode != 0:
+                                    raise Exception(result.stderr)
+                            success_count += 1
+                            logger.info(f"下载成功: {name}")
+                        except Exception as e:
+                            fail_count += 1
+                            logger.error(f"下载失败: {name} - {str(e)}")
+                    else:
+                        # 符号链接跳过
+                        skip_count += 1
+        except Exception as e:
+            logger.error(f"遍历目录失败: {device_path} - {str(e)}")
+        
+        return success_count, fail_count, skip_count, current_file
+
+
 class TextReadThread(QThread):
     """读取设备文本文件线程"""
     finished_signal = pyqtSignal(bool, str, str)  # success, content, error_msg
@@ -482,6 +738,8 @@ class FileManagerDialog(QDialog):
         self.rename_thread = None
         self.text_read_thread = None
         self.text_write_thread = None
+        self.folder_upload_thread = None
+        self.folder_download_thread = None
         
         self._init_ui()
         self._refresh_device_files()
@@ -590,7 +848,7 @@ class FileManagerDialog(QDialog):
         btn_refresh_local.clicked.connect(self._refresh_local_files)
         local_header.addWidget(btn_refresh_local)
         btn_upload = QPushButton("⬆ 上传")
-        btn_upload.setToolTip("上传选中的文件到设备")
+        btn_upload.setToolTip("上传选中的文件或文件夹到设备")
         btn_upload.clicked.connect(self._upload_selected)
         local_header.addWidget(btn_upload)
         btn_select_file = QPushButton("📂 选择文件")
@@ -832,9 +1090,11 @@ class FileManagerDialog(QDialog):
             if not isinstance(data, dict):
                 return
             
-            # 下载
+            is_dir = data.get('is_dir')
+            
+            # 下载（自动判断文件/文件夹）
             download_action = QAction("⬇ 下载到本地", self)
-            download_action.triggered.connect(lambda: self._download_item(data))
+            download_action.triggered.connect(lambda: self._download_selected())
             menu.addAction(download_action)
             
             menu.addSeparator()
@@ -845,7 +1105,7 @@ class FileManagerDialog(QDialog):
             menu.addAction(rename_action)
             
             # 文本预览/编辑（仅文件）
-            if not data.get('is_dir'):
+            if not is_dir:
                 # 判断是否为文本文件
                 name = data.get('name', '')
                 text_exts = ['.txt', '.log', '.xml', '.json', '.properties', '.conf', 
@@ -899,31 +1159,54 @@ class FileManagerDialog(QDialog):
         menu.exec_(self.local_tree.viewport().mapToGlobal(pos))
     
     def _download_selected(self):
-        """下载选中的设备文件"""
+        """下载选中的设备文件或文件夹"""
         selected_items = self.device_tree.selectedItems()
         if not selected_items:
-            QMessageBox.information(self, "提示", "请先选择要下载的文件")
+            QMessageBox.information(self, "提示", "请先选择要下载的文件或文件夹")
             return
         
-        # 收集要下载的文件路径
+        # 分离文件和文件夹
         file_paths = []
+        folder_items = []
         for item in selected_items:
             data = item.data(0, Qt.UserRole)
-            if isinstance(data, dict) and not data.get('is_dir'):
-                src_path = self._join_device_path(self.device_current_path, data['name'])
-                file_paths.append(src_path)
+            if isinstance(data, dict):
+                if data.get('is_dir'):
+                    folder_items.append(data)
+                else:
+                    src_path = self._join_device_path(self.device_current_path, data['name'])
+                    file_paths.append(src_path)
         
-        if not file_paths:
-            QMessageBox.information(self, "提示", "请选择文件（不支持下载文件夹）")
+        if not file_paths and not folder_items:
+            QMessageBox.information(self, "提示", "请选择有效的文件或文件夹")
             return
         
-        if len(file_paths) == 1:
-            # 单个文件使用原有的单文件下载方法
-            data = selected_items[0].data(0, Qt.UserRole)
-            self._download_item(data)
-        else:
-            # 多个文件使用批量下载线程
-            self._download_files_batch(file_paths)
+        # 构建确认消息
+        msg_parts = []
+        if file_paths:
+            msg_parts.append(f"{len(file_paths)} 个文件")
+        if folder_items:
+            msg_parts.append(f"{len(folder_items)} 个文件夹")
+        
+        reply = QMessageBox.question(
+            self, '确认下载',
+            f"确定要下载 {' 和 '.join(msg_parts)} 到本地吗？\n保存位置: {self.local_current_path}",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+        )
+        
+        if reply == QMessageBox.Yes:
+            # 下载文件
+            if file_paths:
+                if len(file_paths) == 1:
+                    # 单文件使用单文件下载
+                    self._download_item(selected_items[0].data(0, Qt.UserRole))
+                else:
+                    # 多文件批量下载
+                    self._download_files_batch(file_paths)
+            # 下载文件夹
+            for folder_info in folder_items:
+                device_folder = self._join_device_path(self.device_current_path, folder_info['name'])
+                self._do_download_folder(device_folder, self.local_current_path)
     
     def _download_files_batch(self, file_paths):
         """批量下载文件（使用线程，不阻塞界面）"""
@@ -955,29 +1238,47 @@ class FileManagerDialog(QDialog):
         self.transfer_thread.start()
     
     def _upload_selected(self):
-        """上传选中的本地文件"""
+        """上传选中的本地文件或文件夹"""
         selected_items = self.local_tree.selectedItems()
         if not selected_items:
-            QMessageBox.information(self, "提示", "请先选择要上传的文件")
+            QMessageBox.information(self, "提示", "请先选择要上传的文件或文件夹")
             return
         
-        # 收集要上传的文件路径
+        # 分离文件和文件夹
         file_paths = []
+        folder_paths = []
         for item in selected_items:
             data = item.data(0, Qt.UserRole)
-            if isinstance(data, dict) and not data.get('is_dir'):
-                file_paths.append(data['path'])
+            if isinstance(data, dict):
+                if data.get('is_dir'):
+                    folder_paths.append(data['path'])
+                else:
+                    file_paths.append(data['path'])
         
+        if not file_paths and not folder_paths:
+            QMessageBox.information(self, "提示", "请选择有效的文件或文件夹")
+            return
+        
+        # 构建确认消息
+        msg_parts = []
         if file_paths:
-            # 确认上传
-            reply = QMessageBox.question(
-                self, '确认上传',
-                f"确定要上传 {len(file_paths)} 个文件到设备吗？\n目标路径: {self.device_current_path}",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
-            )
-            
-            if reply == QMessageBox.Yes:
+            msg_parts.append(f"{len(file_paths)} 个文件")
+        if folder_paths:
+            msg_parts.append(f"{len(folder_paths)} 个文件夹")
+        
+        reply = QMessageBox.question(
+            self, '确认上传',
+            f"确定要上传 {' 和 '.join(msg_parts)} 到设备吗？\n目标路径: {self.device_current_path}",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+        )
+        
+        if reply == QMessageBox.Yes:
+            # 上传文件
+            if file_paths:
                 self._upload_files_batch(file_paths)
+            # 上传文件夹
+            for folder_path in folder_paths:
+                self._do_upload_folder(folder_path)
     
     def _upload_item(self, file_info):
         """上传单个文件"""
@@ -1000,15 +1301,42 @@ class FileManagerDialog(QDialog):
         if not file_paths:
             return
         
-        # 确认上传
+        # 分离文件和文件夹
+        files = []
+        folders = []
+        for path in file_paths:
+            if os.path.isdir(path):
+                folders.append(path)
+            elif os.path.isfile(path):
+                files.append(path)
+        
+        # 显示确认对话框
+        msg_parts = []
+        if files:
+            msg_parts.append(f"{len(files)} 个文件")
+        if folders:
+            msg_parts.append(f"{len(folders)} 个文件夹")
+        
+        msg = f"确定要上传 {' 和 '.join(msg_parts)} 到设备吗？\n目标路径: {self.device_current_path}"
+        
         reply = QMessageBox.question(
-            self, '确认上传',
-            f"确定要上传 {len(file_paths)} 个文件/文件夹到设备吗？\n目标路径: {self.device_current_path}",
+            self, '确认上传', msg,
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
         )
         
-        if reply == QMessageBox.Yes:
-            self._upload_files_batch(file_paths)
+        if reply != QMessageBox.Yes:
+            return
+        
+        # 上传文件
+        if files:
+            self._upload_files_batch(files)
+        
+        # 上传文件夹（需要在文件上传完成后处理）
+        if folders:
+            # 如果有文件正在上传，等待完成后再上传文件夹
+            # 简单起见，我们依次上传文件夹
+            for folder_path in folders:
+                self._do_upload_folder(folder_path)
     
     def _upload_files_batch(self, file_paths):
         """批量上传文件（使用线程，不阻塞界面）"""
@@ -1022,6 +1350,48 @@ class FileManagerDialog(QDialog):
         self.batch_transfer_thread.progress_signal.connect(self.status_label.setText)
         self.batch_transfer_thread.finished_signal.connect(self._on_batch_upload_finished)
         self.batch_transfer_thread.start()
+    
+    def _do_upload_folder(self, folder_path):
+        """执行文件夹上传"""
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 0)  # 不确定进度模式
+        self.status_label.setText(f"正在上传文件夹...")
+        
+        self.folder_upload_thread = FolderUploadThread(
+            self.device_id, folder_path, self.device_current_path,
+            self.connection_mode, self.d
+        )
+        self.folder_upload_thread.progress_signal.connect(self.status_label.setText)
+        self.folder_upload_thread.finished_signal.connect(self._on_folder_upload_finished)
+        self.folder_upload_thread.start()
+    
+    def _on_folder_upload_finished(self, success_count, fail_count, skip_count):
+        """文件夹上传完成"""
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setRange(0, 100)  # 恢复正常进度模式
+        self.status_label.setText(f"文件夹上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self._refresh_device_files()
+    
+    def _do_download_folder(self, device_folder, local_folder):
+        """执行文件夹下载"""
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 0)  # 不确定进度模式
+        self.status_label.setText(f"正在下载文件夹...")
+        
+        self.folder_download_thread = FolderDownloadThread(
+            self.device_id, device_folder, local_folder,
+            self.connection_mode, self.d
+        )
+        self.folder_download_thread.progress_signal.connect(self.status_label.setText)
+        self.folder_download_thread.finished_signal.connect(self._on_folder_download_finished)
+        self.folder_download_thread.start()
+    
+    def _on_folder_download_finished(self, success_count, fail_count, skip_count):
+        """文件夹下载完成"""
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setRange(0, 100)  # 恢复正常进度模式
+        self.status_label.setText(f"文件夹下载完成: 成功 {success_count} 个, 失败 {fail_count} 个, 跳过 {skip_count} 个")
+        self._refresh_local_files()
     
     def _on_batch_upload_finished(self, success_count, fail_count):
         """批量上传完成"""
@@ -1227,7 +1597,7 @@ class FileManagerDialog(QDialog):
         # 确保线程结束
         for thread in [self.list_thread, self.transfer_thread, self.batch_transfer_thread,
                        self.delete_thread, self.rename_thread, self.text_read_thread, 
-                       self.text_write_thread]:
+                       self.text_write_thread, self.folder_upload_thread, self.folder_download_thread]:
             if thread and thread.isRunning():
                 thread.wait(1000)
         event.accept()
