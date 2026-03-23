@@ -1,0 +1,3000 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <author>王克</author>
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+ <property name="geometry">
+ <rect>
+ <x>0</x>
+ <y>0</y>
+ <width>750</width>
+ <height>500</height>
+ </rect>
+ </property>
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>600</width>
+ <height>400</height>
+ </size>
+ </property>
+ <property name="maximumSize">
+ <size>
+ <width>16777215</width>
+ <height>16777215</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="acceptDrops">
+ <bool>true</bool>
+ </property>
+ <property name="windowTitle">
+ <string>ADBTools Pro</string>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">/* ========== 全局样式 ========== */
+QMainWindow {
+ background: #1e1e2e;
+}
+
+QWidget {
+ color: #e0e0e0;
+ font-family: 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+ font-size: 9px;
+}
+
+/* ========== 功能按钮样式 ========== */
+QPushButton {
+ background: #2a3a50;
+ color: #d0d0d0;
+ border: 1px solid #3d5a80;
+ border-radius: 4px;
+ padding: 4px 8px;
+ font-size: 9px;
+}
+QPushButton:hover {
+ background: #3d5a80;
+ color: white;
+ border: 1px solid #5a9bd5;
+}
+QPushButton:pressed {
+ background: #2a4a70;
+}
+QPushButton:disabled {
+ background: #2a2a3a;
+ color: #5a5a6a;
+ border: 1px solid #3a3a4a;
+}
+
+/* ========== 输入框样式 ========== */
+QLineEdit, QTextEdit, QTextBrowser {
+ background: #151521;
+ color: #98c379;
+ border: 1px solid #3d5a80;
+ border-radius: 6px;
+ padding: 6px 10px;
+}
+QLineEdit:focus, QTextEdit:focus, QTextBrowser:focus {
+ border: 1px solid #5a7ba8;
+}
+
+/* ========== 下拉框样式 ========== */
+QComboBox {
+ background: #2a2a3a;
+ color: #e0e0e0;
+ border: 1px solid #3d5a80;
+ border-radius: 6px;
+ padding: 5px 10px;
+ min-width: 80px;
+}
+QComboBox:hover {
+ border: 1px solid #5a7ba8;
+ background: #353545;
+}
+QComboBox::drop-down {
+ border: none;
+ width: 25px;
+}
+QComboBox::down-arrow {
+ image: none;
+ border-left: 5px solid transparent;
+ border-right: 5px solid transparent;
+ border-top: 6px solid #5a7ba8;
+}
+QComboBox QAbstractItemView {
+ background-color: #1e1e2e;
+ color: #e0e0e0;
+ selection-background-color: #3d5a80;
+ border: 1px solid #3d5a80;
+}
+
+/* ========== 复选框样式 ========== */
+QCheckBox {
+ color: #e0e0e0;
+ spacing: 8px;
+}
+QCheckBox::indicator {
+ width: 18px;
+ height: 18px;
+ border-radius: 4px;
+ border: 2px solid #3d5a80;
+ background: transparent;
+}
+QCheckBox::indicator:checked {
+ background: #3d5a80;
+ border: 2px solid #5a7ba8;
+}
+QCheckBox::indicator:hover {
+ border: 2px solid #5a7ba8;
+}
+
+/* ========== 标签样式 ========== */
+QLabel {
+ color: #b0b0c0;
+}
+
+/* ========== 分组框样式 ========== */
+QGroupBox {
+ color: #e0e0e0;
+ border: 1px solid #3d5a80;
+ border-radius: 8px;
+ margin-top: 12px;
+ padding: 6px 4px 4px 4px;
+ font-weight: bold;
+ background: rgba(255, 255, 255, 0.02);
+}
+QGroupBox::title {
+ subcontrol-origin: margin;
+ subcontrol-position: top left;
+ left: 12px;
+ padding: 0 6px;
+ color: #5a9bd5;
+ background: #1e1e2e;
+}
+
+/* ========== 滚动条样式 ========== */
+QScrollBar:vertical {
+ background: #151521;
+ width: 10px;
+ border-radius: 5px;
+}
+QScrollBar::handle:vertical {
+ background: #3d5a80;
+ border-radius: 5px;
+ min-height: 20px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+ height: 0px;
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+ background: none;
+}
+
+QScrollBar:horizontal {
+ background: #151521;
+ height: 10px;
+ border-radius: 5px;
+}
+QScrollBar::handle:horizontal {
+ background: #3d5a80;
+ border-radius: 5px;
+ min-width: 20px;
+}
+
+/* ========== 滚动区域样式 ========== */
+QScrollArea {
+ border: none;
+ background: transparent;
+}
+QScrollArea > QWidget > QWidget {
+ background: transparent;
+}
+
+/* ========== 标签窗口样式 ========== */
+QTabWidget {
+ background: transparent;
+}
+QTabWidget::pane {
+ border: none;
+ background: transparent;
+}
+QTabBar {
+ qproperty-visible: false;
+ height: 0px;
+}
+QTabBar::tab {
+ height: 0px;
+ width: 0px;
+ padding: 0px;
+ margin: 0px;
+}
+
+/* ========== 菜单栏样式 ========== */
+QMenuBar {
+ background: #1a1a28;
+ color: #d0d0d0;
+ border-bottom: 1px solid #3d5a80;
+ padding: 2px 4px;
+ font-size: 9px;
+}
+QMenuBar::item {
+ background: transparent;
+ color: #d0d0d0;
+ padding: 4px 10px;
+ border-radius: 3px;
+}
+QMenuBar::item:selected {
+ background: #3d5a80;
+ color: white;
+}
+QMenuBar::item:pressed {
+ background: #5a7ba8;
+}
+
+/* ========== 菜单样式 ========== */
+QMenu {
+ background: #1e1e2e;
+ color: #d0d0d0;
+ border: 1px solid #3d5a80;
+ border-radius: 4px;
+ padding: 4px 0px;
+}
+QMenu::item {
+ background: transparent;
+ color: #d0d0d0;
+ padding: 6px 25px 6px 20px;
+ border-radius: 0px;
+}
+QMenu::item:selected {
+ background: #3d5a80;
+ color: white;
+}
+QMenu::item:disabled {
+ color: #5a5a6a;
+}
+QMenu::separator {
+ height: 1px;
+ background: #3d5a80;
+ margin: 4px 10px;
+}
+
+/* ========== 消息框样式 ========== */
+QMessageBox {
+ background: #1e1e2e;
+}
+QMessageBox QLabel {
+ color: #d0d0d0;
+ font-family: 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+}
+QMessageBox QPushButton {
+ background: #2a3a50;
+ color: #d0d0d0;
+ border: 1px solid #3d5a80;
+ border-radius: 4px;
+ padding: 6px 20px;
+ min-width: 80px;
+}
+QMessageBox QPushButton:hover {
+ background: #3d5a80;
+ color: white;
+ border: 1px solid #5a9bd5;
+}
+
+/* ========== 输入对话框样式 ========== */
+QInputDialog {
+ background: #1e1e2e;
+}
+QInputDialog QLabel {
+ color: #d0d0d0;
+ font-family: 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+ font-size: 10pt;
+}
+QInputDialog QLineEdit {
+ background: #151521;
+ color: #98c379;
+ border: 1px solid #3d5a80;
+ border-radius: 4px;
+ padding: 6px 10px;
+}
+QInputDialog QLineEdit:focus {
+ border: 1px solid #5a9bd5;
+}
+QInputDialog QPushButton {
+ background: #2a3a50;
+ color: #d0d0d0;
+ border: 1px solid #3d5a80;
+ border-radius: 4px;
+ padding: 6px 20px;
+ min-width: 70px;
+}
+QInputDialog QPushButton:hover {
+ background: #3d5a80;
+ color: white;
+ border: 1px solid #5a9bd5;
+}
+QInputDialog QPushButton:default {
+ background: #3d5a80;
+ color: white;
+}</string>
+ </property>
+ <property name="iconSize">
+ <size>
+ <width>16</width>
+ <height>16</height>
+ </size>
+ </property>
+ <widget class="QWidget" name="centralwidget">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+ <horstretch>1</horstretch>
+ <verstretch>1</verstretch>
+ </sizepolicy>
+ </property>
+ <layout class="QHBoxLayout" name="mainHorizontalLayout">
+ <property name="spacing">
+ <number>0</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ 
+ <!-- ========== 左侧导航栏 ========== -->
+ <item>
+ <widget class="QWidget" name="navSidebar" native="true">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>115</width>
+         <height>16777215</height>
+        </size>
+       </property> <property name="styleSheet">
+ <string notr="true">background: #1a1a28;
+border-right: 1px solid #3d5a80;</string>
+ </property>
+ <layout class="QVBoxLayout" name="navSidebarLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <property name="leftMargin">
+ <number>4</number>
+ </property>
+ <property name="topMargin">
+ <number>4</number>
+ </property>
+ <property name="rightMargin">
+ <number>4</number>
+ </property>
+ <property name="bottomMargin">
+ <number>4</number>
+ </property>
+ 
+ <!-- Logo/标题区域 -->
+ <item>
+ <widget class="QLabel" name="logoLabel">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>10</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #5a9bd5;
+background: transparent;</string>
+ </property>
+ <property name="text">
+ <string>ADBTools</string>
+ </property>
+ <property name="alignment">
+ <set>Qt::AlignCenter</set>
+ </property>
+ </widget>
+ </item>
+ 
+ <!-- 导航按钮区域 -->
+ <item>
+ <widget class="QWidget" name="navButtonsWidget" native="true">
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="navButtonsLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <!-- ADB工具导航按钮 -->
+ <item>
+ <widget class="QPushButton" name="nav_adb_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">QPushButton {
+ background: #3d5a80;
+ color: white;
+ border: 1px solid #5a7ba8;
+ border-radius: 4px;
+ text-align: center;
+}
+QPushButton:hover {
+ background: #5a7ba8;
+ border: 1px solid #8ab4f8;
+}</string>
+ </property>
+ <property name="text">
+ <string>ADB工具</string>
+ </property>
+ </widget>
+ </item>
+ <!-- 大通项目导航按钮 -->
+ <item>
+ <widget class="QPushButton" name="nav_datong_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">QPushButton {
+ background: transparent;
+ color: #909090;
+ border: 1px solid #3a3a4a;
+ border-radius: 4px;
+ text-align: center;
+}
+QPushButton:hover {
+ background: #2a2a3a;
+ color: #b0c4de;
+ border: 1px solid #3d5a80;
+}</string>
+ </property>
+ <property name="text">
+ <string>大通项目</string>
+ </property>
+ </widget>
+ </item>
+ <!-- CR项目导航按钮 -->
+ <item>
+ <widget class="QPushButton" name="nav_cr_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">QPushButton {
+ background: transparent;
+ color: #909090;
+ border: 1px solid #3a3a4a;
+ border-radius: 4px;
+ text-align: center;
+}
+QPushButton:hover {
+ background: #2a2a3a;
+ color: #b0c4de;
+ border: 1px solid #3d5a80;
+}</string>
+ </property>
+ <property name="text">
+ <string>CR项目</string>
+ </property>
+ </widget>
+ </item>
+ <!-- Pull Log导航按钮 -->
+ <item>
+ <widget class="QPushButton" name="nav_pulllog_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">QPushButton {
+ background: transparent;
+ color: #909090;
+ border: 1px solid #3a3a4a;
+ border-radius: 4px;
+ text-align: center;
+}
+QPushButton:hover {
+ background: #2a2a3a;
+ color: #b0c4de;
+ border: 1px solid #3d5a80;
+}</string>
+ </property>
+ <property name="text">
+ <string>Pull Log</string>
+ </property>
+ </widget>
+ </item>
+ <!-- 网联版项目导航按钮 -->
+ <item>
+ <widget class="QPushButton" name="nav_internet_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">QPushButton {
+ background: transparent;
+ color: #909090;
+ border: 1px solid #3a3a4a;
+ border-radius: 4px;
+ text-align: center;
+}
+QPushButton:hover {
+ background: #2a2a3a;
+ color: #b0c4de;
+ border: 1px solid #3d5a80;
+}</string>
+ </property>
+ <property name="text">
+ <string>网联版</string>
+ </property>
+ </widget>
+ </item>
+ <!-- 语音相关导航按钮 -->
+ <item>
+ <widget class="QPushButton" name="nav_voice_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">QPushButton {
+ background: transparent;
+ color: #909090;
+ border: 1px solid #3a3a4a;
+ border-radius: 4px;
+ text-align: center;
+}
+QPushButton:hover {
+ background: #2a2a3a;
+ color: #b0c4de;
+ border: 1px solid #3d5a80;
+}</string>
+ </property>
+ <property name="text">
+ <string>语音相关</string>
+ </property>
+ </widget>
+ </item>
+ <!-- 集成版本检查导航按钮 -->
+ <item>
+ <widget class="QPushButton" name="nav_checkversion_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">QPushButton {
+ background: transparent;
+ color: #909090;
+ border: 1px solid #3a3a4a;
+ border-radius: 4px;
+ text-align: center;
+}
+QPushButton:hover {
+ background: #2a2a3a;
+ color: #b0c4de;
+ border: 1px solid #3d5a80;
+}</string>
+ </property>
+ <property name="text">
+ <string>版本检查</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- 弹性空间 -->
+ <item>
+ <spacer name="navSpacerBottom">
+ <property name="orientation">
+ <enum>Qt::Vertical</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>20</width>
+ <height>22</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ 
+ <!-- 底部版权信息 -->
+ <item>
+ <widget class="QLabel" name="label">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <italic>true</italic>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: rgba(255, 107, 107, 0.6);
+background: transparent;</string>
+ </property>
+ <property name="text">
+ <string>wk</string>
+ </property>
+ <property name="alignment">
+ <set>Qt::AlignCenter</set>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- ========== 右侧主内容区域 ========== -->
+ <item>
+ <widget class="QWidget" name="contentArea" native="true">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+ <horstretch>1</horstretch>
+ <verstretch>1</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="contentAreaLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <property name="leftMargin">
+ <number>6</number>
+ </property>
+ <property name="topMargin">
+ <number>4</number>
+ </property>
+ <property name="rightMargin">
+ <number>6</number>
+ </property>
+ <property name="bottomMargin">
+ <number>4</number>
+ </property>
+ 
+ <!-- 顶部设备选择栏 -->
+ <item>
+ <widget class="QWidget" name="topDeviceBar" native="true">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>26</height>
+ </size>
+ </property>
+ <property name="maximumSize">
+ <size>
+ <width>16777215</width>
+ <height>32</height>
+ </size>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">background: #1a1a28;
+border: 1px solid #2a2a3a;
+border-radius: 4px;</string>
+ </property>
+ <layout class="QHBoxLayout" name="topDeviceBarLayout">
+ <property name="spacing">
+ <number>6</number>
+ </property>
+ <property name="leftMargin">
+ <number>6</number>
+ </property>
+ <property name="topMargin">
+ <number>2</number>
+ </property>
+ <property name="rightMargin">
+ <number>6</number>
+ </property>
+ <property name="bottomMargin">
+ <number>2</number>
+ </property>
+ <item>
+ <widget class="QComboBox" name="ComboxButton">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+ <horstretch>1</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="RefreshButton">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>50</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>刷新</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QCheckBox" name="modeSwitchCheckBox">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>45</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>U2</string>
+ </property>
+ <property name="checked">
+ <bool>true</bool>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- 主内容标签窗口 - 使用North位置配合隐藏TabBar样式 -->
+ <item>
+ <widget class="QTabWidget" name="tabWidget">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+ <horstretch>1</horstretch>
+ <verstretch>1</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="acceptDrops">
+ <bool>false</bool>
+ </property>
+ <property name="currentIndex">
+ <number>0</number>
+ </property>
+ <property name="elideMode">
+ <enum>Qt::ElideRight</enum>
+ </property>
+ 
+ <!-- ========== 页面1: ADB工具 ========== -->
+ <widget class="QWidget" name="ADB">
+ <attribute name="title">
+ <string>ADB工具</string>
+ </attribute>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="adbPageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ 
+ <!-- 标题 -->
+ <item>
+ <widget class="QLabel" name="adbPageTitle">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #ff6b6b; background: transparent;</string>
+ </property>
+ <property name="text">
+ <string> ADB 工具箱</string>
+ </property>
+ </widget>
+ </item>
+ 
+ <!-- 内容滚动区域 -->
+ <item>
+ <widget class="QScrollArea" name="adbScrollArea">
+ <property name="widgetResizable">
+ <bool>true</bool>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <widget class="QWidget" name="adbScrollContent">
+ <property name="geometry">
+ <rect>
+ <x>0</x>
+ <y>0</y>
+ <width>100</width>
+ <height>100</height>
+ </rect>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QGridLayout" name="adbScrollGrid">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ 
+ <!-- 第一行: 系统操作卡片 -->
+ <item row="0" column="0">
+ <widget class="QGroupBox" name="adbSystemGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 系统权限</string>
+ </property>
+ <layout class="QVBoxLayout" name="adbSystemLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="adb_root_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 获取Root权限</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="button_reboot">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 重启设备</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="reboot_adb_service_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 重启ADB服务</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- 第一行: 应用管理卡片 -->
+ <item row="0" column="1">
+ <widget class="QGroupBox" name="adbAppGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 应用管理</string>
+ </property>
+ <layout class="QGridLayout" name="adbAppGrid">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item row="0" column="0">
+ <widget class="QPushButton" name="adb_install_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 安装应用</string>
+ </property>
+ </widget>
+ </item>
+ <item row="0" column="1">
+ <widget class="QPushButton" name="adb_uninstall_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>️ 卸载应用</string>
+ </property>
+ </widget>
+ </item>
+ <item row="1" column="0">
+ <widget class="QPushButton" name="start_app">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>▶️ 启动应用</string>
+ </property>
+ </widget>
+ </item>
+ <item row="1" column="1">
+ <widget class="QPushButton" name="force_stop_app">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>️ Close App</string>
+ </property>
+ </widget>
+ </item>
+ <item row="2" column="0" colspan="2">
+ <widget class="QPushButton" name="clear_app_cache_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> Clear App 缓存</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- 第二行: 包名查询卡片 -->
+ <item row="1" column="0" colspan="2">
+ <widget class="QGroupBox" name="adbPackageGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 包名查询与管理</string>
+ </property>
+ <layout class="QHBoxLayout" name="adbPackageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <widget class="QTextEdit" name="Findstr">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+ <horstretch>2</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="maximumSize">
+ <size>
+ <width>16777215</width>
+ <height>60</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Consolas</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="placeholderText">
+ <string> 请输入要过滤的包名...</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="list_package_button">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>95</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="maximumSize">
+ <size>
+ <width>200</width>
+ <height>60</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 列出包名</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- 第三行: 文件操作卡片 -->
+ <item row="2" column="0">
+ <widget class="QGroupBox" name="adbFileGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 文件操作</string>
+ </property>
+ <layout class="QVBoxLayout" name="adbFileLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="file_manager_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 📁 文件管理</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- 第三行: 信息获取卡片 -->
+ <item row="2" column="1">
+ <widget class="QGroupBox" name="adbInfoGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 信息获取</string>
+ </property>
+ <layout class="QGridLayout" name="adbInfoGrid">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item row="0" column="0">
+ <widget class="QPushButton" name="view_apk_path">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> pm path</string>
+ </property>
+ </widget>
+ </item>
+ <item row="0" column="1">
+ <widget class="QPushButton" name="get_running_app_info_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 应用版本</string>
+ </property>
+ </widget>
+ </item>
+ <item row="1" column="0">
+ <widget class="QPushButton" name="aapt_getpackagename_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> APK包名</string>
+ </property>
+ </widget>
+ </item>
+ <item row="1" column="1">
+ <widget class="QPushButton" name="app_package_and_activity">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 包名+Activity</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <!-- 第四行: 其他操作卡片 -->
+ <item row="3" column="0" colspan="2">
+ <widget class="QGroupBox" name="adbOtherGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 其他操作</string>
+ </property>
+ <layout class="QHBoxLayout" name="adbOtherLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="input_text_via_adb_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>⌨️ Input text</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="get_screenshot_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 截图</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <spacer name="adbOtherSpacer">
+ <property name="orientation">
+ <enum>Qt::Horizontal</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>40</width>
+ <height>20</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ 
+ <item row="4" column="0" colspan="2">
+ <spacer name="adbPageSpacer">
+ <property name="orientation">
+ <enum>Qt::Vertical</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>20</width>
+ <height>22</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </widget>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ 
+ <!-- ========== 页面2: 大通项目 ========== -->
+ <widget class="QWidget" name="datong_tab">
+ <attribute name="title">
+ <string>大通项目</string>
+ </attribute>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="datongPageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <item>
+ <widget class="QLabel" name="datongPageTitle">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #ff6b6b; background: transparent;</string>
+ </property>
+ <property name="text">
+ <string> 大通项目工具</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QScrollArea" name="datongScrollArea">
+ <property name="widgetResizable">
+ <bool>true</bool>
+ </property>
+ <widget class="QWidget" name="datongScrollContent">
+ <property name="geometry">
+ <rect>
+ <x>0</x>
+ <y>0</y>
+ <width>100</width>
+ <height>100</height>
+ </rect>
+ </property>
+ <layout class="QGridLayout" name="datongScrollGrid">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <!-- 工程模式卡片 -->
+ <item row="0" column="0">
+ <widget class="QGroupBox" name="datongEngineeringGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 工程模式</string>
+ </property>
+ <layout class="QVBoxLayout" name="datongEngineeringLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="datong_factory_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 拉起工程模式</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="datong_open_telenav_engineering_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>️ 打开泰维地图工程模式</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <!-- Verity校验卡片 -->
+ <item row="0" column="1">
+ <widget class="QGroupBox" name="datongVerityGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> Verity校验</string>
+ </property>
+ <layout class="QVBoxLayout" name="datongVerityLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="datong_enable_verity_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 启用verity校验</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="datong_disable_verity_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 禁用verity校验</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <!-- 批量安装卡片 -->
+ <item row="1" column="0">
+ <widget class="QGroupBox" name="datongInstallGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 批量安装</string>
+ </property>
+ <layout class="QVBoxLayout" name="datongInstallLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="datong_batch_install_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 批量安装APK文件</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="datong_batch_install_test_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 验证批量推包版本号</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <!-- 其他工具卡片 -->
+ <item row="1" column="1">
+ <widget class="QGroupBox" name="datongOtherGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 其他工具</string>
+ </property>
+ <layout class="QVBoxLayout" name="datongOtherLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="datong_input_password_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 一键输入密码</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="datong_set_datetime_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 设置设备日期时间</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <item row="2" column="0" colspan="2">
+ <spacer name="datongPageSpacer">
+ <property name="orientation">
+ <enum>Qt::Vertical</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>20</width>
+ <height>22</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </widget>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ 
+ <!-- ========== 页面3: CR项目 ========== -->
+ <widget class="QWidget" name="ADB_02">
+ <attribute name="title">
+ <string>CR项目</string>
+ </attribute>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="crPageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <item>
+ <widget class="QLabel" name="crPageTitle">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #ff6b6b; background: transparent;</string>
+ </property>
+ <property name="text">
+ <string> CR项目工具</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QGroupBox" name="crMainGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 工程模式</string>
+ </property>
+ <layout class="QVBoxLayout" name="crMainLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="AS33_CR_enter_engineering_mode_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> AS33_CR 进入工程模式</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <item>
+ <spacer name="crPageSpacer">
+ <property name="orientation">
+ <enum>Qt::Vertical</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>20</width>
+ <height>22</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </widget>
+ 
+ <!-- ========== 页面4: Pull Log ========== -->
+ <widget class="QWidget" name="pul_log">
+ <attribute name="title">
+ <string>Pull Log</string>
+ </attribute>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="pullLogPageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <item>
+ <widget class="QLabel" name="pullLogPageTitle">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #ff6b6b; background: transparent;</string>
+ </property>
+ <property name="text">
+ <string> 日志拉取工具</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QGroupBox" name="pullLogGroupBox">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 日志设置</string>
+ </property>
+ <layout class="QVBoxLayout" name="pullLogMainLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <layout class="QHBoxLayout" name="pullLogPathLayout">
+ <item>
+ <widget class="QLabel" name="label_log_path">
+ <property name="minimumSize">
+ <size>
+ <width>90</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 日志路径:</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QLineEdit" name="inputbox_log_path">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="placeholderText">
+ <string>选择或输入日志保存路径...</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </item>
+ <item>
+ <layout class="QHBoxLayout" name="pullLogButtonsLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="browse_log_save_path_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 浏览</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="open_path_buttom">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 打开目录</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </item>
+ <item>
+ <widget class="QPushButton" name="pull_log_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 开始拉取日志</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <item>
+ <spacer name="pullLogPageSpacer">
+ <property name="orientation">
+ <enum>Qt::Vertical</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>20</width>
+ <height>22</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </widget>
+ 
+ <!-- ========== 页面5: 网联版项目 ========== -->
+ <widget class="QWidget" name="tab">
+ <attribute name="title">
+ <string>网联版项目</string>
+ </attribute>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="internetVersionPageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <item>
+ <widget class="QLabel" name="internetVersionPageTitle">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #ff6b6b; background: transparent;</string>
+ </property>
+ <property name="text">
+ <string> 网联版项目工具</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QScrollArea" name="internetVersionScrollArea">
+ <property name="widgetResizable">
+ <bool>true</bool>
+ </property>
+ <widget class="QWidget" name="internetVersionScrollContent">
+ <property name="geometry">
+ <rect>
+ <x>0</x>
+ <y>0</y>
+ <width>100</width>
+ <height>100</height>
+ </rect>
+ </property>
+ <layout class="QGridLayout" name="internetVersionGrid">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <item row="0" column="0">
+ <widget class="QGroupBox" name="upgradeGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string>⬆️ 升级相关</string>
+ </property>
+ <layout class="QVBoxLayout" name="upgradeLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="upgrade_page_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string>⬆️ 调起延峰升级页面</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="open_update_page_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 调起资源升级页面</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <item row="0" column="1">
+ <widget class="QGroupBox" name="internetOtherGroup">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 其他功能</string>
+ </property>
+ <layout class="QVBoxLayout" name="internetOtherLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="skipping_powerlimit_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 跳过升级电源模式限制</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="enter_engineering_mode_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 进入工程模式</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <item row="1" column="0" colspan="2">
+ <spacer name="internetVersionPageSpacer">
+ <property name="orientation">
+ <enum>Qt::Vertical</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>20</width>
+ <height>22</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </widget>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ 
+ <!-- ========== 页面6: 语音相关 ========== -->
+ <widget class="QWidget" name="tab_3">
+ <attribute name="title">
+ <string>语音相关</string>
+ </attribute>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="voicePageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <item>
+ <widget class="QLabel" name="voicePageTitle">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #ff6b6b; background: transparent;</string>
+ </property>
+ <property name="text">
+ <string> 语音测试工具</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QScrollArea" name="voiceScrollArea">
+ <property name="widgetResizable">
+ <bool>true</bool>
+ </property>
+ <widget class="QWidget" name="voiceScrollContent">
+ <property name="geometry">
+ <rect>
+ <x>0</x>
+ <y>0</y>
+ <width>100</width>
+ <height>100</height>
+ </rect>
+ </property>
+ <layout class="QHBoxLayout" name="voiceMainLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <!-- 录音操作卡片 -->
+ <item>
+ <widget class="QGroupBox" name="groupBox">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+ <horstretch>1</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string>️ 车机语音录音文件操作</string>
+ </property>
+ <layout class="QVBoxLayout" name="groupBoxLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <layout class="QHBoxLayout" name="recordButtonsLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="voice_start_record_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>▶️ 开始录音</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="voice_stop_record_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>⏹️ 停止录音</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </item>
+ <item>
+ <widget class="QLineEdit" name="device_record_path">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Consolas</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>/vr/speech/assistant/files/tmp/audioDump</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="voice_pull_record_file_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 拉取录音文件</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="remove_record_file_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>️ 删除历史录音文件</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <!-- VR测试卡片 -->
+ <item>
+ <widget class="QGroupBox" name="groupBox_2">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+ <horstretch>1</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> VR测试</string>
+ </property>
+ <layout class="QVBoxLayout" name="groupBox2Layout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="switch_vr_env_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 切换VR环境</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="VR_nework_check_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> VR网络环境检查</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <layout class="QHBoxLayout" name="vrButtonLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="activate_VR_button">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 调起VR</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QComboBox" name="vr_keyevent_combo">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>80</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="currentText">
+ <string>287</string>
+ </property>
+ <property name="currentIndex">
+ <number>0</number>
+ </property>
+ <item>
+ <property name="text">
+ <string>287</string>
+ </property>
+ </item>
+ <item>
+ <property name="text">
+ <string>231</string>
+ </property>
+ </item>
+ </widget>
+ </item>
+ </layout>
+ </item>
+ <item>
+ <widget class="QPushButton" name="set_vr_server_timout">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string>⏱️ 设置语音超时时间10000</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ 
+ <!-- ========== 页面7: 集成版本检查 ========== -->
+ <widget class="QWidget" name="tab_4">
+ <attribute name="title">
+ <string>集成版本检查</string>
+ </attribute>
+ <property name="styleSheet">
+ <string notr="true">background: transparent;</string>
+ </property>
+ <layout class="QVBoxLayout" name="checkVersionPageLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>0</number>
+ </property>
+ <property name="topMargin">
+ <number>0</number>
+ </property>
+ <property name="rightMargin">
+ <number>0</number>
+ </property>
+ <property name="bottomMargin">
+ <number>0</number>
+ </property>
+ <item>
+ <widget class="QLabel" name="checkVersionPageTitle">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="styleSheet">
+ <string notr="true">color: #ff6b6b; background: transparent;</string>
+ </property>
+ <property name="text">
+ <string> 集成版本检查</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QGroupBox" name="checkVersionGroupBox">
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="title">
+ <string> 选择文件</string>
+ </property>
+ <layout class="QVBoxLayout" name="checkVersionMainLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <layout class="QHBoxLayout" name="selectFileLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="select_releasenote_excel_button">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>160</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 选择集成清单</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QLabel" name="releasenote_file_name_view">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 请选择文件...</string>
+ </property>
+ <property name="wordWrap">
+ <bool>true</bool>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </item>
+ <item>
+ <widget class="QPushButton" name="start_check_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 开始检查</string>
+ </property>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ <item>
+ <spacer name="checkVersionPageSpacer">
+ <property name="orientation">
+ <enum>Qt::Vertical</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>20</width>
+ <height>22</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </widget>
+ </widget>
+ </item>
+ 
+ <!-- ========== 底部输出区域 ========== -->
+ <item>
+ <widget class="QWidget" name="bottomPanel" native="true">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+ <horstretch>0</horstretch>
+ <verstretch>1</verstretch>
+ </sizepolicy>
+ </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>80</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property> <property name="styleSheet">
+ <string notr="true">background: #151520;
+border: 1px solid #3d5a80;
+border-radius: 4px;</string>
+ </property>
+ <layout class="QVBoxLayout" name="bottomPanelLayout">
+ <property name="spacing">
+ <number>4</number>
+ </property>
+ <property name="leftMargin">
+ <number>4</number>
+ </property>
+ <property name="topMargin">
+ <number>4</number>
+ </property>
+ <property name="rightMargin">
+ <number>4</number>
+ </property>
+ <property name="bottomMargin">
+ <number>4</number>
+ </property>
+ <item>
+ <widget class="QTextBrowser" name="textBrowser">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+ <horstretch>0</horstretch>
+ <verstretch>1</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>50</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Consolas</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="acceptDrops">
+ <bool>true</bool>
+ </property>
+ <property name="readOnly">
+ <bool>false</bool>
+ </property>
+ <property name="placeholderText">
+ <string> 输出日志将显示在这里...</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <layout class="QHBoxLayout" name="bottomButtonsLayout">
+ <property name="spacing">
+ <number>3</number>
+ </property>
+ <item>
+ <widget class="QPushButton" name="Cleartextbutton">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>60</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 清空</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="reinit_u2_button">
+ <property name="sizePolicy">
+ <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+ <horstretch>0</horstretch>
+ <verstretch>0</verstretch>
+ </sizepolicy>
+ </property>
+ <property name="minimumSize">
+ <size>
+ <width>100</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ </font>
+ </property>
+ <property name="text">
+ <string> 重新初始化U2</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <spacer name="bottomHorizontalSpacer">
+ <property name="orientation">
+ <enum>Qt::Horizontal</enum>
+ </property>
+ <property name="sizeHint" stdset="0">
+ <size>
+ <width>40</width>
+ <height>20</height>
+ </size>
+ </property>
+ </spacer>
+ </item>
+ </layout>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </item>
+ </layout>
+ </widget>
+ </widget>
+ <resources/>
+ <connections>
+ <connection>
+ <sender>Cleartextbutton</sender>
+ <signal>clicked()</signal>
+ <receiver>textBrowser</receiver>
+ <slot>clear()</slot>
+ <hints>
+ <hint type="sourcelabel">
+ <x>275</x>
+ <y>615</y>
+ </hint>
+ <hint type="destinationlabel">
+ <x>550</x>
+ <y>520</y>
+ </hint>
+ </hints>
+ </connection>
+ </connections>
+</ui>

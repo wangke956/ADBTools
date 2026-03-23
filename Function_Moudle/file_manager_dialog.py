@@ -193,6 +193,7 @@ class DeviceListThread(QThread):
 class FileTransferThread(QThread):
     """文件传输线程（上传/下载）"""
     progress_signal = pyqtSignal(str)  # 进度信息
+    progress_percent = pyqtSignal(int)  # 进度百分比 (0-100)
     finished_signal = pyqtSignal(bool, str)  # 完成信号(成功/失败, 消息)
     
     def __init__(self, device_id, src_path, dst_path, transfer_type='download', 
@@ -220,11 +221,11 @@ class FileTransferThread(QThread):
         
         if self.connection_mode == 'u2' and self.d:
             self.d.pull(self.src_path, self.dst_path)
+            self.progress_percent.emit(100)
         else:
+            # 使用 subprocess 实时读取进度
             cmd = f'adb -s {self.device_id} pull "{self.src_path}" "{self.dst_path}"'
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-            if result.returncode != 0:
-                raise Exception(result.stderr)
+            self._run_with_progress(cmd)
         
         self.finished_signal.emit(True, f"下载成功: {os.path.basename(self.src_path)}")
     
@@ -234,18 +235,73 @@ class FileTransferThread(QThread):
         
         if self.connection_mode == 'u2' and self.d:
             self.d.push(self.src_path, self.dst_path)
+            self.progress_percent.emit(100)
         else:
+            # 使用 subprocess 实时读取进度
             cmd = f'adb -s {self.device_id} push "{self.src_path}" "{self.dst_path}"'
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-            if result.returncode != 0:
-                raise Exception(result.stderr)
+            self._run_with_progress(cmd)
         
         self.finished_signal.emit(True, f"上传成功: {os.path.basename(self.src_path)}")
+    
+    def _run_with_progress(self, cmd):
+        """运行命令并解析进度"""
+        import re
+        
+        # 获取文件大小（用于计算进度）
+        file_size = 0
+        if self.transfer_type == 'upload' and os.path.exists(self.src_path):
+            file_size = os.path.getsize(self.src_path)
+        
+        process = subprocess.Popen(
+            cmd, 
+            shell=True, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+        
+        # ADB push/pull 进度格式: [  0%] /path/to/file
+        # 或: /path/to/file: 1 file pulled, 0 skipped. 15.2 MB/s (12345678 bytes in 0.800s)
+        progress_pattern = re.compile(r'\[\s*(\d+)%\]')
+        
+        while True:
+            line = process.stdout.readline()
+            if not line and process.poll() is not None:
+                break
+            
+            if line:
+                line = line.strip()
+                # 解析进度百分比
+                match = progress_pattern.search(line)
+                if match:
+                    percent = int(match.group(1))
+                    self.progress_percent.emit(percent)
+                    # 计算已传输大小
+                    if file_size > 0:
+                        transferred = int(file_size * percent / 100)
+                        self.progress_signal.emit(
+                            f"传输中 {percent}% ({self._format_size(transferred)}/{self._format_size(file_size)})"
+                        )
+                    else:
+                        self.progress_signal.emit(f"传输中 {percent}%")
+        
+        if process.returncode != 0:
+            raise Exception(f"传输失败 (返回码: {process.returncode})")
+    
+    def _format_size(self, size):
+        """格式化文件大小"""
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} TB"
 
 
 class BatchFileTransferThread(QThread):
     """批量文件传输线程"""
     progress_signal = pyqtSignal(str)  # 进度信息
+    progress_percent = pyqtSignal(int)  # 总体进度百分比 (0-100)
+    file_progress_signal = pyqtSignal(int, int, str)  # 当前文件索引, 总文件数, 文件名
     finished_signal = pyqtSignal(int, int)  # 完成信号(成功数, 失败数)
     
     def __init__(self, device_id, file_paths, dst_dir, transfer_type='upload', 
@@ -265,6 +321,13 @@ class BatchFileTransferThread(QThread):
         
         for i, src_path in enumerate(self.file_paths):
             file_name = os.path.basename(src_path)
+            
+            # 发送当前文件进度
+            self.file_progress_signal.emit(i + 1, total, file_name)
+            
+            # 计算总体进度百分比
+            base_percent = int((i / total) * 100)
+            self.progress_percent.emit(base_percent)
             
             if self.transfer_type == 'upload':
                 # 上传：src_path 是本地文件，dst 是设备路径
@@ -303,6 +366,8 @@ class BatchFileTransferThread(QThread):
                     fail_count += 1
                     logger.error(f"下载失败: {file_name} - {str(e)}")
         
+        # 完成时发送100%
+        self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count)
 
 
@@ -373,6 +438,7 @@ class RenameThread(QThread):
 class FolderUploadThread(QThread):
     """文件夹上传线程 - 递归上传整个文件夹到设备"""
     progress_signal = pyqtSignal(str)  # 进度信息
+    progress_percent = pyqtSignal(int)  # 进度百分比 (0-100)
     file_progress_signal = pyqtSignal(int, int)  # 当前文件数, 总文件数
     finished_signal = pyqtSignal(int, int, int)  # 成功数, 失败数, 跳过数
     
@@ -430,6 +496,9 @@ class FolderUploadThread(QThread):
                     device_file = f"{target_folder}/{file_name}"
                 
                 self.file_progress_signal.emit(current_file, total_files)
+                # 计算进度百分比
+                percent = int((current_file / total_files) * 100) if total_files > 0 else 0
+                self.progress_percent.emit(percent)
                 self.progress_signal.emit(f"上传中 ({current_file}/{total_files}): {file_name}")
                 
                 try:
@@ -446,6 +515,7 @@ class FolderUploadThread(QThread):
                     fail_count += 1
                     logger.error(f"上传失败: {file_name} - {str(e)}")
         
+        self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count, skip_count)
     
     def _create_device_dir(self, dir_path):
@@ -470,6 +540,7 @@ class FolderUploadThread(QThread):
 class FolderDownloadThread(QThread):
     """文件夹下载线程 - 从设备递归下载文件夹到本地"""
     progress_signal = pyqtSignal(str)  # 进度信息
+    progress_percent = pyqtSignal(int)  # 进度百分比 (0-100)
     file_progress_signal = pyqtSignal(int, int)  # 当前文件数, 总文件数
     finished_signal = pyqtSignal(int, int, int)  # 成功数, 失败数, 跳过数
     
@@ -504,6 +575,7 @@ class FolderDownloadThread(QThread):
             self.device_folder, target_folder, current_file, total_files
         )
         
+        self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count, skip_count)
     
     def _count_files_recursive(self, device_path):
@@ -602,6 +674,9 @@ class FolderDownloadThread(QThread):
                         # 下载文件
                         current_file += 1
                         self.file_progress_signal.emit(current_file, total_files)
+                        # 计算进度百分比
+                        percent = int((current_file / total_files) * 100) if total_files > 0 else 0
+                        self.progress_percent.emit(percent)
                         self.progress_signal.emit(f"下载中 ({current_file}/{total_files}): {name}")
                         
                         try:
@@ -1211,6 +1286,8 @@ class FileManagerDialog(QDialog):
     def _download_files_batch(self, file_paths):
         """批量下载文件（使用线程，不阻塞界面）"""
         self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 100)  # 设置进度条范围
+        self.progress_bar.setValue(0)
         self.status_label.setText(f"准备下载 {len(file_paths)} 个文件...")
         
         self.batch_transfer_thread = BatchFileTransferThread(
@@ -1218,6 +1295,7 @@ class FileManagerDialog(QDialog):
             'download', self.connection_mode, self.d
         )
         self.batch_transfer_thread.progress_signal.connect(self.status_label.setText)
+        self.batch_transfer_thread.progress_percent.connect(self.progress_bar.setValue)
         self.batch_transfer_thread.finished_signal.connect(self._on_batch_transfer_finished)
         self.batch_transfer_thread.start()
     
@@ -1227,6 +1305,8 @@ class FileManagerDialog(QDialog):
         dst_path = os.path.join(self.local_current_path, file_info['name'])
         
         self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
         self.status_label.setText(f"正在下载: {file_info['name']}")
         
         self.transfer_thread = FileTransferThread(
@@ -1234,6 +1314,7 @@ class FileManagerDialog(QDialog):
             'download', self.connection_mode, self.d
         )
         self.transfer_thread.progress_signal.connect(self.status_label.setText)
+        self.transfer_thread.progress_percent.connect(self.progress_bar.setValue)
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
@@ -1286,6 +1367,8 @@ class FileManagerDialog(QDialog):
         dst_path = self._join_device_path(self.device_current_path, file_info['name'])
         
         self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
         self.status_label.setText(f"正在上传: {file_info['name']}")
         
         self.transfer_thread = FileTransferThread(
@@ -1293,6 +1376,7 @@ class FileManagerDialog(QDialog):
             'upload', self.connection_mode, self.d
         )
         self.transfer_thread.progress_signal.connect(self.status_label.setText)
+        self.transfer_thread.progress_percent.connect(self.progress_bar.setValue)
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
@@ -1341,6 +1425,8 @@ class FileManagerDialog(QDialog):
     def _upload_files_batch(self, file_paths):
         """批量上传文件（使用线程，不阻塞界面）"""
         self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
         self.status_label.setText(f"准备上传 {len(file_paths)} 个文件...")
         
         self.batch_transfer_thread = BatchFileTransferThread(
@@ -1348,13 +1434,15 @@ class FileManagerDialog(QDialog):
             'upload', self.connection_mode, self.d
         )
         self.batch_transfer_thread.progress_signal.connect(self.status_label.setText)
+        self.batch_transfer_thread.progress_percent.connect(self.progress_bar.setValue)
         self.batch_transfer_thread.finished_signal.connect(self._on_batch_upload_finished)
         self.batch_transfer_thread.start()
     
     def _do_upload_folder(self, folder_path):
         """执行文件夹上传"""
         self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # 不确定进度模式
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
         self.status_label.setText(f"正在上传文件夹...")
         
         self.folder_upload_thread = FolderUploadThread(
@@ -1362,20 +1450,21 @@ class FileManagerDialog(QDialog):
             self.connection_mode, self.d
         )
         self.folder_upload_thread.progress_signal.connect(self.status_label.setText)
+        self.folder_upload_thread.progress_percent.connect(self.progress_bar.setValue)
         self.folder_upload_thread.finished_signal.connect(self._on_folder_upload_finished)
         self.folder_upload_thread.start()
     
     def _on_folder_upload_finished(self, success_count, fail_count, skip_count):
         """文件夹上传完成"""
         self.progress_bar.setVisible(False)
-        self.progress_bar.setRange(0, 100)  # 恢复正常进度模式
         self.status_label.setText(f"文件夹上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
     
     def _do_download_folder(self, device_folder, local_folder):
         """执行文件夹下载"""
         self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # 不确定进度模式
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
         self.status_label.setText(f"正在下载文件夹...")
         
         self.folder_download_thread = FolderDownloadThread(
@@ -1383,13 +1472,13 @@ class FileManagerDialog(QDialog):
             self.connection_mode, self.d
         )
         self.folder_download_thread.progress_signal.connect(self.status_label.setText)
+        self.folder_download_thread.progress_percent.connect(self.progress_bar.setValue)
         self.folder_download_thread.finished_signal.connect(self._on_folder_download_finished)
         self.folder_download_thread.start()
     
     def _on_folder_download_finished(self, success_count, fail_count, skip_count):
         """文件夹下载完成"""
         self.progress_bar.setVisible(False)
-        self.progress_bar.setRange(0, 100)  # 恢复正常进度模式
         self.status_label.setText(f"文件夹下载完成: 成功 {success_count} 个, 失败 {fail_count} 个, 跳过 {skip_count} 个")
         self._refresh_local_files()
     
@@ -1406,19 +1495,48 @@ class FileManagerDialog(QDialog):
         self._refresh_local_files()
     
     def _select_local_file(self):
-        """选择本地文件"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择要上传的文件", self.local_current_path, "所有文件 (*)"
-        )
-        if file_path:
-            self.local_current_path = os.path.dirname(file_path)
-            self._refresh_local_files()
-            # 选中刚选择的文件
-            for i in range(self.local_tree.topLevelItemCount()):
-                item = self.local_tree.topLevelItem(i)
-                if item.text(0) == os.path.basename(file_path):
-                    self.local_tree.setCurrentItem(item)
-                    break
+        """选择本地文件或文件夹"""
+        # 先询问用户是要选择文件还是文件夹
+        menu = QMenu(self)
+        file_action = menu.addAction("选择文件")
+        folder_action = menu.addAction("选择文件夹")
+        
+        # 在按钮位置显示菜单
+        sender = self.sender()
+        if sender:
+            pos = sender.mapToGlobal(sender.rect().bottomLeft())
+            action = menu.exec_(pos)
+        else:
+            action = file_action
+        
+        if action == file_action:
+            # 选择文件
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, "选择要上传的文件", self.local_current_path, "所有文件 (*)"
+            )
+            if file_path:
+                self.local_current_path = os.path.dirname(file_path)
+                self._refresh_local_files()
+                # 选中刚选择的文件
+                for i in range(self.local_tree.topLevelItemCount()):
+                    item = self.local_tree.topLevelItem(i)
+                    if item.text(0) == os.path.basename(file_path):
+                        self.local_tree.setCurrentItem(item)
+                        break
+        elif action == folder_action:
+            # 选择文件夹
+            folder_path = QFileDialog.getExistingDirectory(
+                self, "选择要上传的文件夹", self.local_current_path
+            )
+            if folder_path:
+                # 直接上传选择的文件夹
+                reply = QMessageBox.question(
+                    self, '确认上传',
+                    f"确定要上传文件夹到设备吗？\n文件夹: {os.path.basename(folder_path)}\n目标路径: {self.device_current_path}",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+                )
+                if reply == QMessageBox.Yes:
+                    self._do_upload_folder(folder_path)
     
     def _on_transfer_finished(self, success, message):
         """传输完成"""
