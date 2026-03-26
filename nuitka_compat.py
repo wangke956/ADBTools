@@ -24,7 +24,21 @@ import contextlib
 from pathlib import Path
 
 # 检查是否在 Nuitka 环境中运行
-IS_NUITKA = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+def _is_nuitka_environment():
+    """检测是否在 Nuitka 编译环境中运行"""
+    # 方法1: 检查 __compiled__ 标记 (Nuitka 在编译的模块中设置此变量)
+    if "__compiled__" in globals():
+        return True
+    # 方法2: sys.frozen=True 且没有 _MEIPASS (排除 PyInstaller)
+    if getattr(sys, 'frozen', False) and not hasattr(sys, '_MEIPASS'):
+        return True
+    # 方法3: 检查已加载的模块中是否有 nuitka 相关模块
+    for mod_name in sys.modules:
+        if 'nuitka' in mod_name.lower():
+            return True
+    return False
+
+IS_NUITKA = _is_nuitka_environment()
 
 # 全局状态
 _NUITKA_COMPAT_INITIALIZED = False
@@ -48,11 +62,60 @@ def _get_logger():
         return logger
 
 
+def _extract_nuitka_u2_resources():
+    """
+    从 Nuitka 嵌入的资源中提取 u2 assets 到临时目录
+    Nuitka 的 nuitka_resource_reader_files 对象支持 read_bytes()，
+    但无法直接传给 shutil.copy() 或 as_file()，所以需要手动提取到磁盘
+    """
+    logger = _get_logger()
+    try:
+        import importlib.resources as resources
+        import tempfile
+
+        # 使用原始的 files() 获取 Nuitka 资源引用
+        u2_pkg = resources.files("uiautomator2")
+        assets_ref = u2_pkg / "assets"
+
+        # 尝试读取已知文件来验证资源可访问
+        test_ref = assets_ref / "u2.jar"
+        test_data = test_ref.read_bytes()
+
+        if not test_data:
+            return None
+
+        # 资源可访问，提取到临时目录
+        tmp_dir = Path(tempfile.mkdtemp(prefix="u2_nuitka_"))
+        assets_dir = tmp_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+
+        # 提取已知文件
+        for fname in ["u2.jar", "app-uiautomator.apk", "version.json", "sync.sh"]:
+            try:
+                data = (assets_ref / fname).read_bytes()
+                (assets_dir / fname).write_bytes(data)
+                logger.info(f"已从 Nuitka 资源提取: {fname} ({len(data)} bytes)")
+            except Exception as e:
+                logger.warning(f"提取资源 {fname} 失败: {e}")
+
+        if (assets_dir / "u2.jar").exists():
+            logger.info(f"Nuitka 资源提取成功: {assets_dir}")
+            return assets_dir
+        else:
+            logger.warning("Nuitka 资源提取失败: u2.jar 未成功写入")
+            return None
+
+    except Exception as e:
+        logger.warning(f"从 Nuitka 嵌入资源提取失败: {e}")
+        return None
+
+
 def _find_resource_dirs():
     """
     查找 Nuitka 打包后的资源目录
     返回 (u2_assets_dir, adbutils_binaries_dir)
     """
+    logger = _get_logger()
     exe_dir = Path(sys.executable).parent
     
     # 查找 uiautomator2 assets 目录
@@ -76,6 +139,11 @@ def _find_resource_dirs():
             if d.exists() and any(d.glob("*.jar")):
                 u2_assets_dir = d
                 break
+    
+    # 磁盘上找不到，尝试从 Nuitka 嵌入资源提取
+    if u2_assets_dir is None:
+        logger.info("磁盘上未找到 u2 assets，尝试从 Nuitka 嵌入资源提取...")
+        u2_assets_dir = _extract_nuitka_u2_resources()
     
     # 查找 adbutils binaries 目录
     adbutils_dir = None
@@ -204,9 +272,12 @@ def _patch_importlib_resources():
             package_name = package if isinstance(package, str) else getattr(package, '__name__', str(package))
             
             # 处理 uiautomator2 相关
+            # _NUITKA_U2_ASSETS_DIR 指向 .../assets/ 目录
+            # 但 files("uiautomator2") 应返回包根目录（assets/ 的上级）
+            # 因为调用方会做 files("uiautomator2") / "assets" / "u2.jar"
             if 'uiautomator2' in package_name:
                 if _NUITKA_U2_ASSETS_DIR:
-                    return _NuitkaTraversable(_NUITKA_U2_ASSETS_DIR)
+                    return _NuitkaTraversable(_NUITKA_U2_ASSETS_DIR.parent)
             
             # 处理 adbutils 相关
             if 'adbutils' in package_name:
@@ -267,8 +338,11 @@ def _patch_uiautomator2_utils():
             在 Nuitka 环境中直接返回文件系统路径
             """
             # 首先检查我们已知的资源目录
+            # _NUITKA_U2_ASSETS_DIR 指向 .../assets/ 目录
+            # filename 是相对于包根的路径，如 "assets/u2.jar"
+            # 所以用 parent 回到包根级别
             if _NUITKA_U2_ASSETS_DIR:
-                resource_path = _NUITKA_U2_ASSETS_DIR / filename
+                resource_path = _NUITKA_U2_ASSETS_DIR.parent / filename
                 if resource_path.exists():
                     logger.debug(f"使用 Nuitka 资源路径: {resource_path}")
                     yield resource_path
@@ -304,9 +378,18 @@ def _patch_uiautomator2_utils():
             
             raise FileNotFoundError(f"Resource {filename} not found in Nuitka environment")
         
-        # 应用 patch
+        # 应用 patch 到 utils 模块
         u2_utils.with_package_resource = _patched_with_package_resource
         logger.info("✓ 已 Monkey-patch uiautomator2.utils.with_package_resource")
+        
+        # 关键：同时修补已通过 from ... import 导入的其他 u2 模块
+        # core.py / _input.py / __main__.py 用 from uiautomator2.utils import with_package_resource
+        # 这会创建模块级本地引用，不受 utils 模块修改影响，必须逐个修补
+        for mod_name in ['uiautomator2.core', 'uiautomator2._input', 'uiautomator2.__main__']:
+            mod = sys.modules.get(mod_name)
+            if mod and hasattr(mod, 'with_package_resource'):
+                mod.with_package_resource = _patched_with_package_resource
+                logger.info(f"✓ 已 Monkey-patch {mod_name}.with_package_resource")
         
     except ImportError:
         logger.debug("uiautomator2 未安装，跳过 patch")
