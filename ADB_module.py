@@ -842,13 +842,89 @@ QPushButton:hover {
 
     def open_yf_page(self):
         """打开YF升级页面"""
-        log_button_click("open_yf_page", "启动YF升级页面", "com.yfve.usbupdate")
-        self.start_app_action(app_name = "com.yfve.usbupdate")
+        log_button_click("open_yf_page", "启动YF升级页面", "com.yfve.usbupdate/.MainActivity")
+        
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        activity = "com.yfve.usbupdate/.MainActivity"
+
+        if device_id in devices_id_lst:
+            try:
+                # 检查连接状态
+                if self.connection_mode == 'u2':
+                    if not self.d:
+                        self.connection_mode = 'adb'
+                        self.textBrowser.append("U2连接不可用，切换到ADB模式")
+                
+                if self.connection_mode == 'u2' and self.d:
+                    # U2模式：使用app_start启动Activity
+                    self.d.app_start("com.yfve.usbupdate", ".MainActivity")
+                    self.textBrowser.append(f"已启动YF升级页面: {activity}")
+                    logger.info(f"U2模式启动Activity: {activity}")
+                elif self.connection_mode == 'adb':
+                    # ADB模式：执行 adb shell am start 命令
+                    from adb_utils import adb_utils
+                    result = adb_utils.run_adb_command(f"shell am start -n {activity}", device_id)
+                    
+                    if result.returncode == 0:
+                        self.textBrowser.append(f"已启动YF升级页面: {activity}")
+                        logger.info(f"ADB模式启动Activity成功: {activity}")
+                    else:
+                        self.textBrowser.append(f"启动失败: {result.stderr}")
+                        logger.error(f"ADB模式启动Activity失败: {result.stderr}")
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    logger.warning("设备未连接")
+            except Exception as e:
+                self.textBrowser.append(f"启动YF升级页面失败: {e}")
+                logger.error(f"启动YF升级页面失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+            logger.warning("设备未连接")
 
     def open_soimt_update(self):
         """打开SOIMT升级页面"""
-        log_button_click("open_soimt_update", "启动SOIMT升级页面", "com.saicmotor.update")
-        self.start_app_action(app_name = "com.saicmotor.update")
+        log_button_click("open_soimt_update", "启动SOIMT升级页面", "com.saicmotor.update/.view.MainActivity")
+        
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        activity = "com.saicmotor.update/.view.MainActivity"
+
+        if device_id in devices_id_lst:
+            try:
+                # 检查连接状态
+                if self.connection_mode == 'u2':
+                    if not self.d:
+                        self.connection_mode = 'adb'
+                        self.textBrowser.append("U2连接不可用，切换到ADB模式")
+                
+                if self.connection_mode == 'u2' and self.d:
+                    # U2模式：使用app_start启动Activity
+                    self.d.app_start("com.saicmotor.update", ".view.MainActivity")
+                    self.textBrowser.append(f"已启动SOIMT升级页面: {activity}")
+                    logger.info(f"U2模式启动Activity: {activity}")
+                elif self.connection_mode == 'adb':
+                    # ADB模式：执行 adb shell am start 命令
+                    from adb_utils import adb_utils
+                    result = adb_utils.run_adb_command(f"shell am start -n {activity}", device_id)
+                    
+                    if result.returncode == 0:
+                        self.textBrowser.append(f"已启动SOIMT升级页面: {activity}")
+                        logger.info(f"ADB模式启动Activity成功: {activity}")
+                    else:
+                        self.textBrowser.append(f"启动失败: {result.stderr}")
+                        logger.error(f"ADB模式启动Activity失败: {result.stderr}")
+                else:
+                    self.textBrowser.append("设备未连接！")
+                    logger.warning("设备未连接")
+            except Exception as e:
+                self.textBrowser.append(f"启动SOIMT升级页面失败: {e}")
+                logger.error(f"启动SOIMT升级页面失败: {e}")
+        else:
+            self.textBrowser.append("设备未连接！")
+            logger.warning("设备未连接")
 
     def open_engineering_mode(self):
         """打开工程模式"""
