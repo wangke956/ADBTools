@@ -248,7 +248,8 @@ def get_nuitka_command(build_type="onefile"):
                 [sys.executable, "-m", "nuitka", "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                encoding='utf-8',
+                check=True
             )
             if result.returncode == 0:
                 # 解析版本号（第一行）
@@ -321,7 +322,8 @@ def build_onefile():
     
     # 执行构建
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        # 指定UTF-8编码以避免子进程输出的编码错误
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
         print("构建输出:")
         print(result.stdout)
         if result.stderr:
@@ -329,7 +331,17 @@ def build_onefile():
             print(result.stderr)
     except subprocess.CalledProcessError as e:
         print(f"构建失败: {e}")
-        print(f"错误输出: {e.stderr}")
+        # 安全处理错误输出
+        error_output = ""
+        if hasattr(e, 'stderr') and e.stderr:
+            if isinstance(e.stderr, str):
+                error_output = e.stderr
+            else:
+                try:
+                    error_output = e.stderr.decode('utf-8', errors='replace')
+                except:
+                    error_output = str(e.stderr)
+        print(f"错误输出: {error_output}")
         return False
     
     # 复制生成的可执行文件到dist目录
@@ -410,7 +422,8 @@ def build_standalone():
     
     # 执行构建
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        # 指定UTF-8编码以避免子进程输出的编码错误
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
         print("构建输出:")
         print(result.stdout)
         if result.stderr:
@@ -418,7 +431,17 @@ def build_standalone():
             print(result.stderr)
     except subprocess.CalledProcessError as e:
         print(f"构建失败: {e}")
-        print(f"错误输出: {e.stderr}")
+        # 安全处理错误输出
+        error_output = ""
+        if hasattr(e, 'stderr') and e.stderr:
+            if isinstance(e.stderr, str):
+                error_output = e.stderr
+            else:
+                try:
+                    error_output = e.stderr.decode('utf-8', errors='replace')
+                except:
+                    error_output = str(e.stderr)
+        print(f"错误输出: {error_output}")
         return False
     
     # 查找生成的目录
