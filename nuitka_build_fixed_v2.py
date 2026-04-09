@@ -322,13 +322,29 @@ def build_onefile():
     
     # 执行构建
     try:
-        # 指定UTF-8编码以避免子进程输出的编码错误
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+        # 不使用text=True，而是手动处理编码
+        result = subprocess.run(cmd, check=True, capture_output=True)
+        
+        # 尝试解码输出，优先UTF-8，失败则尝试GBK
+        def safe_decode(data):
+            if isinstance(data, bytes):
+                try:
+                    return data.decode('utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        return data.decode('gbk')
+                    except UnicodeDecodeError:
+                        return data.decode('utf-8', errors='replace')
+            return str(data)
+        
+        stdout = safe_decode(result.stdout)
+        stderr = safe_decode(result.stderr)
+        
         print("构建输出:")
-        print(result.stdout)
-        if result.stderr:
+        print(stdout)
+        if stderr:
             print("构建警告/错误:")
-            print(result.stderr)
+            print(stderr)
     except subprocess.CalledProcessError as e:
         print(f"构建失败: {e}")
         # 安全处理错误输出
@@ -340,7 +356,10 @@ def build_onefile():
                 try:
                     error_output = e.stderr.decode('utf-8', errors='replace')
                 except:
-                    error_output = str(e.stderr)
+                    try:
+                        error_output = e.stderr.decode('gbk', errors='replace')
+                    except:
+                        error_output = str(e.stderr)
         print(f"错误输出: {error_output}")
         return False
     
@@ -422,13 +441,29 @@ def build_standalone():
     
     # 执行构建
     try:
-        # 指定UTF-8编码以避免子进程输出的编码错误
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+        # 不使用text=True，而是手动处理编码
+        result = subprocess.run(cmd, check=True, capture_output=True)
+        
+        # 尝试解码输出，优先UTF-8，失败则尝试GBK
+        def safe_decode(data):
+            if isinstance(data, bytes):
+                try:
+                    return data.decode('utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        return data.decode('gbk')
+                    except UnicodeDecodeError:
+                        return data.decode('utf-8', errors='replace')
+            return str(data)
+        
+        stdout = safe_decode(result.stdout)
+        stderr = safe_decode(result.stderr)
+        
         print("构建输出:")
-        print(result.stdout)
-        if result.stderr:
+        print(stdout)
+        if stderr:
             print("构建警告/错误:")
-            print(result.stderr)
+            print(stderr)
     except subprocess.CalledProcessError as e:
         print(f"构建失败: {e}")
         # 安全处理错误输出
@@ -440,7 +475,10 @@ def build_standalone():
                 try:
                     error_output = e.stderr.decode('utf-8', errors='replace')
                 except:
-                    error_output = str(e.stderr)
+                    try:
+                        error_output = e.stderr.decode('gbk', errors='replace')
+                    except:
+                        error_output = str(e.stderr)
         print(f"错误输出: {error_output}")
         return False
     

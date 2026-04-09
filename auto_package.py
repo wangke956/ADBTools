@@ -335,17 +335,32 @@ def run_nuitka_build() -> bool:
     print(f"执行命令: {' '.join(cmd)}")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8', cwd=PROJECT_ROOT)
+        result = subprocess.run(cmd, check=True, capture_output=True, cwd=PROJECT_ROOT)
+        
+        # 尝试解码输出，优先UTF-8，失败则尝试GBK
+        def safe_decode(data):
+            if isinstance(data, bytes):
+                try:
+                    return data.decode('utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        return data.decode('gbk')
+                    except UnicodeDecodeError:
+                        return data.decode('utf-8', errors='replace')
+            return str(data)
+        
+        stdout = safe_decode(result.stdout)
+        stderr = safe_decode(result.stderr)
         
         print("构建输出:")
-        print(result.stdout)
+        print(stdout)
         
-        if result.stderr:
+        if stderr:
             print("构建警告/错误:")
-            print(result.stderr)
+            print(stderr)
         
         # 检查构建是否成功
-        if "构建成功" in result.stdout or "✅" in result.stdout:
+        if "构建成功" in stdout or "✅" in stdout:
             print("✅ Nuitka 构建成功")
             return True
         else:
@@ -354,7 +369,20 @@ def run_nuitka_build() -> bool:
             
     except subprocess.CalledProcessError as e:
         print(f"❌ Nuitka 构建失败: {e}")
-        print(f"错误输出: {e.stderr}")
+        # 安全处理错误输出
+        error_output = ""
+        if hasattr(e, 'stderr') and e.stderr:
+            if isinstance(e.stderr, str):
+                error_output = e.stderr
+            else:
+                try:
+                    error_output = e.stderr.decode('utf-8', errors='replace')
+                except:
+                    try:
+                        error_output = e.stderr.decode('gbk', errors='replace')
+                    except:
+                        error_output = str(e.stderr)
+        print(f"错误输出: {error_output}")
         return False
     except Exception as e:
         print(f"❌ 执行构建时发生错误: {e}")
@@ -489,14 +517,29 @@ def run_inno_setup() -> bool:
     print(f"执行命令: {' '.join(cmd)}")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8', cwd=PROJECT_ROOT)
+        result = subprocess.run(cmd, check=True, capture_output=True, cwd=PROJECT_ROOT)
+        
+        # 尝试解码输出，优先UTF-8，失败则尝试GBK
+        def safe_decode(data):
+            if isinstance(data, bytes):
+                try:
+                    return data.decode('utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        return data.decode('gbk')
+                    except UnicodeDecodeError:
+                        return data.decode('utf-8', errors='replace')
+            return str(data)
+        
+        stdout = safe_decode(result.stdout)
+        stderr = safe_decode(result.stderr)
         
         print("Inno Setup 输出:")
-        print(result.stdout)
+        print(stdout)
         
-        if result.stderr:
+        if stderr:
             print("Inno Setup 警告/错误:")
-            print(result.stderr)
+            print(stderr)
         
         # 检查是否成功生成安装包
         setup_exe = output_dir / "ADBTools_Setup.exe"
@@ -511,7 +554,20 @@ def run_inno_setup() -> bool:
             
     except subprocess.CalledProcessError as e:
         print(f"❌ Inno Setup 编译失败: {e}")
-        print(f"错误输出: {e.stderr}")
+        # 安全处理错误输出
+        error_output = ""
+        if hasattr(e, 'stderr') and e.stderr:
+            if isinstance(e.stderr, str):
+                error_output = e.stderr
+            else:
+                try:
+                    error_output = e.stderr.decode('utf-8', errors='replace')
+                except:
+                    try:
+                        error_output = e.stderr.decode('gbk', errors='replace')
+                    except:
+                        error_output = str(e.stderr)
+        print(f"错误输出: {error_output}")
         return False
     except Exception as e:
         print(f"❌ 执行 Inno Setup 时发生错误: {e}")
