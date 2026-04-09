@@ -303,7 +303,20 @@ def build_onefile():
     cmd = get_nuitka_command("onefile")
     
     print("Nuitka构建命令:")
-    print(" ".join(cmd))
+    try:
+        # 设置标准输出编码为UTF-8以避免编码错误
+        import sys
+        sys.stdout.reconfigure(encoding='utf-8')
+        print(" ".join(cmd))
+    except UnicodeEncodeError:
+        # 如果仍然有编码问题，使用安全的方式打印
+        safe_cmd = []
+        for part in cmd:
+            if isinstance(part, str):
+                safe_cmd.append(part.encode('utf-8', errors='replace').decode('utf-8'))
+            else:
+                safe_cmd.append(str(part))
+        print(" ".join(safe_cmd))
     print("-" * 60)
     
     # 执行构建
