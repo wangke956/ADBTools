@@ -435,6 +435,35 @@ class RenameThread(QThread):
             self.finished_signal.emit(False, f"重命名失败: {str(e)}")
 
 
+class ChmodThread(QThread):
+    """修改文件权限线程"""
+    finished_signal = pyqtSignal(bool, str)
+    
+    def __init__(self, device_id, path, permissions, connection_mode='adb', d=None):
+        super().__init__()
+        self.device_id = device_id
+        self.path = path
+        self.permissions = permissions
+        self.connection_mode = connection_mode
+        self.d = d
+    
+    def run(self):
+        try:
+            chmod_cmd = f'chmod "{self.permissions}" "{self.path}"'
+            
+            if self.connection_mode == 'u2' and self.d:
+                result = self.d.shell(chmod_cmd)
+            else:
+                cmd = f'adb -s {self.device_id} shell {chmod_cmd}'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                if result.returncode != 0:
+                    raise Exception(result.stderr)
+            
+            self.finished_signal.emit(True, "权限修改成功")
+        except Exception as e:
+            self.finished_signal.emit(False, f"权限修改失败: {str(e)}")
+
+
 class FolderUploadThread(QThread):
     """文件夹上传线程 - 递归上传整个文件夹到设备"""
     progress_signal = pyqtSignal(str)  # 进度信息
@@ -811,6 +840,7 @@ class FileManagerDialog(QDialog):
         self.batch_transfer_thread = None
         self.delete_thread = None
         self.rename_thread = None
+        self.chmod_thread = None
         self.text_read_thread = None
         self.text_write_thread = None
         self.folder_upload_thread = None
@@ -1192,6 +1222,11 @@ class FileManagerDialog(QDialog):
                     menu.addAction(preview_action)
             
             menu.addSeparator()
+            
+            # 权限管理
+            chmod_action = QAction("🔒 权限管理", self)
+            chmod_action.triggered.connect(lambda: self._chmod_item(data))
+            menu.addAction(chmod_action)
             
             # 删除
             delete_action = QAction("🗑 删除", self)
@@ -1575,6 +1610,98 @@ class FileManagerDialog(QDialog):
         else:
             QMessageBox.warning(self, "删除失败", message)
     
+    def _chmod_item(self, file_info):
+        """修改文件权限"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
+        
+        # 创建权限管理对话框
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"权限管理 - {file_info['name']}")
+        dialog.setMinimumWidth(400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # 当前权限显示
+        current_perm = file_info.get('permissions', '???')
+        layout.addWidget(QLabel(f"当前权限: <b>{current_perm}</b>"))
+        
+        # 权限输入
+        perm_layout = QHBoxLayout()
+        perm_layout.addWidget(QLabel("新权限 (如: 755):"))
+        perm_edit = QLineEdit()
+        perm_edit.setPlaceholderText("输入权限值 (数字或符号模式)")
+        perm_layout.addWidget(perm_edit, 1)
+        layout.addLayout(perm_layout)
+        
+        # 常用权限预设
+        presets_layout = QHBoxLayout()
+        presets_layout.addWidget(QLabel("常用权限:"))
+        
+        common_perms = [
+            ("755", "所有者读写执行，组和其他读执行"),
+            ("777", "所有人读写执行"),
+            ("644", "所有者读写，组和其他只读"),
+            ("600", "只有所有者读写"),
+            ("700", "只有所有者读写执行"),
+            ("775", "所有者和组读写执行，其他读执行")
+        ]
+        
+        for perm, desc in common_perms:
+            btn = QPushButton(perm)
+            btn.setToolTip(desc)
+            btn.clicked.connect(lambda checked, p=perm: perm_edit.setText(p))
+            presets_layout.addWidget(btn)
+        
+        layout.addLayout(presets_layout)
+        
+        # 说明
+        layout.addWidget(QLabel("<small>数字权限解释:<br>"
+                               "第一位: 特殊权限<br>"
+                               "第二位: 所有者权限 (4=读, 2=写, 1=执行)<br>"
+                               "第三位: 组权限<br>"
+                               "第四位: 其他用户权限</small>"))
+        
+        # 按钮布局
+        btn_layout = QHBoxLayout()
+        btn_ok = QPushButton("确定")
+        btn_cancel = QPushButton("取消")
+        
+        def on_ok():
+            permissions = perm_edit.text().strip()
+            if not permissions:
+                QMessageBox.warning(dialog, "输入错误", "请输入权限值")
+                return
+            
+            # 执行权限修改
+            path = self._join_device_path(self.device_current_path, file_info['name'])
+            
+            self.chmod_thread = ChmodThread(
+                self.device_id, path, permissions,
+                self.connection_mode, self.d
+            )
+            self.chmod_thread.finished_signal.connect(self._on_chmod_finished)
+            self.chmod_thread.start()
+            
+            dialog.accept()
+        
+        btn_ok.clicked.connect(on_ok)
+        btn_cancel.clicked.connect(dialog.reject)
+        
+        btn_layout.addWidget(btn_ok)
+        btn_layout.addWidget(btn_cancel)
+        layout.addLayout(btn_layout)
+        
+        dialog.exec_()
+    
+    def _on_chmod_finished(self, success, message):
+        """权限修改完成"""
+        self.status_label.setText(message)
+        if success:
+            self._refresh_device_files()
+            QMessageBox.information(self, "操作成功", message)
+        else:
+            QMessageBox.warning(self, "权限修改失败", message)
+    
     def _create_folder_on_device(self):
         """在设备上创建文件夹"""
         folder_name, ok = QInputDialog.getText(self, "新建文件夹", "请输入文件夹名称:")
@@ -1714,7 +1841,7 @@ class FileManagerDialog(QDialog):
         """关闭事件"""
         # 确保线程结束
         for thread in [self.list_thread, self.transfer_thread, self.batch_transfer_thread,
-                       self.delete_thread, self.rename_thread, self.text_read_thread, 
+                       self.delete_thread, self.rename_thread, self.chmod_thread, self.text_read_thread, 
                        self.text_write_thread, self.folder_upload_thread, self.folder_download_thread]:
             if thread and thread.isRunning():
                 thread.wait(1000)

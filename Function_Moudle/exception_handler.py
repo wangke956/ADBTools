@@ -1,166 +1,306 @@
-import functools
+from enum import Enum, auto
+from typing import Optional, Dict, Any
 import traceback
-from enum import Enum
-from typing import Optional, Type, Union, Callable
-from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtCore import Qt
 
 
-class ErrorLevel(Enum):
-    """错误级别枚举"""
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
-
-
-class ADBToolsException(Exception):
-    """ADB工具自定义异常基类"""
-    def __init__(self, message: str, level: ErrorLevel = ErrorLevel.ERROR):
-        self.message = message
-        self.level = level
-        super().__init__(self.message)
-
-
-class DeviceNotConnectedException(ADBToolsException):
-    """设备未连接异常"""
-    def __init__(self, message: str = "设备未连接"):
-        super().__init__(message, ErrorLevel.ERROR)
-
-
-class CommandExecutionException(ADBToolsException):
-    """命令执行异常"""
-    def __init__(self, message: str, command: str):
-        super().__init__(f"命令执行失败: {command}\n错误信息: {message}", ErrorLevel.ERROR)
-
-
-class FileOperationException(ADBToolsException):
-    """文件操作异常"""
-    def __init__(self, message: str, operation: str):
-        super().__init__(f"文件操作失败: {operation}\n错误信息: {message}", ErrorLevel.ERROR)
-
-
-class ExceptionManager:
-    """异常管理类"""
+class ErrorType(Enum):
+    """错误类型枚举"""
+    # 网络错误
+    NETWORK_ERROR = auto()
+    CONNECTION_ERROR = auto()
+    TIMEOUT_ERROR = auto()
     
-    def __init__(self, parent=None):
-        self.parent = parent
-        self._error_handlers = {
-            DeviceNotConnectedException: self._handle_device_not_connected,
-            CommandExecutionException: self._handle_command_execution,
-            FileOperationException: self._handle_file_operation,
-            Exception: self._handle_unknown_error
-        }
-
-        self._dialog_icons = {
-            ErrorLevel.INFO: QMessageBox.Information,
-            ErrorLevel.WARNING: QMessageBox.Warning,
-            ErrorLevel.ERROR: QMessageBox.Critical,
-            ErrorLevel.CRITICAL: QMessageBox.Critical
-        }
-
-        self._dialog_titles = {
-            ErrorLevel.INFO: "提示",
-            ErrorLevel.WARNING: "警告",
-            ErrorLevel.ERROR: "错误",
-            ErrorLevel.CRITICAL: "严重错误"
-        }
-
-    def set_parent(self, parent):
-        """设置父窗口，用于显示弹窗"""
-        self.parent = parent
-
-    def handle_exception(self, exc: Exception, show_traceback: bool = False) -> str:
-        """处理异常"""
-        handler = self._error_handlers.get(type(exc), self._handle_unknown_error)
-        error_message = handler(exc)
-        
-        if show_traceback:
-            error_message += f"\n\n调用栈信息:\n{traceback.format_exc()}"
-        
-        # 显示错误弹窗
-        self._show_error_dialog(error_message, getattr(exc, 'level', ErrorLevel.ERROR))
-        
-        return error_message
-
-    def _show_error_dialog(self, message: str, level: ErrorLevel):
-        """显示错误弹窗"""
-        dialog = QMessageBox(self.parent)
-        dialog.setIcon(self._dialog_icons.get(level, QMessageBox.Critical))
-        dialog.setWindowTitle(self._dialog_titles.get(level, "错误"))
-        dialog.setText(message)
-        dialog.setStandardButtons(QMessageBox.Ok)
-        
-        # 设置弹窗样式
-        dialog.setStyleSheet("""
-            QMessageBox {
-                background-color: #2b2b2b;
-                color: #ffffff;
-                min-width: 400px;
-            }
-            QMessageBox QLabel {
-                color: #ffffff;
-                font-size: 12px;
-                padding: 10px;
-            }
-            QPushButton {
-                background-color: #3b3b3b;
-                color: #ffffff;
-                border: 1px solid #555555;
-                padding: 5px 15px;
-                border-radius: 3px;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #4b4b4b;
-            }
-            QPushButton:pressed {
-                background-color: #2b2b2b;
-            }
-        """)
-        
-        dialog.exec_()
-
-    def _handle_device_not_connected(self, exc: DeviceNotConnectedException) -> str:
-        return f"设备连接错误: {exc.message}\n\n请检查:\n1. USB连接是否正常\n2. 设备是否已授权\n3. ADB服务是否正常运行"
-
-    def _handle_command_execution(self, exc: CommandExecutionException) -> str:
-        return str(exc)
-
-    def _handle_file_operation(self, exc: FileOperationException) -> str:
-        return str(exc)
-
-    def _handle_unknown_error(self, exc: Exception) -> str:
-        return f"未知错误: {str(exc)}"
-
-
-# 创建全局异常管理器实例
-exception_manager = ExceptionManager()
-
-
-def exception_handler(show_traceback: bool = False, 
-                     expected_exceptions: tuple = (Exception,),
-                     error_message: str = None):
-    """
-    异常处理装饰器
+    # 设备错误
+    DEVICE_NOT_FOUND = auto()
+    DEVICE_DISCONNECTED = auto()
+    DEVICE_PERMISSION_DENIED = auto()
+    DEVICE_BUSY = auto()
     
-    Args:
-        show_traceback: 是否显示调用栈信息
-        expected_exceptions: 需要捕获的异常类型
-        error_message: 自定义错误信息
-    """
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except expected_exceptions as e:
-                custom_message = error_message or str(e)
-                if isinstance(e, ADBToolsException):
-                    exception_manager.handle_exception(e, show_traceback)
-                else:
-                    new_exception = ADBToolsException(custom_message)
-                    exception_manager.handle_exception(new_exception, show_traceback)
-                return None
-        return wrapper
-    return decorator 
+    # 权限错误
+    PERMISSION_DENIED = auto()
+    ACCESS_DENIED = auto()
+    
+    # 文件错误
+    FILE_NOT_FOUND = auto()
+    FILE_PERMISSION_DENIED = auto()
+    FILE_IO_ERROR = auto()
+    
+    # 应用错误
+    APP_NOT_INSTALLED = auto()
+    APP_START_FAILED = auto()
+    APP_CRASHED = auto()
+    
+    # 命令错误
+    COMMAND_NOT_FOUND = auto()
+    COMMAND_EXECUTION_FAILED = auto()
+    
+    # 配置错误
+    CONFIG_ERROR = auto()
+    INVALID_PARAMETER = auto()
+    
+    # 系统错误
+    SYSTEM_ERROR = auto()
+    OUT_OF_MEMORY = auto()
+    
+    # 未知错误
+    UNKNOWN_ERROR = auto()
+
+
+class ErrorSeverity(Enum):
+    """错误严重程度"""
+    INFO = auto()
+    WARNING = auto()
+    ERROR = auto()
+    CRITICAL = auto()
+
+
+class BaseAppException(Exception):
+    """应用异常基类"""
+    
+    def __init__(self, message: str, error_type: ErrorType, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message)
+        self.error_type = error_type
+        self.severity = severity
+        self.timestamp = None  # 将在异常处理时设置
+        self.stack_trace = traceback.format_exc()
+    
+    def get_error_info(self) -> Dict[str, Any]:
+        """获取错误信息字典"""
+        return {
+            'message': str(self),
+            'error_type': self.error_type.name,
+            'severity': self.severity.name,
+            'timestamp': self.timestamp,
+            'stack_trace': self.stack_trace
+        }
+
+
+# 网络异常类
+class NetworkException(BaseAppException):
+    """网络异常基类"""
+    
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message, ErrorType.NETWORK_ERROR, severity)
+
+
+class ConnectionException(NetworkException):
+    """连接异常"""
+    
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.error_type = ErrorType.CONNECTION_ERROR
+
+
+class TimeoutException(NetworkException):
+    """超时异常"""
+    
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.error_type = ErrorType.TIMEOUT_ERROR
+
+
+# 设备异常类
+class DeviceException(BaseAppException):
+    """设备异常基类"""
+    
+    def __init__(self, message: str, device_id: Optional[str] = None, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message, ErrorType.DEVICE_NOT_FOUND, severity)
+        self.device_id = device_id
+
+
+class DeviceNotFoundException(DeviceException):
+    """设备未找到异常"""
+    
+    def __init__(self, device_id: str):
+        message = f"设备 {device_id} 未找到"
+        super().__init__(message, device_id)
+        self.error_type = ErrorType.DEVICE_NOT_FOUND
+
+
+class DeviceDisconnectedException(DeviceException):
+    """设备断开连接异常"""
+    
+    def __init__(self, device_id: str):
+        message = f"设备 {device_id} 已断开连接"
+        super().__init__(message, device_id)
+        self.error_type = ErrorType.DEVICE_DISCONNECTED
+
+
+class DevicePermissionDeniedException(DeviceException):
+    """设备权限拒绝异常"""
+    
+    def __init__(self, device_id: str):
+        message = f"设备 {device_id} 权限被拒绝"
+        super().__init__(message, device_id)
+        self.error_type = ErrorType.DEVICE_PERMISSION_DENIED
+
+
+class DeviceBusyException(DeviceException):
+    """设备忙异常"""
+    
+    def __init__(self, device_id: str):
+        message = f"设备 {device_id} 正在处理其他任务"
+        super().__init__(message, device_id)
+        self.error_type = ErrorType.DEVICE_BUSY
+
+
+# 权限异常类
+class PermissionException(BaseAppException):
+    """权限异常基类"""
+    
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message, ErrorType.PERMISSION_DENIED, severity)
+
+
+class AccessDeniedException(PermissionException):
+    """访问拒绝异常"""
+    
+    def __init__(self, resource: str):
+        message = f"访问资源 {resource} 被拒绝"
+        super().__init__(message)
+        self.error_type = ErrorType.ACCESS_DENIED
+
+
+# 文件异常类
+class FileException(BaseAppException):
+    """文件异常基类"""
+    
+    def __init__(self, message: str, file_path: Optional[str] = None, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message, ErrorType.FILE_NOT_FOUND, severity)
+        self.file_path = file_path
+
+
+class FileNotFoundException(FileException):
+    """文件未找到异常"""
+    
+    def __init__(self, file_path: str):
+        message = f"文件 {file_path} 未找到"
+        super().__init__(message, file_path)
+        self.error_type = ErrorType.FILE_NOT_FOUND
+
+
+class FilePermissionDeniedException(FileException):
+    """文件权限拒绝异常"""
+    
+    def __init__(self, file_path: str):
+        message = f"没有权限访问文件 {file_path}"
+        super().__init__(message, file_path)
+        self.error_type = ErrorType.FILE_PERMISSION_DENIED
+
+
+class FileIOException(FileException):
+    """文件IO异常"""
+    
+    def __init__(self, file_path: str, operation: str):
+        message = f"文件 {file_path} {operation} 失败"
+        super().__init__(message, file_path)
+        self.error_type = ErrorType.FILE_IO_ERROR
+        self.operation = operation
+
+
+# 应用异常类
+class AppException(BaseAppException):
+    """应用异常基类"""
+    
+    def __init__(self, message: str, app_package: Optional[str] = None, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message, ErrorType.APP_NOT_INSTALLED, severity)
+        self.app_package = app_package
+
+
+class AppNotInstalledException(AppException):
+    """应用未安装异常"""
+    
+    def __init__(self, app_package: str):
+        message = f"应用 {app_package} 未安装"
+        super().__init__(message, app_package)
+        self.error_type = ErrorType.APP_NOT_INSTALLED
+
+
+class AppStartFailedException(AppException):
+    """应用启动失败异常"""
+    
+    def __init__(self, app_package: str):
+        message = f"应用 {app_package} 启动失败"
+        super().__init__(message, app_package)
+        self.error_type = ErrorType.APP_START_FAILED
+
+
+class AppCrashedException(AppException):
+    """应用崩溃异常"""
+    
+    def __init__(self, app_package: str):
+        message = f"应用 {app_package} 崩溃"
+        super().__init__(message, app_package)
+        self.error_type = ErrorType.APP_CRASHED
+
+
+# 命令异常类
+class CommandException(BaseAppException):
+    """命令异常基类"""
+    
+    def __init__(self, message: str, command: Optional[str] = None, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message, ErrorType.COMMAND_NOT_FOUND, severity)
+        self.command = command
+
+
+class CommandNotFoundException(CommandException):
+    """命令未找到异常"""
+    
+    def __init__(self, command: str):
+        message = f"命令 {command} 未找到"
+        super().__init__(message, command)
+        self.error_type = ErrorType.COMMAND_NOT_FOUND
+
+
+class CommandExecutionFailedException(CommandException):
+    """命令执行失败异常"""
+    
+    def __init__(self, command: str, error: str):
+        message = f"命令 {command} 执行失败: {error}"
+        super().__init__(message, command)
+        self.error_type = ErrorType.COMMAND_EXECUTION_FAILED
+        self.execution_error = error
+
+
+# 配置异常类
+class ConfigException(BaseAppException):
+    """配置异常基类"""
+    
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.ERROR):
+        super().__init__(message, ErrorType.CONFIG_ERROR, severity)
+
+
+class InvalidParameterException(ConfigException):
+    """无效参数异常"""
+    
+    def __init__(self, parameter: str, value: Any):
+        message = f"参数 {parameter} 的值 {value} 无效"
+        super().__init__(message)
+        self.error_type = ErrorType.INVALID_PARAMETER
+        self.parameter = parameter
+        self.value = value
+
+
+# 系统异常类
+class SystemException(BaseAppException):
+    """系统异常基类"""
+    
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.CRITICAL):
+        super().__init__(message, ErrorType.SYSTEM_ERROR, severity)
+
+
+class OutOfMemoryException(SystemException):
+    """内存不足异常"""
+    
+    def __init__(self):
+        message = "系统内存不足"
+        super().__init__(message)
+        self.error_type = ErrorType.OUT_OF_MEMORY
+
+
+# 未知异常类
+class UnknownException(BaseAppException):
+    """未知异常"""
+    
+    def __init__(self, message: str):
+        super().__init__(message, ErrorType.UNKNOWN_ERROR)

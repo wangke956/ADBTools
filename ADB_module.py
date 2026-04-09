@@ -1,7 +1,16 @@
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
 import io
 import subprocess
-from Function_Moudle.adb_root_wrapper_thread import AdbRootWrapperThread
+from Function_Moudle.thread_factory import thread_factory
+from Function_Moudle.operation_history import OperationHistoryManager
+from Function_Moudle.error_dialog import (
+    show_error_message, show_warning_message, 
+    show_info_message, show_critical_message
+)
+from Function_Moudle.operation_guide import (
+    show_quick_guide, create_device_setup_guide,
+    create_app_install_guide
+)
 import uiautomator2 as u2
 
 # 确保 Nuitka 兼容性（必须在 import uiautomator2 之后调用）
@@ -198,6 +207,13 @@ class ADB_Mainwindow(QMainWindow):
         self.file_operations = FileOperationsManager(self)
         self.input_operations = InputOperationsManager(self)
         self.app_operations = AppOperationsManager(self)
+        
+        # 初始化操作历史管理器
+        self.operation_history = OperationHistoryManager(max_history_size=50)
+        
+        # 连接操作历史信号
+        self.operation_history.can_undo_changed_signal.connect(self._update_undo_redo_status)
+        self.operation_history.can_redo_changed_signal.connect(self._update_undo_redo_status)
         
         try:
             # 刷新设备列表（refresh_devices方法内部会尝试u2连接）
@@ -447,6 +463,31 @@ QPushButton:hover {
         about_action = QtWidgets.QAction('关于', self)
         about_action.triggered.connect(self.show_about)
         settings_menu.addAction(about_action)
+        
+        # 编辑菜单（添加撤销/重做功能）
+        edit_menu = menubar.addMenu('编辑')
+        
+        # 撤销操作
+        self.undo_action = QtWidgets.QAction('撤销', self)
+        self.undo_action.setShortcut('Ctrl+Z')
+        self.undo_action.triggered.connect(self.undo)
+        self.undo_action.setEnabled(False)
+        edit_menu.addAction(self.undo_action)
+        
+        # 重做操作
+        self.redo_action = QtWidgets.QAction('重做', self)
+        self.redo_action.setShortcut('Ctrl+Y')
+        self.redo_action.triggered.connect(self.redo)
+        self.redo_action.setEnabled(False)
+        edit_menu.addAction(self.redo_action)
+        
+        # 分隔线
+        edit_menu.addSeparator()
+        
+        # 快速入门
+        quick_start_action = QtWidgets.QAction('快速入门', self)
+        quick_start_action.triggered.connect(self.show_quick_start_guide)
+        edit_menu.addAction(quick_start_action)
 
     def open_enhanced_config_dialog(self):
         """打开配置对话框"""
@@ -498,10 +539,11 @@ QPushButton:hover {
     def check_for_updates(self):
         """检查更新"""
         try:
-            from Function_Moudle.check_update_thread import CheckUpdateThread
-            
-            # 创建检查更新线程
-            self.check_update_thread = CheckUpdateThread(current_version=self.VERSION)
+            # 使用线程工厂创建检查更新线程
+            self.check_update_thread = thread_factory.create_thread(
+                'check_update', 
+                current_version=self.VERSION
+            )
             
             # 连接信号
             self.check_update_thread.progress_signal.connect(self.textBrowser.append)
@@ -535,10 +577,11 @@ QPushButton:hover {
         - 检查失败：不做任何提示
         """
         try:
-            from Function_Moudle.check_update_thread import CheckUpdateThread
-            
-            # 创建检查更新线程
-            self.check_update_thread_silent = CheckUpdateThread(current_version=self.VERSION)
+            # 使用线程工厂创建检查更新线程
+            self.check_update_thread_silent = thread_factory.create_thread(
+                'check_update', 
+                current_version=self.VERSION
+            )
             
             # 只连接更新可用的信号，无更新和失败时不做任何提示
             self.check_update_thread_silent.update_available_signal.connect(self.handle_update_available_silent)
@@ -1037,9 +1080,12 @@ QPushButton:hover {
 
         if device_id in devices_id_lst:
             try:
-                from Function_Moudle.app_version_check_thread import AppVersionCheckThread
+                # 使用线程工厂创建应用版本检查线程
                 self.releasenote_dict = {}
-                self.app_version_check_thread = AppVersionCheckThread(None, self.releasenote_file)
+                self.app_version_check_thread = thread_factory.create_thread(
+                    'app_version_check',
+                    releasenote_file=self.releasenote_file
+                )
                 self.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.error_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.release_note_signal.connect(self.handle_progress)
@@ -1219,7 +1265,11 @@ QPushButton:hover {
 
         if device_id in devices_id_lst:
             try:
-                self.adb_root_thread = AdbRootWrapperThread(device_id)
+                # 使用线程工厂创建获取Root权限线程
+                self.adb_root_thread = thread_factory.create_thread(
+                    'adb_root',
+                    device_id=device_id
+                )
                 self.adb_root_thread.progress_signal.connect(self.textBrowser.append)
                 self.adb_root_thread.error_signal.connect(self.textBrowser.append)
                 self.adb_root_thread.start()
@@ -1511,7 +1561,7 @@ QPushButton:hover {
             self.u2_reinit_dialog = U2ReinitDialog(self)
             
             # 创建重新初始化线程
-            from Function_Moudle.u2_reinit_thread import U2ReinitThread
+            from Function_Moudle.device_threads import U2ReinitThread
             self.u2_reinit_thread = U2ReinitThread(device_id, self.d)
             
             # 连接信号
@@ -1568,3 +1618,63 @@ QPushButton:hover {
         if self.u2_reinit_thread:
             self.u2_reinit_thread.deleteLater()
             self.u2_reinit_thread = None
+    
+    def _update_undo_redo_status(self):
+        """更新撤销/重做按钮状态"""
+        if hasattr(self, 'undo_action'):
+            self.undo_action.setEnabled(self.operation_history.can_undo())
+        if hasattr(self, 'redo_action'):
+            self.redo_action.setEnabled(self.operation_history.can_redo())
+    
+    def add_operation(self, operation_type: str, description: str, data=None):
+        """添加操作记录"""
+        self.operation_history.add_operation(operation_type, description, data)
+        self.textBrowser.append(f"📝 操作记录: {description}")
+    
+    def undo(self):
+        """撤销操作"""
+        record = self.operation_history.undo()
+        if record:
+            self.textBrowser.append(f"↩️ 撤销操作: {record.description}")
+            # 这里可以添加具体的撤销逻辑
+            return record
+        else:
+            self.textBrowser.append("⚠️ 没有可撤销的操作")
+            return None
+    
+    def redo(self):
+        """重做操作"""
+        record = self.operation_history.redo()
+        if record:
+            self.textBrowser.append(f"↪️ 重做操作: {record.description}")
+            # 这里可以添加具体的重做逻辑
+            return record
+        else:
+            self.textBrowser.append("⚠️ 没有可重做的操作")
+            return None
+    
+    def show_error(self, title: str, message: str):
+        """显示错误提示"""
+        show_error_message(self, title, message)
+    
+    def show_warning(self, title: str, message: str):
+        """显示警告提示"""
+        show_warning_message(self, title, message)
+    
+    def show_info(self, title: str, message: str):
+        """显示信息提示"""
+        show_info_message(self, title, message)
+    
+    def show_quick_start_guide(self):
+        """显示快速入门引导"""
+        show_quick_guide(self)
+    
+    def show_device_setup_guide(self):
+        """显示设备设置引导"""
+        guide = create_device_setup_guide(self)
+        guide.start()
+    
+    def show_app_install_guide(self):
+        """显示应用安装引导"""
+        guide = create_app_install_guide(self)
+        guide.start()

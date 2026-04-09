@@ -9,6 +9,7 @@ from nuitka_compat import ensure_nuitka_compatibility
 ensure_nuitka_compatibility()
 
 from PyQt5.QtCore import Qt
+from .thread_factory import thread_factory
 from logger_manager import (
     get_logger, log_operation, log_exception,
     log_button_click, log_method_result, log_device_operation,
@@ -197,8 +198,8 @@ class DeviceManager:
         
         # 使用线程刷新设备列表
         try:
-            from Function_Moudle.refresh_devices_thread import RefreshDevicesThread
-            self.main_window.refresh_devices_thread = RefreshDevicesThread()
+            # 使用线程工厂创建刷新设备线程
+            self.main_window.refresh_devices_thread = thread_factory.create_thread('refresh_devices')
             
             # 连接信号
             self.main_window.refresh_devices_thread.progress_signal.connect(self.main_window.textBrowser.append)
@@ -269,8 +270,11 @@ class DeviceManager:
         self.main_window.u2_connecting = True
         
         try:
-            from Function_Moudle.u2_connect_thread import U2ConnectThread
-            self.main_window.u2_connect_thread = U2ConnectThread(device_id)
+            # 使用线程工厂创建U2连接线程
+            self.main_window.u2_connect_thread = thread_factory.create_thread(
+                'u2_connect',
+                device_id=device_id
+            )
             
             # 连接信号
             self.main_window.u2_connect_thread.progress_signal.connect(self.main_window.textBrowser.append)
@@ -332,8 +336,11 @@ class DeviceManager:
 
             if reply == QMessageBox.Yes:
                 try:
-                    from Function_Moudle.reboot_device_thread import RebootDeviceThread
-                    self.main_window.reboot_thread = RebootDeviceThread(device_id)
+                    # 使用线程工厂创建重启设备线程
+                    self.main_window.reboot_thread = thread_factory.create_thread(
+                        'reboot_device',
+                        device_id=device_id
+                    )
                     self.main_window.reboot_thread.progress_signal.connect(self.main_window.textBrowser.append)
                     self.main_window.reboot_thread.error_signal.connect(self.main_window.textBrowser.append)
                     self.main_window.reboot_thread.start()
@@ -385,8 +392,12 @@ class DeviceManager:
             self.main_window.u2_reinit_dialog = U2ReinitDialog(self.main_window)
             
             # 创建重新初始化线程
-            from Function_Moudle.u2_reinit_thread import U2ReinitThread
-            self.main_window.u2_reinit_thread = U2ReinitThread(device_id, self.main_window.d)
+            # 使用线程工厂创建U2重新初始化线程
+            self.main_window.u2_reinit_thread = thread_factory.create_thread(
+                'u2_reinit',
+                device_id=device_id,
+                u2_device=self.main_window.d
+            )
             
             # 连接信号
             self.main_window.u2_reinit_thread.progress_signal.connect(self.main_window.u2_reinit_dialog.add_progress)
