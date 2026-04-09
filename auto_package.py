@@ -335,7 +335,7 @@ def run_nuitka_build() -> bool:
     print(f"执行命令: {' '.join(cmd)}")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8', cwd=PROJECT_ROOT)
         
         print("构建输出:")
         print(result.stdout)
@@ -450,7 +450,7 @@ def run_inno_setup() -> bool:
     # 检查 iscc 是否在 PATH 中
     try:
         # 尝试运行 iscc --help 来检查是否可用
-        subprocess.run(["iscc", "--help"], capture_output=True, check=True)
+        subprocess.run(["iscc", "--help"], capture_output=True, check=True, encoding='utf-8')
         iscc_available = True
     except (subprocess.CalledProcessError, FileNotFoundError):
         iscc_available = False
@@ -489,7 +489,7 @@ def run_inno_setup() -> bool:
     print(f"执行命令: {' '.join(cmd)}")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8', cwd=PROJECT_ROOT)
         
         print("Inno Setup 输出:")
         print(result.stdout)
