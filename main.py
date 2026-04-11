@@ -176,13 +176,12 @@ except Exception as e:
 # ==================== 加载样式 ====================
 _log("[STEP] 加载样式表")
 try:
-    import qdarkstyle
-    app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt5'))
-    _log("qdarkstyle样式加载成功")
-except ImportError as e:
-    _log(f"qdarkstyle模块不存在，使用默认样式: {e}")
+    from ui_theme_manager import ThemeManager
+    ThemeManager.setup_default_theme(app)
+    _log("样式加载成功")
 except Exception as e:
-    _log(f"qdarkstyle加载失败，使用默认样式: {e}")
+    _log(f"样式加载失败: {e}")
+    _log(traceback.format_exc())
 
 
 # ==================== 初始化应用日志管理器 ====================

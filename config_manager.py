@@ -31,7 +31,7 @@ class ConfigManager:
             "auto_detect": True,  # 是否自动检测
         },
         "ui": {
-            "theme": "dark",  # dark/light
+            "theme": "qdarkstyle_dark",  # 默认使用 QDarkStyle 深色
             "language": "zh_CN",  # zh_CN/en_US
             "font_size": 10,
         },

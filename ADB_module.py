@@ -29,6 +29,8 @@ from logger_manager import (
     log_file_operation, log_thread_start, log_thread_complete
 )
 
+from ui_theme_manager import ThemeManager
+
 # 创建日志记录器
 logger = get_logger("ADBTools.ADB_Module")
 
@@ -292,6 +294,7 @@ class ADB_Mainwindow(QMainWindow):
         
         # 添加配置菜单
         self.add_config_menu()
+        self.add_theme_menu()
         
         # 添加配置按钮（如果UI中有）
         try:
@@ -398,31 +401,38 @@ class ADB_Mainwindow(QMainWindow):
     
     def _update_nav_button_style(self, active_index):
         """更新导航按钮的选中状态样式"""
-        active_style = """QPushButton {
-    background: #3d5a80;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    text-align: left;
-    padding-left: 10px;
-}
-QPushButton:hover {
-    background: #5a7ba8;
-    border: 1px solid #8ab4f8;
-}"""
+        from ui_theme_manager import ThemeManager
+        is_dark = ThemeManager.is_dark_theme()
         
-        inactive_style = """QPushButton {
+        # 根据深浅色主题自动选择文字颜色
+        active_text_color = "white" if is_dark else "#0078d4"
+        inactive_text_color = "#909090" if is_dark else "#404040"
+        
+        # 移除硬编码的颜色，改用半透明背景和自适应边框，以适应不同主题
+        active_style = f"""QPushButton {{
+    background: rgba(0, 120, 212, 0.4);
+    color: {active_text_color};
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    text-align: left;
+    padding-left: 10px;
+    font-weight: bold;
+}}
+QPushButton:hover {{
+    background: rgba(0, 120, 212, 0.6);
+}}"""
+        
+        inactive_style = f"""QPushButton {{
     background: transparent;
-    color: #909090;
+    color: {inactive_text_color};
     border: none;
     border-radius: 6px;
     text-align: left;
     padding-left: 10px;
-}
-QPushButton:hover {
-    background: rgba(61, 90, 128, 0.3);
-    color: #b0c4de;
-}"""
+}}
+QPushButton:hover {{
+    background: rgba(128, 128, 128, 0.2);
+}}"""
         
         for i, btn in enumerate(self.nav_buttons):
             if i == active_index:
@@ -488,6 +498,62 @@ QPushButton:hover {
         quick_start_action = QtWidgets.QAction('快速入门', self)
         quick_start_action.triggered.connect(self.show_quick_start_guide)
         edit_menu.addAction(quick_start_action)
+
+    def add_theme_menu(self):
+        """添加皮肤切换菜单"""
+        from PyQt5 import QtWidgets
+        from ui_theme_manager import ThemeManager
+        
+        menubar = self.menuBar()
+        self.theme_menu = menubar.addMenu('皮肤主题')
+        self.theme_actions = {}  # 存储 action 以便后续更新对勾
+        
+        current_theme = ThemeManager.get_current_theme()
+        
+        # 遍历所有主题选项
+        for theme_id, theme_name in ThemeManager.THEMES.items():
+            action = QtWidgets.QAction(theme_name, self)
+            action.setCheckable(True)
+            # 如果是当前主题，则勾选
+            if theme_id == current_theme:
+                action.setChecked(True)
+                
+            action.triggered.connect(lambda checked, t=theme_id: self.change_theme(t))
+            self.theme_menu.addAction(action)
+            self.theme_actions[theme_id] = action
+
+    def change_theme(self, theme_id):
+        """切换主题"""
+        app = QApplication.instance()
+        if app:
+            # 获取当前主题名用于日志
+            theme_name = ThemeManager.THEMES.get(theme_id, theme_id)
+            
+            # 在 apply_theme 内部已经处理了配置保存
+            try:
+                success, msg = ThemeManager.apply_theme(app, theme_id)
+                if success:
+                    self.textBrowser.append(msg)
+                    # 更新菜单对勾
+                    self.update_theme_menu_checks(theme_id)
+                    # 如果切换到高级 Win11 模式，提示需要重启
+                    if "win11" in theme_id:
+                        self.textBrowser.append("提示：检测到您开启了高级 Win11 模式，部分组件将在重启后完全应用。")
+                else:
+                    self.textBrowser.append(f"切换主题失败: {theme_name}")
+                    self.textBrowser.append(f"错误详情:\n{msg}")
+                    # 恢复之前的勾选状态
+                    self.update_theme_menu_checks(ThemeManager.get_current_theme())
+            except Exception as e:
+                import traceback
+                self.textBrowser.append(f"切换主题异常: {theme_name}")
+                self.textBrowser.append(f"错误信息: {e}\n{traceback.format_exc()}")
+
+    def update_theme_menu_checks(self, active_theme_id):
+        """更新皮肤菜单的对勾状态"""
+        if hasattr(self, 'theme_actions'):
+            for theme_id, action in self.theme_actions.items():
+                action.setChecked(theme_id == active_theme_id)
 
     def open_enhanced_config_dialog(self):
         """打开配置对话框"""
