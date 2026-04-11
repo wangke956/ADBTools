@@ -29,13 +29,13 @@ def _is_nuitka_environment():
     # 方法1: 检查 __compiled__ 标记 (Nuitka 在编译的模块中设置此变量)
     if "__compiled__" in globals():
         return True
-    # 方法2: sys.frozen=True 且没有 _MEIPASS (排除 PyInstaller)
+    # 方法2: 检查主模块是否被编译
+    main_mod = sys.modules.get("__main__")
+    if main_mod and hasattr(main_mod, "__compiled__"):
+        return True
+    # 方法3: sys.frozen=True 且没有 _MEIPASS (排除 PyInstaller)
     if getattr(sys, 'frozen', False) and not hasattr(sys, '_MEIPASS'):
         return True
-    # 方法3: 检查已加载的模块中是否有 nuitka 相关模块
-    for mod_name in sys.modules:
-        if 'nuitka' in mod_name.lower():
-            return True
     return False
 
 IS_NUITKA = _is_nuitka_environment()
@@ -71,6 +71,15 @@ def _extract_nuitka_u2_resources():
     logger = _get_logger()
     try:
         import importlib.resources as resources
+        
+        # 处理 Python < 3.9 (importlib.resources 没有 files 属性)
+        if not hasattr(resources, 'files'):
+            try:
+                import importlib_resources as resources
+            except ImportError:
+                logger.warning("Python < 3.9 且未安装 importlib_resources，无法使用 files() API")
+                return None
+                
         import tempfile
 
         # 使用原始的 files() 获取 Nuitka 资源引用
@@ -264,6 +273,14 @@ def _patch_importlib_resources():
     try:
         import importlib.resources as resources
         
+        # 处理 Python < 3.9
+        if not hasattr(resources, 'files'):
+            try:
+                import importlib_resources as resources
+            except ImportError:
+                logger.debug("Python < 3.9 且未安装 importlib_resources，跳过 importlib.resources.files patch")
+                return
+
         _original_files = resources.files
         _original_as_file = getattr(resources, 'as_file', None)
         
@@ -329,6 +346,11 @@ def _patch_uiautomator2_utils():
     try:
         import uiautomator2.utils as u2_utils
         
+        # 检查是否需要 patch
+        if not hasattr(u2_utils, 'with_package_resource'):
+            logger.debug("uiautomator2.utils 没有 with_package_resource，跳过 patch")
+            return
+            
         _original_with_package_resource = u2_utils.with_package_resource
         
         @contextlib.contextmanager
