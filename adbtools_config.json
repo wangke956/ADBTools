@@ -20,7 +20,7 @@
     "retry_count": 3
   },
   "ui": {
-    "theme": "qtmodern",
+    "theme": "pyqtdarktheme_dark",
     "language": "zh_CN",
     "font_size": 10,
     "font_family": "Microsoft YaHei",

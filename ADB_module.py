@@ -1150,7 +1150,8 @@ QPushButton:hover {{
                 self.releasenote_dict = {}
                 self.app_version_check_thread = thread_factory.create_thread(
                     'app_version_check',
-                    releasenote_file=self.releasenote_file
+                    releasenote_file=self.releasenote_file,
+                    d = self.d
                 )
                 self.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.error_signal.connect(self.textBrowser.append)

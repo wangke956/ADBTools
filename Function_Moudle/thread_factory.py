@@ -252,7 +252,12 @@ class ThreadFactory:
         elif thread_type == 'datong_open_telenav':
             from Function_Moudle.datong_threads import DatongOpenTelenavEngineeringThread
             return DatongOpenTelenavEngineeringThread
-            
+
+        # 原代码中 _get_thread_class 方法的 elif 分支后新增
+        elif thread_type == 'app_version_check':
+            from Function_Moudle.app_version_check_thread import AppVersionCheckThread  # 替换为你实际的线程类路径
+            return AppVersionCheckThread
+
         else:
             raise ValueError(f"未知的线程类型: {thread_type}")
     
