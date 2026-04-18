@@ -56,7 +56,7 @@ CONFIG = {
         "lxml",
     ],
     
-    # 需要排除的模块（减小体积）
+    # 需要排除的模块（减小体积和编译时间）
     "exclude_modules": [
         "matplotlib",
         "scipy",
@@ -68,6 +68,21 @@ CONFIG = {
         "sqlalchemy",
         "test",
         "unittest",
+        "tkinter",
+        "idlelib",
+        "distutils",
+        "setuptools",
+        "pip",
+        "ensurepip",
+        "venv",
+        "lib2to3",
+        "ctypes.test",
+        "email.test",
+        "json.tests",
+        "sqlite3.test",
+        "tkinter.test",
+        "unittest.test",
+        "xmlrpc.test",
     ],
     
     # 插件
@@ -101,6 +116,8 @@ def get_nuitka_command(build_type="onefile"):
         "--remove-output",
         "--assume-yes-for-downloads",
         "--plugin-enable=pyqt5",
+        # 性能优化：使用所有CPU核心进行并行编译
+        "--jobs=" + str(os.cpu_count()),
         "--windows-icon-from-ico=" + str(PROJECT_ROOT / CONFIG["icon"]),
         "--company-name=" + CONFIG["company_name"],
         "--product-name=" + CONFIG["product_name"],
@@ -278,6 +295,13 @@ def get_nuitka_command(build_type="onefile"):
                 "--experimental=use_older_gcc",
                 "--experimental=no_use_temp_directory",
             ])
+        
+        # 显示性能优化信息
+        print(f"检测到 CPU 核心数: {os.cpu_count()}")
+        print(f"已启用并行编译，使用 {os.cpu_count()} 个核心")
+        print("性能优化已应用:")
+        print("  - 并行编译 (--jobs)")
+        print("  - 排除额外测试模块")
     except Exception as e:
         print(f"警告: 无法检测 Nuitka 版本: {e}")
 
