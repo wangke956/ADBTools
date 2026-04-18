@@ -36,6 +36,7 @@ CONFIG = {
     # 依赖文件
     "data_files": [
         ("adbtool.ui", "."),
+        ("file_manager_ui.ui", "."),
         ("adbtools_config.json", "."),
         ("icon.ico", "."),
     ],
@@ -482,14 +483,35 @@ def build_standalone():
         print(f"错误输出: {error_output}")
         return False
     
-    # 查找生成的目录
-    dist_dir_name = CONFIG["output_name"] + ".dist"
+    # 查找生成的目录（Nuitka standalone 模式下目录名基于主脚本名）
+    dist_dir_name = "main.dist"  # 基于 main.py
     dist_src = CONFIG["build_dir"] / dist_dir_name
+    
+    if not dist_src.exists():
+        # 备选：尝试 output_name.dist
+        dist_dir_name = CONFIG["output_name"] + ".dist"
+        dist_src = CONFIG["build_dir"] / dist_dir_name
     
     if dist_src.exists():
         # 复制到最终分发目录
         if CONFIG["dist_dir"].exists():
-            shutil.rmtree(CONFIG["dist_dir"])
+            # 添加重试机制处理文件占用问题
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    shutil.rmtree(CONFIG["dist_dir"])
+                    break
+                except PermissionError as e:
+                    if attempt < max_retries - 1:
+                        print(f"警告: 无法删除 {CONFIG['dist_dir']} (尝试 {attempt + 1}/{max_retries})")
+                        print(f"原因: {e}")
+                        print("请关闭可能占用该目录的程序（如文件资源管理器、杀毒软件等）")
+                        import time
+                        time.sleep(2)  # 等待2秒后重试
+                    else:
+                        print(f"错误: 多次尝试后仍无法删除 {CONFIG['dist_dir']}")
+                        print("请手动删除该目录后重新运行打包脚本")
+                        return False
         
         shutil.copytree(dist_src, CONFIG["dist_dir"])
         

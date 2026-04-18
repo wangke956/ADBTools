@@ -8,13 +8,14 @@ import stat
 import subprocess
 from datetime import datetime
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QTreeWidget, QTreeWidgetItem,
+    QDialog, QTreeWidget, QTreeWidgetItem,
     QPushButton, QLabel, QLineEdit, QComboBox, QMessageBox, QProgressBar,
     QHeaderView, QMenu, QAction, QInputDialog, QWidget, QFileDialog,
-    QTextEdit, QApplication
+    QTextEdit, QApplication, QSplitter
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData, QUrl
 from PyQt5.QtGui import QIcon, QCursor, QDropEvent, QDrag
+from PyQt5 import uic
 
 from Function_Moudle.dialog_styles import apply_dialog_style, DIALOG_STYLE
 from logger_manager import get_logger
@@ -846,159 +847,190 @@ class FileManagerDialog(QDialog):
         self.folder_upload_thread = None
         self.folder_download_thread = None
         
-        self._init_ui()
+        # 动态加载UI文件
+        import sys
+        
+        ui_file = None
+        
+        # 方法1：从程序所在目录加载（onedir模式下，程序在安装目录）
+        try:
+            executable_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            ui_file = os.path.join(executable_dir, 'file_manager_ui.ui')
+        except:
+            pass
+        
+        # 方法2：从项目根目录加载（开发环境）
+        if not ui_file or not os.path.exists(ui_file):
+            try:
+                ui_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'file_manager_ui.ui')
+            except:
+                pass
+        
+        # 方法3：从当前模块目录加载（兼容旧版本）
+        if not ui_file or not os.path.exists(ui_file):
+            try:
+                ui_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'file_manager_ui.ui')
+            except:
+                pass
+        
+        # 最终检查
+        if not ui_file or not os.path.exists(ui_file):
+            # 提供调试信息
+            error_msg = f"找不到UI文件\n\n"
+            error_msg += f"尝试的路径:\n"
+            try:
+                error_msg += f"  1. {os.path.dirname(os.path.abspath(sys.argv[0]))}/file_manager_ui.ui\n"
+                error_msg += f"  2. {os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/file_manager_ui.ui\n"
+                error_msg += f"  3. {os.path.dirname(os.path.abspath(__file__))}/file_manager_ui.ui\n"
+            except:
+                pass
+            if ui_file:
+                error_msg += f"\n最后尝试: {ui_file}\n"
+            error_msg += f"\n请确保 file_manager_ui.ui 文件存在于程序安装目录中。"
+            raise FileNotFoundError(error_msg)
+        
+        logger.info(f"加载UI文件: {ui_file}")
+        uic.loadUi(ui_file, self)
+        
+        # 应用样式
+        apply_dialog_style(self)
+        
+        # 设置窗口标题
+        if device_id:
+            self.setWindowTitle(f"文件管理器 - 设备: {device_id}")
+        
+        # 初始化控件属性
+        self._init_controls()
+        
+        # 连接信号槽
+        self._connect_signals()
+        
+        # 刷新文件列表
         self._refresh_device_files()
         self._refresh_local_files()
     
-    def _init_ui(self):
-        """初始化界面"""
-        self.setWindowTitle(f"文件管理器 - 设备: {self.device_id}")
-        self.setMinimumSize(900, 500)
-        self.resize(1200, 700)  # 设置更大的默认尺寸
-        apply_dialog_style(self)
+    def _init_controls(self):
+        """初始化控件属性（从UI文件加载后）"""
+        # 设置初始路径
+        self.devicePathEdit.setText(self.device_current_path)
+        self.localPathEdit.setText(self.local_current_path)
         
-        layout = QVBoxLayout(self)
-        layout.setSpacing(4)
-        layout.setContentsMargins(6, 6, 6, 6)
+        # 设置树形控件属性
+        self.deviceTree.setHeaderLabels(['名称', '大小', '权限', '修改日期'])
+        self.deviceTree.setColumnWidth(0, 200)
+        self.deviceTree.setSortingEnabled(True)
+        self.deviceTree.setSelectionMode(QTreeWidget.ExtendedSelection)
+        self.deviceTree.setContextMenuPolicy(Qt.CustomContextMenu)
         
-        # 顶部路径栏（紧凑）
-        path_layout = QHBoxLayout()
-        path_layout.setSpacing(4)
+        self.localTree.setHeaderLabels(['名称', '大小', '类型', '修改日期'])
+        self.localTree.setColumnWidth(0, 200)
+        self.localTree.setSortingEnabled(True)
+        self.localTree.setSelectionMode(QTreeWidget.ExtendedSelection)
+        self.localTree.setContextMenuPolicy(Qt.CustomContextMenu)
         
-        # 设备路径
-        path_layout.addWidget(QLabel("设备:"))
-        self.device_path_edit = QLineEdit(self.device_current_path)
-        self.device_path_edit.returnPressed.connect(self._navigate_device_path)
-        path_layout.addWidget(self.device_path_edit, 1)
+        # 设置分割器比例
+        self.splitter.setSizes([500, 500])
         
-        btn_device_go = QPushButton("转到")
-        btn_device_go.clicked.connect(self._navigate_device_path)
-        path_layout.addWidget(btn_device_go)
+        # 隐藏进度条
+        self.progressBar.setVisible(False)
+        self.progressBar.setFixedHeight(16)
         
-        path_layout.addSpacing(12)
+        # 设置状态栏样式
+        self.statusLabel.setStyleSheet("color: #909090; font-size: 11px;")
         
-        # 本地路径
-        path_layout.addWidget(QLabel("本地:"))
-        self.local_path_edit = QLineEdit(self.local_current_path)
-        self.local_path_edit.returnPressed.connect(self._navigate_local_path)
-        path_layout.addWidget(self.local_path_edit, 1)
+        # 统一两个面板的背景色
+        panel_style = """
+            QWidget#deviceWidget {
+                background-color: #1a1a2e;
+            }
+            QWidget#localWidget {
+                background-color: #1a1a2e;
+            }
+        """
+        self.deviceWidget.setStyleSheet(panel_style)
+        self.localWidget.setStyleSheet(panel_style)
         
-        btn_local_go = QPushButton("转到")
-        btn_local_go.clicked.connect(self._navigate_local_path)
-        path_layout.addWidget(btn_local_go)
+        # 设置按钮提示文本
+        self.btnDeviceUp.setToolTip("返回上级目录")
+        self.btnRefreshDevice.setToolTip("刷新文件列表")
+        self.btnDownload.setToolTip("下载选中的文件到本地")
+        self.btnNewFolderDevice.setToolTip("在设备上新建文件夹")
+        self.btnLocalUp.setToolTip("返回上级目录")
+        self.btnRefreshLocal.setToolTip("刷新文件列表")
+        self.btnUpload.setToolTip("上传选中的文件或文件夹到设备")
+        self.btnSelectFile.setToolTip("选择要上传的文件")
+        self.btnBrowseDir.setToolTip("浏览选择本地目录")
         
-        layout.addLayout(path_layout)
+        # 统一所有工具栏按钮的样式（颜色、大小、悬停效果）
+        from PyQt5.QtCore import QSize
         
-        # 中间文件浏览区域
-        splitter = QSplitter(Qt.Horizontal)
+        # 统一定义按钮样式
+        button_style = """
+            QPushButton {
+                background-color: #2c3e50;
+                color: #ffffff;
+                border: 1px solid #34495e;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-size: 13px;
+                font-weight: bold;
+                min-width: 80px;
+                min-height: 32px;
+            }
+            QPushButton:hover {
+                background-color: #34495e;
+                border: 1px solid #5a6c7d;
+            }
+            QPushButton:pressed {
+                background-color: #1a252f;
+                border: 1px solid #2c3e50;
+            }
+        """
         
-        # 左侧：设备文件列表
-        device_widget = QWidget()
-        device_layout = QVBoxLayout(device_widget)
-        device_layout.setContentsMargins(4, 4, 4, 4)
-        device_layout.setSpacing(4)
+        # 应用到所有工具栏按钮
+        toolbar_buttons = [
+            self.btnDeviceUp, self.btnRefreshDevice, self.btnDownload, self.btnNewFolderDevice,
+            self.btnLocalUp, self.btnRefreshLocal, self.btnUpload, self.btnSelectFile, self.btnBrowseDir
+        ]
         
-        # 设备头部：标题+按钮合并为一行
-        device_header = QHBoxLayout()
-        device_header.setSpacing(4)
-        device_header.addWidget(QLabel("📱 设备"))
-        btn_device_up = QPushButton("⬆ 上级")
-        btn_device_up.setToolTip("返回上级目录")
-        btn_device_up.clicked.connect(self._device_go_up)
-        device_header.addWidget(btn_device_up)
-        btn_refresh_device = QPushButton("🔄 刷新")
-        btn_refresh_device.setToolTip("刷新文件列表")
-        btn_refresh_device.clicked.connect(self._refresh_device_files)
-        device_header.addWidget(btn_refresh_device)
-        btn_download = QPushButton("⬇ 下载")
-        btn_download.setToolTip("下载选中的文件到本地")
-        btn_download.clicked.connect(self._download_selected)
-        device_header.addWidget(btn_download)
-        btn_new_folder_device = QPushButton("📁 新建")
-        btn_new_folder_device.setToolTip("在设备上新建文件夹")
-        btn_new_folder_device.clicked.connect(self._create_folder_on_device)
-        device_header.addWidget(btn_new_folder_device)
-        device_header.addStretch()
-        device_layout.addLayout(device_header)
+        for btn in toolbar_buttons:
+            btn.setStyleSheet(button_style)
+            btn.setSizePolicy(btn.sizePolicy().horizontalPolicy(), btn.sizePolicy().verticalPolicy())
+            btn.setMinimumSize(QSize(80, 32))
+    
+    def _connect_signals(self):
+        """连接信号槽"""
+        # 路径导航
+        self.devicePathEdit.returnPressed.connect(self._navigate_device_path)
+        self.btnDeviceGo.clicked.connect(self._navigate_device_path)
+        self.localPathEdit.returnPressed.connect(self._navigate_local_path)
+        self.btnLocalGo.clicked.connect(self._navigate_local_path)
         
-        self.device_tree = DeviceFileTree()
-        self.device_tree.setHeaderLabels(['名称', '大小', '权限', '修改日期'])
-        self.device_tree.setColumnWidth(0, 200)
-        self.device_tree.setSortingEnabled(True)
-        self.device_tree.setSelectionMode(QTreeWidget.ExtendedSelection)  # 多选模式
-        self.device_tree.itemDoubleClicked.connect(self._on_device_item_double_clicked)
-        self.device_tree.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.device_tree.customContextMenuRequested.connect(self._show_device_context_menu)
-        self.device_tree.files_dropped.connect(self._on_files_dropped)  # 拖放上传信号
-        device_layout.addWidget(self.device_tree, 1)  # stretch=1
+        # 设备文件操作
+        self.btnDeviceUp.clicked.connect(self._device_go_up)
+        self.btnRefreshDevice.clicked.connect(self._refresh_device_files)
+        self.btnDownload.clicked.connect(self._download_selected)
+        self.btnNewFolderDevice.clicked.connect(self._create_folder_on_device)
         
-        splitter.addWidget(device_widget)
+        # 本地文件操作
+        self.btnLocalUp.clicked.connect(self._local_go_up)
+        self.btnRefreshLocal.clicked.connect(self._refresh_local_files)
+        self.btnUpload.clicked.connect(self._upload_selected)
+        self.btnSelectFile.clicked.connect(self._select_local_file)
+        self.btnBrowseDir.clicked.connect(self._browse_local_directory)
         
-        # 右侧：本地文件列表
-        local_widget = QWidget()
-        local_layout = QVBoxLayout(local_widget)
-        local_layout.setContentsMargins(4, 4, 4, 4)
-        local_layout.setSpacing(4)
+        # 树形控件事件
+        self.deviceTree.itemDoubleClicked.connect(self._on_device_item_double_clicked)
+        self.deviceTree.customContextMenuRequested.connect(self._show_device_context_menu)
+        self.deviceTree.files_dropped.connect(self._on_files_dropped)
         
-        # 本地头部：标题+按钮合并为一行
-        local_header = QHBoxLayout()
-        local_header.setSpacing(4)
-        local_header.addWidget(QLabel("💻 本地"))
-        btn_local_up = QPushButton("⬆ 上级")
-        btn_local_up.setToolTip("返回上级目录")
-        btn_local_up.clicked.connect(self._local_go_up)
-        local_header.addWidget(btn_local_up)
-        btn_refresh_local = QPushButton("🔄 刷新")
-        btn_refresh_local.setToolTip("刷新文件列表")
-        btn_refresh_local.clicked.connect(self._refresh_local_files)
-        local_header.addWidget(btn_refresh_local)
-        btn_upload = QPushButton("⬆ 上传")
-        btn_upload.setToolTip("上传选中的文件或文件夹到设备")
-        btn_upload.clicked.connect(self._upload_selected)
-        local_header.addWidget(btn_upload)
-        btn_select_file = QPushButton("📂 选择文件")
-        btn_select_file.setToolTip("选择要上传的文件")
-        btn_select_file.clicked.connect(self._select_local_file)
-        local_header.addWidget(btn_select_file)
-        btn_browse_dir = QPushButton("📁 浏览目录")
-        btn_browse_dir.setToolTip("浏览选择本地目录")
-        btn_browse_dir.clicked.connect(self._browse_local_directory)
-        local_header.addWidget(btn_browse_dir)
-        local_header.addStretch()
-        local_layout.addLayout(local_header)
-        
-        self.local_tree = LocalFileTree()
-        self.local_tree.setHeaderLabels(['名称', '大小', '类型', '修改日期'])
-        self.local_tree.setColumnWidth(0, 200)
-        self.local_tree.setSortingEnabled(True)
-        self.local_tree.setSelectionMode(QTreeWidget.ExtendedSelection)  # 多选模式
-        self.local_tree.itemDoubleClicked.connect(self._on_local_item_double_clicked)
-        self.local_tree.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.local_tree.customContextMenuRequested.connect(self._show_local_context_menu)
-        local_layout.addWidget(self.local_tree, 1)  # stretch=1
-        
-        splitter.addWidget(local_widget)
-        
-        splitter.setSizes([500, 500])
-        layout.addWidget(splitter, 1)  # stretch=1
-        
-        # 底部状态栏（紧凑）
-        bottom_layout = QHBoxLayout()
-        bottom_layout.setSpacing(8)
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setFixedHeight(16)
-        bottom_layout.addWidget(self.progress_bar)
-        self.status_label = QLabel("就绪")
-        self.status_label.setStyleSheet("color: #909090; font-size: 11px;")
-        bottom_layout.addWidget(self.status_label)
-        bottom_layout.addStretch()
-        layout.addLayout(bottom_layout)
+        self.localTree.itemDoubleClicked.connect(self._on_local_item_double_clicked)
+        self.localTree.customContextMenuRequested.connect(self._show_local_context_menu)
     
     def _refresh_device_files(self):
         """刷新设备文件列表"""
-        self.device_tree.clear()
-        self.status_label.setText("正在获取设备文件列表...")
+        self.deviceTree.clear()
+        self.statusLabel.setText("正在获取设备文件列表...")
         
         self.list_thread = DeviceListThread(
             self.device_id, 
@@ -1013,7 +1045,7 @@ class FileManagerDialog(QDialog):
     def _on_device_list_ready(self, files):
         """设备文件列表准备好"""
         logger.info(f"_on_device_list_ready 被调用，文件数量: {len(files)}")
-        self.device_tree.clear()
+        self.deviceTree.clear()
         
         for file_info in files:
             name = file_info['name']
@@ -1047,27 +1079,27 @@ class FileManagerDialog(QDialog):
             else:
                 item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
             
-            self.device_tree.addTopLevelItem(item)
+            self.deviceTree.addTopLevelItem(item)
         
-        self.device_path_edit.setText(self.device_current_path)
-        self.status_label.setText(f"已加载 {len(files)} 个项目")
+        self.devicePathEdit.setText(self.device_current_path)
+        self.statusLabel.setText(f"已加载 {len(files)} 个项目")
     
     def _on_list_error(self, error_msg):
         """列表获取错误"""
-        self.status_label.setText(error_msg)
+        self.statusLabel.setText(error_msg)
         QMessageBox.warning(self, "错误", error_msg)
     
     def _refresh_local_files(self):
         """刷新本地文件列表"""
-        self.local_tree.clear()
+        self.localTree.clear()
         
         try:
             # 添加返回上级目录
-            if self.local_current_path != os.path.dirname(self.local_current_path):
-                parent_item = QTreeWidgetItem(['.. (上级目录)', '', '', ''])
-                parent_item.setData(0, Qt.UserRole, 'parent')
-                parent_item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
-                self.local_tree.addTopLevelItem(parent_item)
+            # if self.local_current_path != os.path.dirname(self.local_current_path):
+            #     parent_item = QTreeWidgetItem(['.. (上级目录)', '', '', ''])
+            #     parent_item.setData(0, Qt.UserRole, 'parent')
+            #     parent_item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
+            #     self.localTree.addTopLevelItem(parent_item)
             
             items = os.listdir(self.local_current_path)
             for item_name in items:
@@ -1094,14 +1126,14 @@ class FileManagerDialog(QDialog):
                     else:
                         item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
                     
-                    self.local_tree.addTopLevelItem(item)
+                    self.localTree.addTopLevelItem(item)
                 except PermissionError:
                     continue
             
-            self.local_path_edit.setText(self.local_current_path)
-            self.status_label.setText(f"本地: {len(items)} 个项目")
+            self.localPathEdit.setText(self.local_current_path)
+            self.statusLabel.setText(f"本地: {len(items)} 个项目")
         except Exception as e:
-            self.status_label.setText(f"读取本地目录失败: {str(e)}")
+            self.statusLabel.setText(f"读取本地目录失败: {str(e)}")
     
     def _format_size(self, size):
         """格式化文件大小"""
@@ -1118,14 +1150,14 @@ class FileManagerDialog(QDialog):
     
     def _navigate_device_path(self):
         """导航到设备指定路径"""
-        path = self.device_path_edit.text().strip()
+        path = self.devicePathEdit.text().strip()
         if path:
             self.device_current_path = path
             self._refresh_device_files()
     
     def _navigate_local_path(self):
         """导航到本地指定路径"""
-        path = self.local_path_edit.text().strip()
+        path = self.localPathEdit.text().strip()
         if path and os.path.isdir(path):
             self.local_current_path = path
             self._refresh_local_files()
@@ -1151,7 +1183,7 @@ class FileManagerDialog(QDialog):
         )
         if dir_path:
             self.local_current_path = dir_path
-            self.local_path_edit.setText(dir_path)
+            self.localPathEdit.setText(dir_path)
             self._refresh_local_files()
     
     def _on_device_item_double_clicked(self, item, column):
@@ -1182,11 +1214,20 @@ class FileManagerDialog(QDialog):
     
     def _show_device_context_menu(self, pos):
         """显示设备文件右键菜单"""
-        selected_items = self.device_tree.selectedItems()
-        if not selected_items:
-            return
+        selected_items = self.deviceTree.selectedItems()
         
         menu = QMenu(self)
+        
+        # 置顶：返回上级目录
+        if self.device_current_path != '/':
+            go_up_action = QAction("⬆ 返回上级目录", self)
+            go_up_action.triggered.connect(self._device_go_up)
+            menu.addAction(go_up_action)
+            menu.addSeparator()
+        
+        if not selected_items:
+            menu.exec_(self.deviceTree.viewport().mapToGlobal(pos))
+            return
         
         # 单选模式
         if len(selected_items) == 1:
@@ -1198,7 +1239,7 @@ class FileManagerDialog(QDialog):
             is_dir = data.get('is_dir')
             
             # 下载（自动判断文件/文件夹）
-            download_action = QAction("⬇ 下载到本地", self)
+            download_action = QAction("⬇ 下载", self)
             download_action.triggered.connect(lambda: self._download_selected())
             menu.addAction(download_action)
             
@@ -1246,31 +1287,96 @@ class FileManagerDialog(QDialog):
             batch_delete_action.triggered.connect(self._delete_selected_device_items)
             menu.addAction(batch_delete_action)
         
-        menu.exec_(self.device_tree.viewport().mapToGlobal(pos))
+        menu.exec_(self.deviceTree.viewport().mapToGlobal(pos))
     
     def _show_local_context_menu(self, pos):
         """显示本地文件右键菜单"""
-        item = self.local_tree.itemAt(pos)
+        item = self.localTree.itemAt(pos)
+        
+        menu = QMenu(self)
+        
+        # 置顶：返回上级目录
+        parent_path = os.path.dirname(self.local_current_path)
+        if parent_path and parent_path != self.local_current_path:
+            go_up_action = QAction("⬆ 返回上级目录", self)
+            go_up_action.triggered.connect(self._local_go_up)
+            menu.addAction(go_up_action)
+            menu.addSeparator()
+        
         if not item:
+            # 空白处右键 - 显示新建选项
+            new_folder_action = QAction("📁 新建文件夹", self)
+            new_folder_action.triggered.connect(self._create_local_folder)
+            menu.addAction(new_folder_action)
+            
+            new_file_action = QAction("📄 新建文本文件", self)
+            new_file_action.triggered.connect(self._create_local_text_file)
+            menu.addAction(new_file_action)
+            
+            paste_action = QAction("📋 粘贴", self)
+            paste_action.triggered.connect(self._paste_local_files)
+            # 检查剪贴板是否有内容
+            if not hasattr(self, '_clipboard_files') or not self._clipboard_files:
+                paste_action.setEnabled(False)
+            menu.addAction(paste_action)
+            
+            menu.exec_(self.localTree.viewport().mapToGlobal(pos))
             return
         
         data = item.data(0, Qt.UserRole)
         if data == 'parent':
             return
         
-        menu = QMenu(self)
-        
-        if isinstance(data, dict) and not data.get('is_dir'):
-            # 上传
-            upload_action = QAction("⬆ 上传到设备", self)
+        if isinstance(data, dict):
+            is_dir = data.get('is_dir', False)
+            file_path = data.get('path', '')
+            
+            # 上传到设备（文件和文件夹都可以）
+            upload_action = QAction("⬆ 上传", self)
             upload_action.triggered.connect(lambda: self._upload_item(data))
             menu.addAction(upload_action)
+            
+            menu.addSeparator()
+            
+            # 打开文件/文件夹
+            open_action = QAction("📂 打开", self)
+            open_action.triggered.connect(lambda: self._open_local_item(data))
+            menu.addAction(open_action)
+            
+            # 复制
+            copy_action = QAction("📋 复制", self)
+            copy_action.triggered.connect(lambda: self._copy_local_files([data]))
+            menu.addAction(copy_action)
+            
+            # 剪切
+            cut_action = QAction("✂️ 剪切", self)
+            cut_action.triggered.connect(lambda: self._cut_local_files([data]))
+            menu.addAction(cut_action)
+            
+            menu.addSeparator()
+            
+            # 重命名
+            rename_action = QAction("✏ 重命名", self)
+            rename_action.triggered.connect(lambda: self._rename_local_item(data))
+            menu.addAction(rename_action)
+            
+            # 删除
+            delete_action = QAction("🗑 删除", self)
+            delete_action.triggered.connect(lambda: self._delete_local_item(data))
+            menu.addAction(delete_action)
+            
+            # 如果是文件，添加编辑选项
+            if not is_dir:
+                menu.addSeparator()
+                edit_action = QAction("📝 编辑文本", self)
+                edit_action.triggered.connect(lambda: self._edit_local_text_file(data))
+                menu.addAction(edit_action)
         
-        menu.exec_(self.local_tree.viewport().mapToGlobal(pos))
+        menu.exec_(self.localTree.viewport().mapToGlobal(pos))
     
     def _download_selected(self):
         """下载选中的设备文件或文件夹"""
-        selected_items = self.device_tree.selectedItems()
+        selected_items = self.deviceTree.selectedItems()
         if not selected_items:
             QMessageBox.information(self, "提示", "请先选择要下载的文件或文件夹")
             return
@@ -1320,17 +1426,17 @@ class FileManagerDialog(QDialog):
     
     def _download_files_batch(self, file_paths):
         """批量下载文件（使用线程，不阻塞界面）"""
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 100)  # 设置进度条范围
-        self.progress_bar.setValue(0)
-        self.status_label.setText(f"准备下载 {len(file_paths)} 个文件...")
+        self.progressBar.setVisible(True)
+        self.progressBar.setRange(0, 100)  # 设置进度条范围
+        self.progressBar.setValue(0)
+        self.statusLabel.setText(f"准备下载 {len(file_paths)} 个文件...")
         
         self.batch_transfer_thread = BatchFileTransferThread(
             self.device_id, file_paths, self.local_current_path,
             'download', self.connection_mode, self.d
         )
-        self.batch_transfer_thread.progress_signal.connect(self.status_label.setText)
-        self.batch_transfer_thread.progress_percent.connect(self.progress_bar.setValue)
+        self.batch_transfer_thread.progress_signal.connect(self.statusLabel.setText)
+        self.batch_transfer_thread.progress_percent.connect(self.progressBar.setValue)
         self.batch_transfer_thread.finished_signal.connect(self._on_batch_transfer_finished)
         self.batch_transfer_thread.start()
     
@@ -1339,23 +1445,23 @@ class FileManagerDialog(QDialog):
         src_path = self._join_device_path(self.device_current_path, file_info['name'])
         dst_path = os.path.join(self.local_current_path, file_info['name'])
         
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.status_label.setText(f"正在下载: {file_info['name']}")
+        self.progressBar.setVisible(True)
+        self.progressBar.setRange(0, 100)
+        self.progressBar.setValue(0)
+        self.statusLabel.setText(f"正在下载: {file_info['name']}")
         
         self.transfer_thread = FileTransferThread(
             self.device_id, src_path, dst_path,
             'download', self.connection_mode, self.d
         )
-        self.transfer_thread.progress_signal.connect(self.status_label.setText)
-        self.transfer_thread.progress_percent.connect(self.progress_bar.setValue)
+        self.transfer_thread.progress_signal.connect(self.statusLabel.setText)
+        self.transfer_thread.progress_percent.connect(self.progressBar.setValue)
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
     def _upload_selected(self):
         """上传选中的本地文件或文件夹"""
-        selected_items = self.local_tree.selectedItems()
+        selected_items = self.localTree.selectedItems()
         if not selected_items:
             QMessageBox.information(self, "提示", "请先选择要上传的文件或文件夹")
             return
@@ -1401,17 +1507,17 @@ class FileManagerDialog(QDialog):
         src_path = file_info['path']
         dst_path = self._join_device_path(self.device_current_path, file_info['name'])
         
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.status_label.setText(f"正在上传: {file_info['name']}")
+        self.progressBar.setVisible(True)
+        self.progressBar.setRange(0, 100)
+        self.progressBar.setValue(0)
+        self.statusLabel.setText(f"正在上传: {file_info['name']}")
         
         self.transfer_thread = FileTransferThread(
             self.device_id, src_path, dst_path,
             'upload', self.connection_mode, self.d
         )
-        self.transfer_thread.progress_signal.connect(self.status_label.setText)
-        self.transfer_thread.progress_percent.connect(self.progress_bar.setValue)
+        self.transfer_thread.progress_signal.connect(self.statusLabel.setText)
+        self.transfer_thread.progress_percent.connect(self.progressBar.setValue)
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
@@ -1459,74 +1565,74 @@ class FileManagerDialog(QDialog):
     
     def _upload_files_batch(self, file_paths):
         """批量上传文件（使用线程，不阻塞界面）"""
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.status_label.setText(f"准备上传 {len(file_paths)} 个文件...")
+        self.progressBar.setVisible(True)
+        self.progressBar.setRange(0, 100)
+        self.progressBar.setValue(0)
+        self.statusLabel.setText(f"准备上传 {len(file_paths)} 个文件...")
         
         self.batch_transfer_thread = BatchFileTransferThread(
             self.device_id, file_paths, self.device_current_path,
             'upload', self.connection_mode, self.d
         )
-        self.batch_transfer_thread.progress_signal.connect(self.status_label.setText)
-        self.batch_transfer_thread.progress_percent.connect(self.progress_bar.setValue)
+        self.batch_transfer_thread.progress_signal.connect(self.statusLabel.setText)
+        self.batch_transfer_thread.progress_percent.connect(self.progressBar.setValue)
         self.batch_transfer_thread.finished_signal.connect(self._on_batch_upload_finished)
         self.batch_transfer_thread.start()
     
     def _do_upload_folder(self, folder_path):
         """执行文件夹上传"""
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.status_label.setText(f"正在上传文件夹...")
+        self.progressBar.setVisible(True)
+        self.progressBar.setRange(0, 100)
+        self.progressBar.setValue(0)
+        self.statusLabel.setText(f"正在上传文件夹...")
         
         self.folder_upload_thread = FolderUploadThread(
             self.device_id, folder_path, self.device_current_path,
             self.connection_mode, self.d
         )
-        self.folder_upload_thread.progress_signal.connect(self.status_label.setText)
-        self.folder_upload_thread.progress_percent.connect(self.progress_bar.setValue)
+        self.folder_upload_thread.progress_signal.connect(self.statusLabel.setText)
+        self.folder_upload_thread.progress_percent.connect(self.progressBar.setValue)
         self.folder_upload_thread.finished_signal.connect(self._on_folder_upload_finished)
         self.folder_upload_thread.start()
     
     def _on_folder_upload_finished(self, success_count, fail_count, skip_count):
         """文件夹上传完成"""
-        self.progress_bar.setVisible(False)
-        self.status_label.setText(f"文件夹上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self.progressBar.setVisible(False)
+        self.statusLabel.setText(f"文件夹上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
     
     def _do_download_folder(self, device_folder, local_folder):
         """执行文件夹下载"""
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.status_label.setText(f"正在下载文件夹...")
+        self.progressBar.setVisible(True)
+        self.progressBar.setRange(0, 100)
+        self.progressBar.setValue(0)
+        self.statusLabel.setText(f"正在下载文件夹...")
         
         self.folder_download_thread = FolderDownloadThread(
             self.device_id, device_folder, local_folder,
             self.connection_mode, self.d
         )
-        self.folder_download_thread.progress_signal.connect(self.status_label.setText)
-        self.folder_download_thread.progress_percent.connect(self.progress_bar.setValue)
+        self.folder_download_thread.progress_signal.connect(self.statusLabel.setText)
+        self.folder_download_thread.progress_percent.connect(self.progressBar.setValue)
         self.folder_download_thread.finished_signal.connect(self._on_folder_download_finished)
         self.folder_download_thread.start()
     
     def _on_folder_download_finished(self, success_count, fail_count, skip_count):
         """文件夹下载完成"""
-        self.progress_bar.setVisible(False)
-        self.status_label.setText(f"文件夹下载完成: 成功 {success_count} 个, 失败 {fail_count} 个, 跳过 {skip_count} 个")
+        self.progressBar.setVisible(False)
+        self.statusLabel.setText(f"文件夹下载完成: 成功 {success_count} 个, 失败 {fail_count} 个, 跳过 {skip_count} 个")
         self._refresh_local_files()
     
     def _on_batch_upload_finished(self, success_count, fail_count):
         """批量上传完成"""
-        self.progress_bar.setVisible(False)
-        self.status_label.setText(f"上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self.progressBar.setVisible(False)
+        self.statusLabel.setText(f"上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
     
     def _on_batch_transfer_finished(self, success_count, fail_count):
         """批量下载完成"""
-        self.progress_bar.setVisible(False)
-        self.status_label.setText(f"下载完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self.progressBar.setVisible(False)
+        self.statusLabel.setText(f"下载完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_local_files()
     
     def _select_local_file(self):
@@ -1553,10 +1659,10 @@ class FileManagerDialog(QDialog):
                 self.local_current_path = os.path.dirname(file_path)
                 self._refresh_local_files()
                 # 选中刚选择的文件
-                for i in range(self.local_tree.topLevelItemCount()):
-                    item = self.local_tree.topLevelItem(i)
+                for i in range(self.localTree.topLevelItemCount()):
+                    item = self.localTree.topLevelItem(i)
                     if item.text(0) == os.path.basename(file_path):
-                        self.local_tree.setCurrentItem(item)
+                        self.localTree.setCurrentItem(item)
                         break
         elif action == folder_action:
             # 选择文件夹
@@ -1575,13 +1681,207 @@ class FileManagerDialog(QDialog):
     
     def _on_transfer_finished(self, success, message):
         """传输完成"""
-        self.progress_bar.setVisible(False)
-        self.status_label.setText(message)
+        self.progressBar.setVisible(False)
+        self.statusLabel.setText(message)
         
         if success:
             self._refresh_local_files()
         else:
             QMessageBox.warning(self, "传输失败", message)
+    
+    # ==================== 本地文件管理功能 ====================
+    
+    def _open_local_item(self, file_info):
+        """打开本地文件或文件夹"""
+        path = file_info.get('path', '')
+        if not path or not os.path.exists(path):
+            QMessageBox.warning(self, "错误", "文件不存在")
+            return
+        
+        try:
+            if os.path.isdir(path):
+                # 打开文件夹
+                os.startfile(path)  # Windows
+            else:
+                # 打开文件（使用默认程序）
+                os.startfile(path)
+        except Exception as e:
+            QMessageBox.warning(self, "打开失败", f"无法打开: {str(e)}")
+    
+    def _copy_local_files(self, file_infos):
+        """复制本地文件到剪贴板"""
+        if not hasattr(self, '_clipboard_files'):
+            self._clipboard_files = []
+        
+        self._clipboard_files = [(info.get('path'), 'copy') for info in file_infos]
+        self.statusLabel.setText(f"已复制 {len(file_infos)} 个项目")
+    
+    def _cut_local_files(self, file_infos):
+        """剪切本地文件到剪贴板"""
+        if not hasattr(self, '_clipboard_files'):
+            self._clipboard_files = []
+        
+        self._clipboard_files = [(info.get('path'), 'cut') for info in file_infos]
+        self.statusLabel.setText(f"已剪切 {len(file_infos)} 个项目")
+    
+    def _paste_local_files(self):
+        """粘贴本地文件"""
+        if not hasattr(self, '_clipboard_files') or not self._clipboard_files:
+            QMessageBox.information(self, "提示", "剪贴板为空")
+            return
+        
+        try:
+            success_count = 0
+            fail_count = 0
+            
+            for src_path, operation in self._clipboard_files:
+                if not os.path.exists(src_path):
+                    fail_count += 1
+                    continue
+                
+                filename = os.path.basename(src_path)
+                dst_path = os.path.join(self.local_current_path, filename)
+                
+                # 如果目标已存在，添加序号
+                if os.path.exists(dst_path):
+                    name, ext = os.path.splitext(filename)
+                    counter = 1
+                    while os.path.exists(dst_path):
+                        dst_path = os.path.join(self.local_current_path, f"{name}_{counter}{ext}")
+                        counter += 1
+                
+                try:
+                    if os.path.isdir(src_path):
+                        # 复制文件夹
+                        import shutil
+                        shutil.copytree(src_path, dst_path)
+                    else:
+                        # 复制文件
+                        import shutil
+                        shutil.copy2(src_path, dst_path)
+                    
+                    # 如果是剪切操作，删除源文件
+                    if operation == 'cut':
+                        if os.path.isdir(src_path):
+                            import shutil
+                            shutil.rmtree(src_path)
+                        else:
+                            os.remove(src_path)
+                    
+                    success_count += 1
+                except Exception as e:
+                    fail_count += 1
+                    logger.error(f"粘贴失败: {filename} - {str(e)}")
+            
+            # 清空剪贴板
+            if all(op == 'cut' for _, op in self._clipboard_files):
+                self._clipboard_files = []
+            
+            self.statusLabel.setText(f"粘贴完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+            self._refresh_local_files()
+        except Exception as e:
+            QMessageBox.warning(self, "粘贴失败", str(e))
+    
+    def _rename_local_item(self, file_info):
+        """重命名本地文件/文件夹"""
+        old_name = file_info.get('name', '')
+        new_name, ok = QInputDialog.getText(self, "重命名", "请输入新名称:", text=old_name)
+        
+        if ok and new_name and new_name != old_name:
+            old_path = file_info.get('path', '')
+            new_path = os.path.join(os.path.dirname(old_path), new_name)
+            
+            try:
+                os.rename(old_path, new_path)
+                self.statusLabel.setText(f"重命名成功: {old_name} -> {new_name}")
+                self._refresh_local_files()
+            except Exception as e:
+                QMessageBox.warning(self, "重命名失败", f"无法重命名: {str(e)}")
+    
+    def _delete_local_item(self, file_info):
+        """删除本地文件/文件夹"""
+        name = file_info.get('name', '')
+        is_dir = file_info.get('is_dir', False)
+        
+        reply = QMessageBox.question(
+            self, '确认删除',
+            f"确定要删除 '{name}' 吗？\n此操作不可撤销！",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            path = file_info.get('path', '')
+            try:
+                if is_dir:
+                    import shutil
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                
+                self.statusLabel.setText(f"删除成功: {name}")
+                self._refresh_local_files()
+            except Exception as e:
+                QMessageBox.warning(self, "删除失败", f"无法删除: {str(e)}")
+    
+    def _create_local_folder(self):
+        """在当前目录创建新文件夹"""
+        folder_name, ok = QInputDialog.getText(self, "新建文件夹", "请输入文件夹名称:")
+        
+        if ok and folder_name:
+            folder_path = os.path.join(self.local_current_path, folder_name)
+            
+            try:
+                os.makedirs(folder_path, exist_ok=False)
+                self.statusLabel.setText(f"文件夹创建成功: {folder_name}")
+                self._refresh_local_files()
+            except FileExistsError:
+                QMessageBox.warning(self, "创建失败", f"文件夹已存在: {folder_name}")
+            except Exception as e:
+                QMessageBox.warning(self, "创建失败", f"无法创建文件夹: {str(e)}")
+    
+    def _create_local_text_file(self):
+        """在当前目录创建新文本文件"""
+        file_name, ok = QInputDialog.getText(self, "新建文本文件", "请输入文件名:", text="新建文本文档.txt")
+        
+        if ok and file_name:
+            # 如果没有扩展名，添加 .txt
+            if not os.path.splitext(file_name)[1]:
+                file_name += '.txt'
+            
+            file_path = os.path.join(self.local_current_path, file_name)
+            
+            try:
+                # 创建空文件
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    pass
+                
+                self.statusLabel.setText(f"文件创建成功: {file_name}")
+                self._refresh_local_files()
+                
+                # 自动打开编辑
+                file_info = {'path': file_path, 'name': file_name, 'is_dir': False}
+                self._edit_local_text_file(file_info)
+            except FileExistsError:
+                QMessageBox.warning(self, "创建失败", f"文件已存在: {file_name}")
+            except Exception as e:
+                QMessageBox.warning(self, "创建失败", f"无法创建文件: {str(e)}")
+    
+    def _edit_local_text_file(self, file_info):
+        """编辑本地文本文件"""
+        file_path = file_info.get('path', '')
+        file_name = file_info.get('name', '')
+        
+        try:
+            # 读取文件内容
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            
+            # 显示编辑对话框
+            dialog = LocalTextEditorDialog(self, file_path, file_name, content)
+            dialog.saved_signal.connect(self._refresh_local_files)
+            dialog.exec_()
+        except Exception as e:
+            QMessageBox.warning(self, "打开失败", f"无法打开文件: {str(e)}")
     
     def _delete_device_item(self, file_info):
         """删除设备文件"""
@@ -1598,13 +1898,13 @@ class FileManagerDialog(QDialog):
                 self.device_id, path, file_info.get('is_dir', False),
                 self.connection_mode, self.d
             )
-            self.delete_thread.progress_signal.connect(self.status_label.setText)
+            self.delete_thread.progress_signal.connect(self.statusLabel.setText)
             self.delete_thread.finished_signal.connect(self._on_delete_finished)
             self.delete_thread.start()
     
     def _on_delete_finished(self, success, message):
         """删除完成"""
-        self.status_label.setText(message)
+        self.statusLabel.setText(message)
         if success:
             self._refresh_device_files()
         else:
@@ -1695,7 +1995,7 @@ class FileManagerDialog(QDialog):
     
     def _on_chmod_finished(self, success, message):
         """权限修改完成"""
-        self.status_label.setText(message)
+        self.statusLabel.setText(message)
         if success:
             self._refresh_device_files()
             QMessageBox.information(self, "操作成功", message)
@@ -1719,7 +2019,7 @@ class FileManagerDialog(QDialog):
                     if result.returncode != 0:
                         raise Exception(result.stderr)
                 
-                self.status_label.setText(f"文件夹创建成功: {folder_name}")
+                self.statusLabel.setText(f"文件夹创建成功: {folder_name}")
                 self._refresh_device_files()
             except Exception as e:
                 QMessageBox.warning(self, "创建失败", f"创建文件夹失败: {str(e)}")
@@ -1733,7 +2033,7 @@ class FileManagerDialog(QDialog):
             old_path = self._join_device_path(self.device_current_path, old_name)
             new_path = self._join_device_path(self.device_current_path, new_name)
             
-            self.status_label.setText(f"正在重命名: {old_name} -> {new_name}")
+            self.statusLabel.setText(f"正在重命名: {old_name} -> {new_name}")
             
             self.rename_thread = RenameThread(
                 self.device_id, old_path, new_path,
@@ -1744,7 +2044,7 @@ class FileManagerDialog(QDialog):
     
     def _on_rename_finished(self, success, message):
         """重命名完成"""
-        self.status_label.setText(message)
+        self.statusLabel.setText(message)
         if success:
             self._refresh_device_files()
         else:
@@ -1752,7 +2052,7 @@ class FileManagerDialog(QDialog):
     
     def _delete_selected_device_items(self):
         """批量删除选中的设备文件"""
-        selected_items = self.device_tree.selectedItems()
+        selected_items = self.deviceTree.selectedItems()
         if not selected_items:
             return
         
@@ -1779,7 +2079,7 @@ class FileManagerDialog(QDialog):
             file_name = data.get('name', '')
             path = self._join_device_path(self.device_current_path, file_name)
             
-            self.status_label.setText(f"正在删除: {file_name}")
+            self.statusLabel.setText(f"正在删除: {file_name}")
             QApplication.processEvents()  # 更新UI
             
             try:
@@ -1801,7 +2101,7 @@ class FileManagerDialog(QDialog):
                 fail_count += 1
                 logger.error(f"删除失败: {file_name} - {str(e)}")
         
-        self.status_label.setText(f"删除完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self.statusLabel.setText(f"删除完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
     
     def _preview_text_file(self, file_info):
@@ -1809,7 +2109,7 @@ class FileManagerDialog(QDialog):
         file_name = file_info.get('name', '')
         file_path = self._join_device_path(self.device_current_path, file_name)
         
-        self.status_label.setText(f"正在读取文件: {file_name}")
+        self.statusLabel.setText(f"正在读取文件: {file_name}")
         
         self.text_read_thread = TextReadThread(
             self.device_id, file_path,
@@ -1825,11 +2125,11 @@ class FileManagerDialog(QDialog):
     def _on_text_read_finished(self, success, content, error, file_path, file_name):
         """文本读取完成"""
         if not success:
-            self.status_label.setText(f"读取失败: {error}")
+            self.statusLabel.setText(f"读取失败: {error}")
             QMessageBox.warning(self, "读取失败", f"无法读取文件: {error}")
             return
         
-        self.status_label.setText(f"已加载: {file_name}")
+        self.statusLabel.setText(f"已加载: {file_name}")
         
         # 显示文本编辑对话框
         dialog = TextPreviewDialog(self, file_path, file_name, content, 
@@ -1869,6 +2169,7 @@ class TextPreviewDialog(QDialog):
         self.resize(900, 600)
         apply_dialog_style(self)
         
+        from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
         layout = QVBoxLayout(self)
         
         # 文件路径显示
@@ -1951,3 +2252,91 @@ class TextPreviewDialog(QDialog):
         if self.write_thread and self.write_thread.isRunning():
             self.write_thread.wait(1000)
         event.accept()
+
+
+class LocalTextEditorDialog(QDialog):
+    """本地文本文件编辑对话框"""
+    
+    saved_signal = pyqtSignal()  # 保存成功信号
+    
+    def __init__(self, parent, file_path, file_name, content):
+        super().__init__(parent)
+        self.file_path = file_path
+        self.file_name = file_name
+        self.original_content = content
+        
+        self.setWindowTitle(f"编辑: {file_name}")
+        self.setMinimumSize(700, 500)
+        self.resize(900, 600)
+        apply_dialog_style(self)
+        
+        from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
+        layout = QVBoxLayout(self)
+        
+        # 文件路径显示
+        path_label = QLabel(f"📄 {file_path}")
+        path_label.setStyleSheet("color: #5a9bd5; font-size: 11px;")
+        layout.addWidget(path_label)
+        
+        # 文本编辑器
+        self.text_edit = QTextEdit()
+        self.text_edit.setPlainText(content)
+        self.text_edit.setFontFamily("Consolas")
+        self.text_edit.setFontPointSize(10)
+        layout.addWidget(self.text_edit, 1)
+        
+        # 状态栏
+        self.status_label = QLabel("就绪")
+        self.status_label.setStyleSheet("color: #909090;")
+        layout.addWidget(self.status_label)
+        
+        # 按钮
+        btn_layout = QHBoxLayout()
+        
+        btn_save = QPushButton("💾 保存")
+        btn_save.clicked.connect(self._save_file)
+        btn_layout.addWidget(btn_save)
+        
+        btn_save_as = QPushButton("💾 另存为...")
+        btn_save_as.clicked.connect(self._save_as)
+        btn_layout.addWidget(btn_save_as)
+        
+        btn_layout.addStretch()
+        
+        btn_cancel = QPushButton("关闭")
+        btn_cancel.clicked.connect(self.close)
+        btn_layout.addWidget(btn_cancel)
+        
+        layout.addLayout(btn_layout)
+    
+    def _save_file(self):
+        """保存文件"""
+        content = self.text_edit.toPlainText()
+        
+        if content == self.original_content:
+            self.status_label.setText("内容未更改")
+            return
+        
+        try:
+            with open(self.file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            self.original_content = content
+            self.status_label.setText("保存成功")
+            self.saved_signal.emit()
+            QMessageBox.information(self, "保存成功", "文件已保存")
+        except Exception as e:
+            QMessageBox.warning(self, "保存失败", f"无法保存文件: {str(e)}")
+    
+    def _save_as(self):
+        """另存为"""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "另存为", self.file_name, "文本文件 (*.txt);;所有文件 (*)"
+        )
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(self.text_edit.toPlainText())
+                self.status_label.setText(f"已保存到: {file_path}")
+            except Exception as e:
+                QMessageBox.warning(self, "保存失败", str(e))

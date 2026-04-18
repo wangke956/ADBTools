@@ -41,6 +41,7 @@ CONFIG = {
     "config_files_to_copy": [
         "adbtool.ui",
         "adbtools_config.json",
+        "file_manager_ui.ui",
     ],
     
     # 配置文件
@@ -330,7 +331,7 @@ def run_nuitka_build() -> bool:
     print("开始执行 Nuitka 构建...")
     print("=" * 60)
     
-    cmd = [sys.executable, "nuitka_build_fixed_v2.py", "--build", "onefile"]
+    cmd = [sys.executable, "nuitka_build_fixed_v2.py", "--build", "standalone"]
     
     print(f"执行命令: {' '.join(cmd)}")
     
@@ -404,18 +405,43 @@ def copy_files_to_build_dir(platform_tools_path: Optional[Path]) -> bool:
     
     total_copied = 0
     
+    # 0. 复制 Nuitka 生成的主程序（从 main.dist 目录）
+    print("0. 复制 Nuitka 主程序:")
+    main_dist_dir = build_dir / "main.dist"
+    if main_dist_dir.exists():
+        try:
+            # 复制所有文件从 main.dist 到 build_nuitka 根目录
+            for item in main_dist_dir.iterdir():
+                if item.is_file():
+                    dest_path = build_dir / item.name
+                    shutil.copy2(item, dest_path)
+                    print(f"   ✓ {item.name}")
+                    total_copied += 1
+            print(f"   ✅ 已从 main.dist 复制 {total_copied} 个文件")
+        except Exception as e:
+            print(f"   ❌ 复制主程序文件失败: {e}")
+            return False
+    else:
+        print(f"   ❌ 未找到 main.dist 目录: {main_dist_dir}")
+        print("   Nuitka 构建可能未正确完成")
+        return False
+    
     # 1. 复制 platform-tools 文件（如果提供了路径）
     if platform_tools_path is not None:
-        print("1. 复制 platform-tools 文件:")
+        print("\n1. 复制 platform-tools 文件:")
         if platform_tools_path.exists() and platform_tools_path.is_dir():
             platform_files_copied = 0
             try:
                 for item in platform_tools_path.iterdir():
                     if item.is_file():
                         dest_path = build_dir / item.name
-                        shutil.copy2(item, dest_path)
-                        print(f"   ✓ {item.name}")
-                        platform_files_copied += 1
+                        # 避免覆盖已复制的文件（如adb.exe如果在dist中已存在）
+                        if not dest_path.exists():
+                            shutil.copy2(item, dest_path)
+                            print(f"   ✓ {item.name}")
+                            platform_files_copied += 1
+                        else:
+                            print(f"   ⊙ {item.name} (已存在，跳过)")
                 
                 print(f"   ✅ 已复制 {platform_files_copied} 个 platform-tools 文件")
                 total_copied += platform_files_copied
@@ -424,7 +450,7 @@ def copy_files_to_build_dir(platform_tools_path: Optional[Path]) -> bool:
         else:
             print(f"   ❌ platform-tools 文件夹不存在: {platform_tools_path}")
     else:
-        print("1. 跳过 platform-tools 文件复制")
+        print("\n1. 跳过 platform-tools 文件复制")
         print("   ⚠  用户选择跳过 ADB 工具文件复制")
         print("   打包完成后，请手动将以下文件复制到 build_nuitka 目录:")
         print("   - adb.exe")
@@ -455,9 +481,6 @@ def copy_files_to_build_dir(platform_tools_path: Optional[Path]) -> bool:
         print(f"\n3. 复制图标文件:")
         print(f"   ✓ {CONFIG['icon_file']}")
         total_copied += 1
-    
-    print(f"\n✅ 总共复制了 {total_copied} 个文件到 {build_dir}")
-    return total_copied > 0
 
 
 
@@ -486,19 +509,22 @@ def run_inno_setup() -> bool:
     if not iscc_available:
         print("⚠  iscc 命令未找到，请确保 Inno Setup 已安装并添加到 PATH")
         print("常见安装路径:")
-        print("  - C:\\Program Files (x86)\\Inno Setup 6\\iscc.exe")
+        print("  - C:\\Program Files\\Inno Setup 7\\iscc.exe")
         print("  - C:\\Program Files\\Inno Setup 6\\iscc.exe")
+        print("  - C:\\Program Files (x86)\\Inno Setup 6\\iscc.exe")
         
-        # 尝试常见路径
+        # 尝试常见路径（按版本优先级排序）
         common_paths = [
-            r"C:\Program Files (x86)\Inno Setup 6\iscc.exe",
+            r"C:\Program Files\Inno Setup 7\iscc.exe",
             r"C:\Program Files\Inno Setup 6\iscc.exe",
+            r"C:\Program Files (x86)\Inno Setup 6\iscc.exe",
         ]
         
         iscc_path = None
         for path in common_paths:
             if Path(path).exists():
                 iscc_path = path
+                print(f"✅ 找到 iscc.exe: {path}")
                 break
         
         if not iscc_path:

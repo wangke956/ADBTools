@@ -2,7 +2,7 @@
   "version": {
     "major": 1,
     "minor": 8,
-    "patch": 19,
+    "patch": 20,
     "build": 0
   },
   "adb": {
@@ -20,7 +20,7 @@
     "retry_count": 3
   },
   "ui": {
-    "theme": "pyqtdarktheme_dark",
+    "theme": "qdarkstyle_dark",
     "language": "zh_CN",
     "font_size": 10,
     "font_family": "Microsoft YaHei",
