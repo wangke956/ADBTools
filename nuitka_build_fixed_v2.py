@@ -118,6 +118,8 @@ def get_nuitka_command(build_type="onefile"):
         "--plugin-enable=pyqt5",
         # 性能优化：使用所有CPU核心进行并行编译
         "--jobs=" + str(os.cpu_count()),
+        # 性能优化：启用 LTO 加速链接
+        "--lto=yes",
         "--windows-icon-from-ico=" + str(PROJECT_ROOT / CONFIG["icon"]),
         "--company-name=" + CONFIG["company_name"],
         "--product-name=" + CONFIG["product_name"],
@@ -301,6 +303,7 @@ def get_nuitka_command(build_type="onefile"):
         print(f"已启用并行编译，使用 {os.cpu_count()} 个核心")
         print("性能优化已应用:")
         print("  - 并行编译 (--jobs)")
+        print("  - LTO 链接优化 (--lto=yes)")
         print("  - 排除额外测试模块")
     except Exception as e:
         print(f"警告: 无法检测 Nuitka 版本: {e}")
