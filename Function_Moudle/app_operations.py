@@ -45,7 +45,7 @@ class AppOperationsManager:
             self.textBrowser.append("设备未连接！")
 
     def start_app_action(self, app_name):
-        """启动应用"""
+        """启动应用 - 使用统一的异步线程"""
         device_id = self.main_window.get_selected_device()
         devices_id_lst = self.main_window.get_new_device_lst()
         
@@ -53,35 +53,14 @@ class AppOperationsManager:
 
         if device_id in devices_id_lst:
             try:
-                # 调试信息：显示当前连接状态
-                logger.info(f"start_app_action: connection_mode={self.main_window.connection_mode}, d={self.main_window.d is not None}, u2_connecting={getattr(self.main_window, 'u2_connecting', False)}")
-                
                 # 检查是否正在连接U2
                 if getattr(self.main_window, 'u2_connecting', False):
                     self.textBrowser.append("U2正在连接中，请稍候再试...")
                     return
                 
-                # 检查连接状态
-                if self.main_window.connection_mode == 'u2':
-                    if not self.main_window.d:
-                        self.main_window.connection_mode = 'adb'
-                        self.textBrowser.append("U2连接不可用，切换到ADB模式")
-                        logger.warning("U2连接不可用，已切换到ADB模式")
-                
-                if self.main_window.connection_mode == 'u2' and self.main_window.d:
-                    self.textBrowser.append(f"[U2模式] 正在启动应用: {app_name}...")
-                    self._start_app_u2(app_name)
-                elif self.main_window.connection_mode == 'adb':
-                    self.textBrowser.append(f"[ADB模式] 正在启动应用: {app_name}...")
-                    from Function_Moudle.adb_app_action_thread import ADBAppActionThread
-                    self.main_window.app_action_thread = ADBAppActionThread(device_id, app_name)
-                    self.main_window.app_action_thread.progress_signal.connect(self.textBrowser.append)
-                    self.main_window.app_action_thread.error_signal.connect(self.textBrowser.append)
-                    self.main_window.app_action_thread.start()
-                    log_method_result("start_app_action", True, f"启动线程已启动: {app_name}")
-                else:
-                    log_method_result("start_app_action", False, "设备未连接")
-                    self.textBrowser.append("设备未连接！")
+                # 使用统一的异步线程启动应用
+                self.main_window._start_app_with_thread(app_name)
+                log_method_result("start_app_action", True, f"启动线程已启动: {app_name}")
             except Exception as e:
                 log_method_result("start_app_action", False, str(e))
                 self.textBrowser.append(f"启动应用失败: {e}")
@@ -89,81 +68,7 @@ class AppOperationsManager:
             log_method_result("start_app_action", False, "设备未连接")
             self.textBrowser.append("设备未连接！")
     
-    def _start_app_u2(self, app_name):
-        """U2模式下启动应用 - 尝试多种方式"""
-        import re
-        try:
-            d = self.main_window.d
-            
-            # 方法1: 先尝试使用monkey启动
-            self.textBrowser.append(f"尝试启动: {app_name}")
-            monkey_result = d.shell(f"monkey -p {app_name} -c android.intent.category.LAUNCHER 1")
-            
-            # 检查monkey是否成功
-            if hasattr(monkey_result, 'output'):
-                output = monkey_result.output
-            else:
-                output = str(monkey_result)
-            
-            if "No activities found" in output or "Error" in output:
-                # 方法2: 查询主Activity并启动
-                self.textBrowser.append("monkey启动失败，尝试查询主Activity...")
-                main_activity = self._get_main_activity_u2(app_name)
-                
-                if main_activity:
-                    self.textBrowser.append(f"找到主Activity: {main_activity}")
-                    # 使用am start启动
-                    result = d.shell(f"am start -n {main_activity}")
-                    if hasattr(result, 'output'):
-                        self.textBrowser.append(result.output.strip())
-                else:
-                    # 方法3: 直接使用app_start
-                    self.textBrowser.append("尝试直接启动...")
-                    d.app_start(app_name)
-            else:
-                self.textBrowser.append(f"已启动应用: {app_name}")
-            
-            log_method_result("start_app_action", True, f"已启动: {app_name}")
-            
-        except Exception as e:
-            logger.error(f"U2启动应用失败: {e}")
-            # 最后尝试直接app_start
-            try:
-                self.main_window.d.app_start(app_name)
-                self.textBrowser.append(f"已启动应用: {app_name}")
-            except Exception as e2:
-                self.textBrowser.append(f"启动应用失败: {e2}")
-                log_method_result("start_app_action", False, str(e2))
-    
-    def _get_main_activity_u2(self, package_name):
-        """在U2模式下获取应用的主Activity"""
-        import re
-        try:
-            d = self.main_window.d
-            
-            # 使用pm dump查询
-            result = d.shell(f"pm dump {package_name}")
-            output = result.output if hasattr(result, 'output') else str(result)
-            
-            # 查找包含MAIN intent的Activity
-            for line in output.split('\n'):
-                if 'android.intent.action.MAIN' in line and 'cmp=' in line:
-                    match = re.search(r'cmp=([^\s}]+)', line)
-                    if match:
-                        cmp_value = match.group(1)
-                        if cmp_value.startswith(package_name + '/'):
-                            return cmp_value
-            
-            # 备选：查找第一个Activity
-            pattern = r'cmp=' + re.escape(package_name) + r'/([^\s}]+)'
-            matches = re.findall(pattern, output)
-            if matches:
-                return f"{package_name}/{matches[0].strip()}"
-            
-            return None
-        except Exception as e:
-            logger.error(f"查询主Activity失败: {e}")
-            return None
+
     
     def list_package(self):
         """列出设备上安装的包名"""

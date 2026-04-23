@@ -953,54 +953,12 @@ QPushButton:hover {{
     def open_yf_page(self):
         """打开YF升级页面 - 使用异步线程"""
         log_button_click("open_yf_page", "启动YF升级页面", "com.yfve.usbupdate/.MainActivity")
-        
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        if device_id not in devices_id_lst:
-            self.textBrowser.append("设备未连接！")
-            logger.warning("设备未连接")
-            return
-        
-        try:
-            # 检查连接状态
-            if self.connection_mode == 'u2':
-                if not self.d:
-                    self.connection_mode = 'adb'
-                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
-            
-            # 使用线程异步启动应用
-            self._start_app_with_thread("com.yfve.usbupdate/.MainActivity")
-            
-        except Exception as e:
-            self.textBrowser.append(f"启动YF升级页面失败: {e}")
-            logger.error(f"启动YF升级页面失败: {e}")
+        self._start_app_with_thread("com.yfve.usbupdate/.MainActivity")
 
     def open_soimt_update(self):
         """打开SOIMT升级页面 - 使用异步线程"""
         log_button_click("open_soimt_update", "启动SOIMT升级页面", "com.saicmotor.update/.view.MainActivity")
-        
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        
-        if device_id not in devices_id_lst:
-            self.textBrowser.append("设备未连接！")
-            logger.warning("设备未连接")
-            return
-        
-        try:
-            # 检查连接状态
-            if self.connection_mode == 'u2':
-                if not self.d:
-                    self.connection_mode = 'adb'
-                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
-            
-            # 使用线程异步启动应用
-            self._start_app_with_thread("com.saicmotor.update/.view.MainActivity")
-            
-        except Exception as e:
-            self.textBrowser.append(f"启动SOIMT升级页面失败: {e}")
-            logger.error(f"启动SOIMT升级页面失败: {e}")
+        self._start_app_with_thread("com.saicmotor.update/.view.MainActivity")
 
     def open_engineering_mode(self):
         """打开工程模式 - 使用异步线程"""
@@ -1374,8 +1332,8 @@ QPushButton:hover {{
     # ========== 应用操作 - 已委托给 app_operations ==========
 
     def start_app_action(self, app_name):
-        """启动应用 - 委托给 app_operations"""
-        self.app_operations.start_app_action(app_name)
+        """启动应用 - 直接调用统一的异步线程"""
+        self._start_app_with_thread(app_name)
 
     def get_running_app_info(self):
         """获取运行应用信息 - 委托给 app_operations"""
