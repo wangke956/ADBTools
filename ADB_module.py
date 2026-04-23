@@ -950,35 +950,34 @@ QPushButton:hover {{
             f"检查更新时发生错误:\n\n{error_message}\n\n"
             "请检查网络连接后重试。")
 
+    def _start_app_helper(self, button_name, description, app_name):
+        """启动应用的通用辅助方法"""
+        log_button_click(button_name, description, app_name)
+        self._start_app_with_thread(app_name)
+
     def open_yf_page(self):
-        """打开YF升级页面 - 使用异步线程"""
-        log_button_click("open_yf_page", "启动YF升级页面", "com.yfve.usbupdate/.MainActivity")
-        self._start_app_with_thread("com.yfve.usbupdate/.MainActivity")
+        """打开YF升级页面"""
+        self._start_app_helper("open_yf_page", "启动YF升级页面", "com.yfve.usbupdate/.MainActivity")
 
     def open_soimt_update(self):
-        """打开SOIMT升级页面 - 使用异步线程"""
-        log_button_click("open_soimt_update", "启动SOIMT升级页面", "com.saicmotor.update/.view.MainActivity")
-        self._start_app_with_thread("com.saicmotor.update/.view.MainActivity")
+        """打开SOIMT升级页面"""
+        self._start_app_helper("open_soimt_update", "启动SOIMT升级页面", "com.saicmotor.update/.view.MainActivity")
 
     def open_engineering_mode(self):
-        """打开工程模式 - 使用异步线程"""
-        log_button_click("enter_engineering_mode_button", "启动工程模式", "com.saicmotor.hmi.engmode")
-        self._start_app_with_thread("com.saicmotor.hmi.engmode")
+        """打开工程模式"""
+        self._start_app_helper("enter_engineering_mode_button", "启动工程模式", "com.saicmotor.hmi.engmode")
 
     def as33_cr_enter_engineering(self):
-        """AS33 CR 进入工程模式 - 使用异步线程"""
-        log_button_click("AS33_CR_enter_engineering_mode_button", "启动AS33 CR工程模式", "com.saicmotor.diag")
-        self._start_app_with_thread("com.saicmotor.diag")
+        """AS33 CR 进入工程模式"""
+        self._start_app_helper("AS33_CR_enter_engineering_mode_button", "启动AS33 CR工程模式", "com.saicmotor.diag")
 
     def as33r_enter_secondary_engineering_mode(self):
-        """AS33R国项目二级工程模式 - 使用异步线程"""
-        log_button_click("AS33R_open_secondary_engineering_mode_button", "启动AS33R国项目二级工程模式", "com.carocean.engineermode")
-        self._start_app_with_thread("com.carocean.engineermode/.ui.MainActivity")
+        """AS33R国项目二级工程模式"""
+        self._start_app_helper("AS33R_open_secondary_engineering_mode_button", "启动AS33R国项目二级工程模式", "com.carocean.engineermode/.ui.MainActivity")
 
     def as33r_open_engineering_mode(self):
-        """AS33R国项目打开工程模式 - 使用异步线程"""
-        log_button_click("AS33R_open_engineering_mode_button", "启动AS33R国工程模式", "com.saicmotor.diag/.ui.main.MainActivity")
-        self._start_app_with_thread("com.saicmotor.diag/.ui.main.MainActivity")
+        """AS33R国项目打开工程模式"""
+        self._start_app_helper("AS33R_open_engineering_mode_button", "启动AS33R国工程模式", "com.saicmotor.diag/.ui.main.MainActivity")
 
     def _start_app_with_thread(self, app_name):
         """使用异步线程启动应用（支持U2和ADB模式）"""
