@@ -5,13 +5,12 @@ from Function_Moudle.thread_factory import thread_factory
 from Function_Moudle.operation_history import OperationHistoryManager
 from Function_Moudle.error_dialog import (
     show_error_message, show_warning_message, 
-    show_info_message, show_critical_message
+    show_info_message
 )
 from Function_Moudle.operation_guide import (
     show_quick_guide, create_device_setup_guide,
     create_app_install_guide
 )
-import uiautomator2 as u2
 
 # 确保 Nuitka 兼容性（必须在 import uiautomator2 之后调用）
 from nuitka_compat import ensure_nuitka_compatibility
@@ -20,13 +19,11 @@ ensure_nuitka_compatibility()
 import os
 from PyQt5 import uic
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QFont, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QApplication, QSizePolicy, QPushButton, QWidget, QComboBox
 from adb_utils import adb_utils
 from logger_manager import (
-    get_logger, log_operation, measure_performance, log_exception,
-    log_button_click, log_method_result, log_device_operation,
-    log_file_operation, log_thread_start, log_thread_complete
+    get_logger, log_operation,
+    log_button_click, log_method_result
 )
 
 from ui_theme_manager import ThemeManager
