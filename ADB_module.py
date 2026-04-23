@@ -265,6 +265,7 @@ class ADB_Mainwindow(QMainWindow):
         self.enter_engineering_mode_button.clicked.connect(self.open_engineering_mode)  # 进入工程模式
         self.AS33_CR_enter_engineering_mode_button.clicked.connect(self.as33_cr_enter_engineering)
         self.AS33R_open_engineering_mode_button.clicked.connect(self.as33r_open_engineering_mode)  # AS33R国项目打开工程模式
+        self.AS33R_open_secondary_engineering_mode_button.clicked.connect(self.as33r_enter_secondary_engineering_mode)
         self.open_update_page_button.clicked.connect(self.open_soimt_update)  # 打开资源升级页面
         self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
         self.start_check_button.clicked.connect(self.app_version_check)
@@ -1044,6 +1045,10 @@ QPushButton:hover {{
         """AS33 CR 进入工程模式"""
         log_button_click("AS33_CR_enter_engineering_mode_button", "启动AS33 CR工程模式", "com.saicmotor.diag")
         self.start_app_action(app_name = "com.saicmotor.diag")
+
+    def as33r_enter_secondary_engineering_mode(self):
+        log_button_click("AS33R_enter_secondary_engineering_mode_button", "启动AS33R国项目二级工程模式", "com.saicmotor.diag")
+        self.start_app_action(app_name = "com.carocean.engineermode")
 
     def as33r_open_engineering_mode(self):
         """AS33R国项目打开工程模式 - 启动特定的Activity"""
