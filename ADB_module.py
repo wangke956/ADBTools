@@ -951,148 +951,117 @@ QPushButton:hover {{
             "请检查网络连接后重试。")
 
     def open_yf_page(self):
-        """打开YF升级页面"""
+        """打开YF升级页面 - 使用异步线程"""
         log_button_click("open_yf_page", "启动YF升级页面", "com.yfve.usbupdate/.MainActivity")
         
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         
-        activity = "com.yfve.usbupdate/.MainActivity"
-
-        if device_id in devices_id_lst:
-            try:
-                # 检查连接状态
-                if self.connection_mode == 'u2':
-                    if not self.d:
-                        self.connection_mode = 'adb'
-                        self.textBrowser.append("U2连接不可用，切换到ADB模式")
-                
-                if self.connection_mode == 'u2' and self.d:
-                    # U2模式：使用app_start启动Activity
-                    self.d.app_start("com.yfve.usbupdate", ".MainActivity")
-                    self.textBrowser.append(f"已启动YF升级页面: {activity}")
-                    logger.info(f"U2模式启动Activity: {activity}")
-                elif self.connection_mode == 'adb':
-                    # ADB模式：执行 adb shell am start 命令
-                    from adb_utils import adb_utils
-                    result = adb_utils.run_adb_command(f"shell am start -n {activity}", device_id)
-                    
-                    if result.returncode == 0:
-                        self.textBrowser.append(f"已启动YF升级页面: {activity}")
-                        logger.info(f"ADB模式启动Activity成功: {activity}")
-                    else:
-                        self.textBrowser.append(f"启动失败: {result.stderr}")
-                        logger.error(f"ADB模式启动Activity失败: {result.stderr}")
-                else:
-                    self.textBrowser.append("设备未连接！")
-                    logger.warning("设备未连接")
-            except Exception as e:
-                self.textBrowser.append(f"启动YF升级页面失败: {e}")
-                logger.error(f"启动YF升级页面失败: {e}")
-        else:
+        if device_id not in devices_id_lst:
             self.textBrowser.append("设备未连接！")
             logger.warning("设备未连接")
+            return
+        
+        try:
+            # 检查连接状态
+            if self.connection_mode == 'u2':
+                if not self.d:
+                    self.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+            
+            # 使用线程异步启动应用
+            self._start_app_with_thread("com.yfve.usbupdate/.MainActivity")
+            
+        except Exception as e:
+            self.textBrowser.append(f"启动YF升级页面失败: {e}")
+            logger.error(f"启动YF升级页面失败: {e}")
 
     def open_soimt_update(self):
-        """打开SOIMT升级页面"""
+        """打开SOIMT升级页面 - 使用异步线程"""
         log_button_click("open_soimt_update", "启动SOIMT升级页面", "com.saicmotor.update/.view.MainActivity")
         
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         
-        activity = "com.saicmotor.update/.view.MainActivity"
-
-        if device_id in devices_id_lst:
-            try:
-                # 检查连接状态
-                if self.connection_mode == 'u2':
-                    if not self.d:
-                        self.connection_mode = 'adb'
-                        self.textBrowser.append("U2连接不可用，切换到ADB模式")
-                
-                if self.connection_mode == 'u2' and self.d:
-                    # U2模式：使用app_start启动Activity
-                    self.d.app_start("com.saicmotor.update", ".view.MainActivity")
-                    self.textBrowser.append(f"已启动SOIMT升级页面: {activity}")
-                    logger.info(f"U2模式启动Activity: {activity}")
-                elif self.connection_mode == 'adb':
-                    # ADB模式：执行 adb shell am start 命令
-                    from adb_utils import adb_utils
-                    result = adb_utils.run_adb_command(f"shell am start -n {activity}", device_id)
-                    
-                    if result.returncode == 0:
-                        self.textBrowser.append(f"已启动SOIMT升级页面: {activity}")
-                        logger.info(f"ADB模式启动Activity成功: {activity}")
-                    else:
-                        self.textBrowser.append(f"启动失败: {result.stderr}")
-                        logger.error(f"ADB模式启动Activity失败: {result.stderr}")
-                else:
-                    self.textBrowser.append("设备未连接！")
-                    logger.warning("设备未连接")
-            except Exception as e:
-                self.textBrowser.append(f"启动SOIMT升级页面失败: {e}")
-                logger.error(f"启动SOIMT升级页面失败: {e}")
-        else:
+        if device_id not in devices_id_lst:
             self.textBrowser.append("设备未连接！")
             logger.warning("设备未连接")
+            return
+        
+        try:
+            # 检查连接状态
+            if self.connection_mode == 'u2':
+                if not self.d:
+                    self.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+            
+            # 使用线程异步启动应用
+            self._start_app_with_thread("com.saicmotor.update/.view.MainActivity")
+            
+        except Exception as e:
+            self.textBrowser.append(f"启动SOIMT升级页面失败: {e}")
+            logger.error(f"启动SOIMT升级页面失败: {e}")
 
     def open_engineering_mode(self):
-        """打开工程模式"""
+        """打开工程模式 - 使用异步线程"""
         log_button_click("enter_engineering_mode_button", "启动工程模式", "com.saicmotor.hmi.engmode")
-        self.start_app_action(app_name = "com.saicmotor.hmi.engmode")
+        self._start_app_with_thread("com.saicmotor.hmi.engmode")
 
     def as33_cr_enter_engineering(self):
-        """AS33 CR 进入工程模式"""
+        """AS33 CR 进入工程模式 - 使用异步线程"""
         log_button_click("AS33_CR_enter_engineering_mode_button", "启动AS33 CR工程模式", "com.saicmotor.diag")
-        self.start_app_action(app_name = "com.saicmotor.diag")
+        self._start_app_with_thread("com.saicmotor.diag")
 
     def as33r_enter_secondary_engineering_mode(self):
-        log_button_click("AS33R_enter_secondary_engineering_mode_button", "启动AS33R国项目二级工程模式", "com.saicmotor.diag")
-        self.start_app_action(app_name = "com.carocean.engineermode")
+        """AS33R国项目二级工程模式 - 使用异步线程"""
+        log_button_click("AS33R_open_secondary_engineering_mode_button", "启动AS33R国项目二级工程模式", "com.carocean.engineermode")
+        self._start_app_with_thread("com.carocean.engineermode/.ui.MainActivity")
 
     def as33r_open_engineering_mode(self):
-        """AS33R国项目打开工程模式 - 启动特定的Activity"""
+        """AS33R国项目打开工程模式 - 使用异步线程"""
         log_button_click("AS33R_open_engineering_mode_button", "启动AS33R国工程模式", "com.saicmotor.diag/.ui.main.MainActivity")
-        
+        self._start_app_with_thread("com.saicmotor.diag/.ui.main.MainActivity")
+
+    def _start_app_with_thread(self, app_name):
+        """使用异步线程启动应用（支持U2和ADB模式）"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
         
-        # 完整的Activity路径
-        activity = "com.saicmotor.diag/.ui.main.MainActivity"
-
-        if device_id in devices_id_lst:
-            try:
-                # 检查连接状态
-                if self.connection_mode == 'u2':
-                    if not self.d:
-                        self.connection_mode = 'adb'
-                        self.textBrowser.append("U2连接不可用，切换到ADB模式")
-                
-                if self.connection_mode == 'u2' and self.d:
-                    # U2模式：使用app_start启动Activity，需要分开包名和Activity
-                    self.d.app_start("com.saicmotor.diag", ".ui.main.MainActivity")
-                    self.textBrowser.append(f"已启动AS33R国工程模式: {activity}")
-                    logger.info(f"U2模式启动Activity: {activity}")
-                elif self.connection_mode == 'adb':
-                    # ADB模式：执行 adb shell am start 命令
-                    from adb_utils import adb_utils
-                    result = adb_utils.run_adb_command(f"shell am start -n {activity}", device_id)
-                    
-                    if result.returncode == 0:
-                        self.textBrowser.append(f"已启动AS33R国工程模式: {activity}")
-                        logger.info(f"ADB模式启动Activity成功: {activity}")
-                    else:
-                        self.textBrowser.append(f"启动失败: {result.stderr}")
-                        logger.error(f"ADB模式启动Activity失败: {result.stderr}")
-                else:
-                    self.textBrowser.append("设备未连接！")
-                    logger.warning("设备未连接")
-            except Exception as e:
-                self.textBrowser.append(f"启动AS33R国工程模式失败: {e}")
-                logger.error(f"启动AS33R国工程模式失败: {e}")
-        else:
+        if device_id not in devices_id_lst:
             self.textBrowser.append("设备未连接！")
-            logger.warning("设备未连接")
+            return
+        
+        try:
+            # 检查连接状态
+            if self.connection_mode == 'u2':
+                if not self.d:
+                    self.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+            
+            # 导入启动应用线程
+            from Function_Moudle.start_app_thread import StartAppThread
+            
+            # 创建并启动线程
+            self.start_app_thread = StartAppThread(
+                device_id=device_id,
+                app_name=app_name,
+                connection_mode=self.connection_mode,
+                u2_device=self.d if self.connection_mode == 'u2' else None
+            )
+            
+            # 连接信号
+            self.start_app_thread.progress_signal.connect(self.textBrowser.append)
+            self.start_app_thread.result_signal.connect(self.textBrowser.append)
+            self.start_app_thread.error_signal.connect(self.textBrowser.append)
+            
+            # 启动线程
+            self.start_app_thread.start()
+            
+            log_method_result("_start_app_with_thread", True, f"启动线程已启动: {app_name}")
+            
+        except Exception as e:
+            log_method_result("_start_app_with_thread", False, str(e))
+            self.textBrowser.append(f"启动应用线程失败: {e}")
 
     # ========== 大通功能 - 已委托给 datong_manager ==========
     
