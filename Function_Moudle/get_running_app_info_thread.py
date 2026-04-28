@@ -44,6 +44,12 @@ class GetRunningAppInfoThread(QThread):
                     version_name = app_info.get('versionName', '未知版本')
                     self.result_signal.emit(f"应用 {self.package_name} 版本号: {version_name}")
                     return
+            except ValueError as e:
+                # 处理日期时间格式解析错误（如阿拉伯数字日期）
+                if "does not match format" in str(e) or "time data" in str(e):
+                    self.progress_signal.emit(f"u2获取版本遇到日期格式问题，尝试使用aapt命令...")
+                else:
+                    raise
             except Exception as e:
                 # 如果 u2 的 app_info 失败，使用 aapt 命令
                 self.progress_signal.emit(f"u2获取版本失败，尝试使用aapt命令...")

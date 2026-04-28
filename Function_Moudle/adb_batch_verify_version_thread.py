@@ -116,14 +116,29 @@ class ADBBatchVerifyVersionThread(QThread):
         try:
             if self.connection_mode == 'u2' and self.u2_device:
                 # 使用u2接口获取应用信息
-                app_info = self.u2_device.app_info(package_name)
-                if app_info is None:
-                    self.error_signal.emit(f"[设备查询] 应用 {package_name} 不存在")
-                    return None
-                
-                version_name = app_info.get('versionName', '未知版本')
-                self.progress_signal.emit(f"[设备查询] u2获取版本号: {version_name}")
-                return version_name
+                try:
+                    app_info = self.u2_device.app_info(package_name)
+                    if app_info is None:
+                        self.error_signal.emit(f"[设备查询] 应用 {package_name} 不存在")
+                        return None
+                    
+                    version_name = app_info.get('versionName', '未知版本')
+                    self.progress_signal.emit(f"[设备查询] u2获取版本号: {version_name}")
+                    return version_name
+                except ValueError as e:
+                    # 处理日期时间格式解析错误（如阿拉伯数字日期）
+                    if "does not match format" in str(e) or "time data" in str(e):
+                        self.error_signal.emit(f"[设备查询] 应用 {package_name} 遇到日期格式问题，尝试备用方法")
+                        # 尝试使用ADB命令获取版本信息
+                        from Function_Moudle.adb_device_utils import get_app_version
+                        if self.device_id:
+                            success, version_info = get_app_version(self.device_id, package_name)
+                            if success:
+                                self.progress_signal.emit(f"[设备查询] ADB备用方法获取版本号: {version_info}")
+                                return version_info
+                        return None
+                    else:
+                        raise
                 
             elif self.connection_mode == 'adb':
                 # 使用ADB命令获取应用版本信息

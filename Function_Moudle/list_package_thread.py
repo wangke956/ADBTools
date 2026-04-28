@@ -28,6 +28,25 @@ class ListPackageThread(QThread):
                 app_info = self.device.app_info(app)
                 version_name = app_info.get('versionName', '未知版本')
                 batch_output.append(f"{app}, 版本号: {version_name}")
+            except ValueError as e:
+                # 处理日期时间格式解析错误（如阿拉伯数字日期）
+                if "does not match format" in str(e) or "time data" in str(e):
+                    # 尝试使用备用方法获取版本信息
+                    try:
+                        from Function_Moudle.adb_device_utils import get_app_version
+                        device_id = getattr(self.device, 'serial', None)
+                        if device_id:
+                            success, version_info = get_app_version(device_id, app)
+                            if success:
+                                batch_output.append(f"{app}, 版本号: {version_info}")
+                            else:
+                                batch_output.append(f"{app}, 版本号: 获取失败（日期格式问题）")
+                        else:
+                            batch_output.append(f"{app}, 版本号: 获取失败（无法获取设备ID）")
+                    except Exception as fallback_error:
+                        batch_output.append(f"{app}, 版本号: 获取失败（{str(e)[:50]}）")
+                else:
+                    batch_output.append(f"获取应用 {app} 信息失败: {str(e)}")
             except Exception as e:
                 batch_output.append(f"获取应用 {app} 信息失败: {str(e)}")
         return batch_output

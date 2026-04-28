@@ -1112,12 +1112,28 @@ QPushButton:hover {{
             if i is not None:
                 try:
                     if self.connection_mode == 'u2':
-                        app_info = self.d.app_info(i)
-                        if app_info is None:
-                            self.textBrowser.append(f"应用 {i} 不存在")
-                            false_count += 1
-                            continue
-                        version_name = app_info.get('versionName', '未知版本')
+                        try:
+                            app_info = self.d.app_info(i)
+                            if app_info is None:
+                                self.textBrowser.append(f"应用 {i} 不存在")
+                                false_count += 1
+                                continue
+                            version_name = app_info.get('versionName', '未知版本')
+                        except ValueError as e:
+                            # 处理日期时间格式解析错误（如阿拉伯数字日期）
+                            if "does not match format" in str(e) or "time data" in str(e):
+                                # 尝试使用备用方法获取版本信息
+                                from Function_Moudle.adb_device_utils import get_app_version
+                                device_id = self.get_selected_device()
+                                version_success, version_info = get_app_version(device_id, i)
+                                if version_success:
+                                    version_name = version_info
+                                else:
+                                    self.textBrowser.append(f"应用 {i} 版本信息获取失败: 日期格式问题")
+                                    false_count += 1
+                                    continue
+                            else:
+                                raise
                     elif self.connection_mode == 'adb':
                         # 使用ADB命令获取应用版本信息
                         from Function_Moudle.adb_device_utils import get_app_version

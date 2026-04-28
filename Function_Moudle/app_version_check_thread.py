@@ -113,21 +113,36 @@ class AppVersionCheckThread(QThread):
     def _get_device_app_version(self, packagename: str) -> Optional[str]:
         """获取设备端已安装应用的版本号 - 修复版本键名问题"""
         try:
-            app_info = self.d.app_info(packagename)
+            try:
+                app_info = self.d.app_info(packagename)
 
-            # 调试输出
-            self.progress_signal.emit(f"  [DEBUG] 获取 {packagename} 的 app_info: {app_info}")
+                # 调试输出
+                self.progress_signal.emit(f"  [DEBUG] 获取 {packagename} 的 app_info: {app_info}")
 
-            if app_info:
-                # 尝试多种可能的键名
-                version_keys = ['versionName', 'version_name', 'version', 'VersionName']
-                for key in version_keys:
-                    if key in app_info:
-                        version = app_info.get(key)
-                        if version:
-                            return str(version)
+                if app_info:
+                    # 尝试多种可能的键名
+                    version_keys = ['versionName', 'version_name', 'version', 'VersionName']
+                    for key in version_keys:
+                        if key in app_info:
+                            version = app_info.get(key)
+                            if version:
+                                return str(version)
 
-            return None
+                return None
+            except ValueError as e:
+                # 处理日期时间格式解析错误（如阿拉伯数字日期）
+                if "does not match format" in str(e) or "time data" in str(e):
+                    self.progress_signal.emit(f"  [WARNING] {packagename} 遇到日期格式问题，尝试备用方法")
+                    # 尝试使用ADB命令获取版本信息
+                    from Function_Moudle.adb_device_utils import get_app_version
+                    device_id = getattr(self.d, 'serial', None)
+                    if device_id:
+                        success, version_info = get_app_version(device_id, packagename)
+                        if success:
+                            return version_info
+                    return None
+                else:
+                    raise
 
         except Exception as e:
             self.progress_signal.emit(f"  [DEBUG] 获取 {packagename} 版本异常: {str(e)[:50]}")
