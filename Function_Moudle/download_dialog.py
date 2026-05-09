@@ -116,7 +116,7 @@ class DownloadDialog(QDialog):
             QMessageBox.warning(self, "错误", "未找到安装文件")
             return
             
-        download_url = setup_file.get('browser_download_url')
+        download_url = setup_file.get('download_url')
         if not download_url:
             QMessageBox.warning(self, "错误", "没有下载链接")
             return
