@@ -960,22 +960,25 @@ class FileManagerDialog(QDialog):
         # 刷新设备按钮
         self.fm_refresh_button = QPushButton("🔄 刷新设备")
         self.fm_refresh_button.setToolTip("刷新设备列表")
-        self.fm_refresh_button.setFixedWidth(110)
+        self.fm_refresh_button.setFixedWidth(110)  # 【修改此处】“刷新设备”按钮宽度(px)
         device_toolbar.addWidget(self.fm_refresh_button)
         
         # 设备下拉框
         self.fm_device_combo = QComboBox()
-        self.fm_device_combo.setMinimumWidth(200)
+        self.fm_device_combo.setMinimumWidth(500)  # 【修改此处】设备下拉框最小宽度(px)
         self.fm_device_combo.setToolTip("选择设备")
         device_toolbar.addWidget(self.fm_device_combo)
         
         # U2模式复选框
         self.fm_u2_mode_check = QCheckBox("U2模式")
+        # 设置字体大小
+        self.fm_u2_mode_check.setStyleSheet("font-size: 18px;")
         self.fm_u2_mode_check.setToolTip("使用uiautomator2连接（需要设备已安装u2服务）")
         device_toolbar.addWidget(self.fm_u2_mode_check)
         
         # 连接状态标签（增大字体）
         self.fm_status_label = QLabel("未连接")
+        # 【修改此处】font-size: 14px - 设备管理工具栏状态标签字体大小(px)
         self.fm_status_label.setStyleSheet("color: #909090; font-size: 14px;")
         device_toolbar.addWidget(self.fm_status_label)
         
@@ -984,18 +987,21 @@ class FileManagerDialog(QDialog):
         # 将设备工具栏插入到主布局顶部
         main_layout.insertLayout(0, device_toolbar)
         
-        # 为设备管理按钮应用样式（与主工具栏一致）
+        # ============================================
+        # 设备管理工具栏按钮样式设置
+        # 包括：“刷新设备”、“同步主窗口”等按钮
+        # ============================================
         fm_button_style = """
             QPushButton {
                 background-color: #2c3e50;
                 color: #ffffff;
                 border: 1px solid #34495e;
                 border-radius: 4px;
-                padding: 8px 15px;
-                font-size: 15px;
+                padding: 8px 15px;          /* 【修改此处】内边距：上下8px 左右15px */
+                font-size: 15px;            /* 【修改此处】设备管理按钮字体大小(px) */
                 font-weight: bold;
-                min-width: 90px;
-                min-height: 38px;
+                min-width: 90px;            /* 【修改此处】最小宽度(px) */
+                min-height: 24px;           /* 【修改此处】最小高度(px) */
             }
             QPushButton:hover {
                 background-color: #34495e;
@@ -1024,7 +1030,6 @@ class FileManagerDialog(QDialog):
         self.device_id = device_id
         self.connection_mode = connection_mode
         self.d = d
-        
         # 更新UI显示
         if hasattr(self, 'fm_device_combo'):
             # 清空并添加当前设备
@@ -1040,6 +1045,7 @@ class FileManagerDialog(QDialog):
             # 更新连接状态标签（增大字体）
             mode_text = "U2" if connection_mode == 'u2' else "ADB"
             self.fm_status_label.setText(f"已连接 ({mode_text}): {device_id}")
+            # 【修改此处】font-size: 14px - 已连接状态标签字体大小(px)
             self.fm_status_label.setStyleSheet("color: #4CAF50; font-size: 14px; font-weight: bold;")
         
         logger.info(f"文件管理器: 设备连接状态初始化完成 - {device_id} ({connection_mode})")
@@ -1075,7 +1081,17 @@ class FileManagerDialog(QDialog):
             logger.warning(f"文件管理器: 高DPI设置异常: {e}")
     
     def _apply_global_font(self):
-        """应用全局字体设置，确保所有控件使用合适的字体大小"""
+        """
+        应用全局字体设置，确保所有控件使用合适的字体大小
+        
+        【可调整参数】
+        - 第1092行: font.setPointSize(12) - 高DPI(150%+)时的基础字体大小，单位pt
+        - 第1094行: font.setPointSize(11) - 中等DPI(125%)时的基础字体大小，单位pt
+        - 第1096行: font.setPointSize(10) - 标准DPI(100%)时的基础字体大小，单位pt
+        - 第1110行: tree_font.setPointSize(font.pointSize() + 1) - 树形列表字体比基础大1pt
+        - 第1122行: button_font.setPointSize(13) - 按钮固定字体大小，单位pt
+        - 第1125行: log_font = QFont("Consolas", 10) - 日志文本框字体大小，单位pt
+        """
         try:
             from PyQt5.QtGui import QFont
             from PyQt5.QtWidgets import QApplication
@@ -1089,16 +1105,16 @@ class FileManagerDialog(QDialog):
                 dpi = screen.logicalDotsPerInch()
                 # 根据DPI调整字体大小（适中的字号）
                 if dpi >= 144:  # 150%+ 缩放
-                    font.setPointSize(12)
+                    font.setPointSize(12)  # 【修改此处】高DPI时的基础字体大小(pt)
                 elif dpi >= 120:  # 125% 缩放
-                    font.setPointSize(11)
+                    font.setPointSize(11)  # 【修改此处】中等DPI时的基础字体大小(pt)
                 else:  # 标准DPI
-                    font.setPointSize(10)
+                    font.setPointSize(10)  # 【修改此处】标准DPI时的基础字体大小(pt)
                 
                 logger.info(f"文件管理器: 检测到屏幕DPI={dpi}, 设置字体大小={font.pointSize()}pt")
             else:
                 # 默认字体大小
-                font.setPointSize(10)
+                font.setPointSize(10)  # 【修改此处】无法检测DPI时的默认字体大小(pt)
                 logger.info("文件管理器: 使用默认字体大小 10pt")
             
             # 设置对话框的全局字体
@@ -1107,7 +1123,7 @@ class FileManagerDialog(QDialog):
             # 为特定控件设置字体（适度增大）
             # 树形控件字体（再增大1pt）
             tree_font = QFont(font)
-            tree_font.setPointSize(font.pointSize() + 1)
+            tree_font.setPointSize(font.pointSize() + 1)  # 【修改此处】树形列表字体 = 基础字体 + 1pt
             self.deviceTree.setFont(tree_font)
             self.localTree.setFont(tree_font)
             
@@ -1119,22 +1135,22 @@ class FileManagerDialog(QDialog):
             
             # 按钮字体（固定为13pt）
             button_font = QFont(font)
-            button_font.setPointSize(13)
+            button_font.setPointSize(13)  # 【修改此处】按钮固定字体大小(pt)
             
             # 日志文本框字体（10pt）
-            log_font = QFont("Consolas", 10) if hasattr(self, 'logText') else None
+            log_font = QFont("Consolas", 10) if hasattr(self, 'logText') else None  # 【修改此处】日志字体大小(pt)
             if log_font and hasattr(self, 'logText'):
                 self.logText.setFont(log_font)
             
             # 下拉框字体
             combo_font = QFont(font)
-            combo_font.setPointSize(font.pointSize())
+            combo_font.setPointSize(18)  # 【修改此处】下拉框字体大小(pt)，当前固定为18pt
             if hasattr(self, 'fm_device_combo'):
                 self.fm_device_combo.setFont(combo_font)
             
             # 复选框字体
             checkbox_font = QFont(font)
-            checkbox_font.setPointSize(font.pointSize())
+            checkbox_font.setPointSize(16)
             if hasattr(self, 'fm_u2_mode_check'):
                 self.fm_u2_mode_check.setFont(checkbox_font)
             
@@ -1169,14 +1185,39 @@ class FileManagerDialog(QDialog):
         self.progressBar.setFixedHeight(16)
         
         # 设置状态栏样式（适中字体）
+        # 【修改此处】font-size: 12px - 状态标签字体大小(px)
         self.statusLabel.setStyleSheet("color: #909090; font-size: 12px;")
         
-        # 为路径输入框和按钮设置适中的字体和尺寸
+        # ============================================
+        # 设备下拉框样式设置
+        # ============================================
+        combo_style = """
+            QComboBox {
+                font-size: 18px;            /* 【修改此处】下拉框字体大小(px)，与第1145行保持一致 */
+                padding: 5px 10px;          /* 【修改此处】内边距：上下5px 左右10px */
+                min-height: 22px;           /* 【修改此处】最小高度(px)，控制下拉框高度 */
+                min-width: 300px;           /* 【修改此处】最小宽度(px)，与第968行保持一致 */
+            }
+            QComboBox::drop-down {
+                width: 3px;                /* 【修改此处】下拉箭头按钮宽度(px) */
+                high: 3px;
+            }
+            QComboBox QAbstractItemView {
+                font-size: 18px;            /* 【修改此处】下拉列表项字体大小(px) */
+                min-height: 30px;           /* 【修改此处】下拉列表项最小高度(px) */
+            }
+        """
+        if hasattr(self, 'fm_device_combo'):
+            self.fm_device_combo.setStyleSheet(combo_style)
+        
+        # ============================================
+        # 路径输入框样式设置
+        # ============================================
         path_input_style = """
             QLineEdit {
-                font-size: 12px;
-                padding: 5px 8px;
-                min-height: 28px;
+                font-size: 18px;        /* 【修改此处】路径输入框字体大小(px) */
+                padding: 3px 4px;       /* 【修改此处】内边距：上下5px 左右8px */
+                min-height: 28px;       /* 【修改此处】最小高度(px) */
             }
         """
         if hasattr(self, 'devicePathEdit'):
@@ -1184,18 +1225,20 @@ class FileManagerDialog(QDialog):
         if hasattr(self, 'localPathEdit'):
             self.localPathEdit.setStyleSheet(path_input_style)
         
-        # 为“转到”按钮设置样式
+        # ============================================
+        # “转到”按钮样式设置
+        # ============================================
         go_button_style = """
             QPushButton {
                 background-color: #2c3e50;
                 color: #ffffff;
                 border: 1px solid #34495e;
                 border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
+                padding: 6px 12px;          /* 【修改此处】内边距：上下6px 左右12px */
+                font-size: 16px;            /* 【修改此处】“转到”按钮字体大小(px) */
                 font-weight: bold;
-                min-width: 60px;
-                min-height: 28px;
+                min-width: 60px;            /* 【修改此处】最小宽度(px) */
+                min-height: 28px;           /* 【修改此处】最小高度(px) */
             }
             QPushButton:hover {
                 background-color: #34495e;
@@ -1211,12 +1254,14 @@ class FileManagerDialog(QDialog):
         if hasattr(self, 'btnLocalGo'):
             self.btnLocalGo.setStyleSheet(go_button_style)
         
-        # 为“设备”和“本地”标签设置适中的字体
+        # ============================================
+        # “设备”/“本地”标签样式设置
+        # ============================================
         label_style = """
             QLabel {
-                font-size: 12px;
-                font-weight: bold;
-                min-height: 28px;
+                font-size: 12px;            /* 【修改此处】标签字体大小(px) */
+                font-weight: bold;          /* 加粗显示 */
+                min-height: 28px;           /* 【修改此处】最小高度(px) */
             }
         """
         if hasattr(self, 'labelDevice'):
@@ -1251,7 +1296,10 @@ class FileManagerDialog(QDialog):
         self.btnSelectFile.setToolTip("选择要上传的文件")
         self.btnBrowseDir.setToolTip("浏览选择本地目录")
         
-        # 统一所有工具栏按钮的样式（颜色、大小、悬停效果）
+        # ============================================
+        # 工具栏主按钮样式设置（统一应用于所有功能按钮）
+        # 包括：上移、刷新、下载、上传、新建文件夹、选择文件、浏览目录等按钮
+        # ============================================
         from PyQt5.QtCore import QSize
         
         # 统一定义按钮样式（适中字体和内边距）
@@ -1261,11 +1309,11 @@ class FileManagerDialog(QDialog):
                 color: #ffffff;
                 border: 1px solid #34495e;
                 border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 13px;
+                padding: 6px 12px;          /* 【修改此处】内边距：上下6px 左右12px */
+                font-size: 13px;            /* 【修改此处】工具栏按钮字体大小(px) */
                 font-weight: bold;
-                min-width: 80px;
-                min-height: 32px;
+                min-width: 80px;            /* 【修改此处】最小宽度(px) */
+                min-height: 16px;           /* 【修改此处】最小高度(px) */
             }
             QPushButton:hover {
                 background-color: #34495e;
@@ -1286,7 +1334,7 @@ class FileManagerDialog(QDialog):
         for btn in toolbar_buttons:
             btn.setStyleSheet(button_style)
             btn.setSizePolicy(btn.sizePolicy().horizontalPolicy(), btn.sizePolicy().verticalPolicy())
-            btn.setMinimumSize(QSize(80, 32))
+            btn.setMinimumSize(QSize(80, 32))  # 【修改此处】按钮最小尺寸：宽80px, 高32px
     
     def _connect_signals(self):
         """连接信号槽"""
