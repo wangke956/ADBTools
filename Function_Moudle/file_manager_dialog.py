@@ -823,10 +823,15 @@ class TextWriteThread(QThread):
 
 
 class FileManagerDialog(QDialog):
-    """文件管理对话框"""
+    """文件管理对话框 - 独立设备连接版本"""
     
     def __init__(self, parent=None, device_id=None, connection_mode='adb', d=None):
         super().__init__(parent)
+        
+        # 应用高DPI适配和全局字体设置
+        self._apply_high_dpi_settings()
+        
+        # 初始设备信息（可能为空）
         self.device_id = device_id
         self.connection_mode = connection_mode
         self.d = d  # uiautomator2设备对象
@@ -846,6 +851,8 @@ class FileManagerDialog(QDialog):
         self.text_write_thread = None
         self.folder_upload_thread = None
         self.folder_download_thread = None
+        self.refresh_devices_thread = None
+        self.u2_connect_thread = None
         
         # 动态加载UI文件
         import sys
@@ -895,9 +902,16 @@ class FileManagerDialog(QDialog):
         # 应用样式
         apply_dialog_style(self)
         
-        # 设置窗口标题
-        if device_id:
-            self.setWindowTitle(f"文件管理器 - 设备: {device_id}")
+        # 应用全局字体设置
+        self._apply_global_font()
+        
+        # 设置窗口标题和属性
+        self.setWindowTitle("文件管理器")
+        self.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)
+        self.setMinimumSize(1200, 800)
+        
+        # 初始化独立的设备管理控件
+        self._init_device_controls()
         
         # 初始化控件属性
         self._init_controls()
@@ -905,9 +919,228 @@ class FileManagerDialog(QDialog):
         # 连接信号槽
         self._connect_signals()
         
-        # 刷新文件列表
-        self._refresh_device_files()
-        self._refresh_local_files()
+        # 如果有传入设备ID，刷新文件列表
+        if device_id:
+            # 初始化设备下拉框和状态
+            self._init_from_parent_connection(device_id, connection_mode, d)
+            self._refresh_device_files()
+            self._refresh_local_files()
+    
+    def _init_device_controls(self):
+        """初始化独立的设备管理控件"""
+        # 创建设备管理工具栏
+        from PyQt5.QtWidgets import QHBoxLayout, QLabel, QComboBox, QPushButton, QCheckBox
+        
+        # 查找主布局（假设UI文件中有centralWidget或类似容器）
+        try:
+            # 尝试获取主布局，如果没有则创建一个新的垂直布局
+            if hasattr(self, 'centralWidget') and self.centralWidget():
+                main_layout = self.centralWidget().layout()
+                if not main_layout:
+                    from PyQt5.QtWidgets import QVBoxLayout
+                    main_layout = QVBoxLayout(self.centralWidget())
+                    self.centralWidget().setLayout(main_layout)
+            else:
+                # 如果没有centralWidget，直接在对话框上创建布局
+                main_layout = self.layout()
+                if not main_layout:
+                    from PyQt5.QtWidgets import QVBoxLayout
+                    main_layout = QVBoxLayout(self)
+                    self.setLayout(main_layout)
+        except:
+            # 如果以上都失败，跳过设备控件初始化
+            logger.warning("无法初始化设备管理控件")
+            return
+        
+        # 创建设备管理工具栏
+        device_toolbar = QHBoxLayout()
+        device_toolbar.setSpacing(10)
+        device_toolbar.setContentsMargins(10, 10, 10, 5)
+        
+        # 刷新设备按钮
+        self.fm_refresh_button = QPushButton("🔄 刷新设备")
+        self.fm_refresh_button.setToolTip("刷新设备列表")
+        self.fm_refresh_button.setFixedWidth(110)
+        device_toolbar.addWidget(self.fm_refresh_button)
+        
+        # 设备下拉框
+        self.fm_device_combo = QComboBox()
+        self.fm_device_combo.setMinimumWidth(200)
+        self.fm_device_combo.setToolTip("选择设备")
+        device_toolbar.addWidget(self.fm_device_combo)
+        
+        # U2模式复选框
+        self.fm_u2_mode_check = QCheckBox("U2模式")
+        self.fm_u2_mode_check.setToolTip("使用uiautomator2连接（需要设备已安装u2服务）")
+        device_toolbar.addWidget(self.fm_u2_mode_check)
+        
+        # 连接状态标签（增大字体）
+        self.fm_status_label = QLabel("未连接")
+        self.fm_status_label.setStyleSheet("color: #909090; font-size: 14px;")
+        device_toolbar.addWidget(self.fm_status_label)
+        
+        device_toolbar.addStretch()
+        
+        # 将设备工具栏插入到主布局顶部
+        main_layout.insertLayout(0, device_toolbar)
+        
+        # 为设备管理按钮应用样式（与主工具栏一致）
+        fm_button_style = """
+            QPushButton {
+                background-color: #2c3e50;
+                color: #ffffff;
+                border: 1px solid #34495e;
+                border-radius: 4px;
+                padding: 8px 15px;
+                font-size: 15px;
+                font-weight: bold;
+                min-width: 90px;
+                min-height: 38px;
+            }
+            QPushButton:hover {
+                background-color: #34495e;
+                border: 1px solid #5a6c7d;
+            }
+            QPushButton:pressed {
+                background-color: #1a252f;
+                border: 1px solid #2c3e50;
+            }
+        """
+        if hasattr(self, 'fm_refresh_button'):
+            self.fm_refresh_button.setStyleSheet(fm_button_style)
+        if hasattr(self, 'fm_sync_button'):
+            self.fm_sync_button.setStyleSheet(fm_button_style)
+        
+        logger.info("设备管理控件初始化完成")
+    
+    def _init_from_parent_connection(self, device_id, connection_mode, d):
+        """从父窗口继承设备连接状态"""
+        if not device_id:
+            return
+        
+        logger.info(f"文件管理器: 从主窗口继承设备连接 - {device_id}, 模式: {connection_mode}")
+        
+        # 设置设备ID和连接模式
+        self.device_id = device_id
+        self.connection_mode = connection_mode
+        self.d = d
+        
+        # 更新UI显示
+        if hasattr(self, 'fm_device_combo'):
+            # 清空并添加当前设备
+            self.fm_device_combo.clear()
+            self.fm_device_combo.addItem(device_id)
+            self.fm_device_combo.setCurrentText(device_id)
+        
+        if hasattr(self, 'fm_u2_mode_check'):
+            # 设置U2模式复选框状态
+            self.fm_u2_mode_check.setChecked(connection_mode == 'u2')
+        
+        if hasattr(self, 'fm_status_label'):
+            # 更新连接状态标签（增大字体）
+            mode_text = "U2" if connection_mode == 'u2' else "ADB"
+            self.fm_status_label.setText(f"已连接 ({mode_text}): {device_id}")
+            self.fm_status_label.setStyleSheet("color: #4CAF50; font-size: 14px; font-weight: bold;")
+        
+        logger.info(f"文件管理器: 设备连接状态初始化完成 - {device_id} ({connection_mode})")
+    
+    def _apply_high_dpi_settings(self):
+        """应用高DPI适配设置（与主窗口保持一致）"""
+        try:
+            from PyQt5.QtCore import QCoreApplication
+            from PyQt5.QtGui import QGuiApplication
+            import sys
+            
+            # 检查Qt版本
+            qt_version = tuple(int(x) for x in Qt.qVersion().split('.'))
+            
+            # Qt >= 5.14 使用新API
+            if qt_version >= (5, 14, 0):
+                try:
+                    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+                        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+                    )
+                    logger.info("文件管理器: 高DPI新API设置成功 (Qt >= 5.14)")
+                except Exception as e:
+                    logger.warning(f"文件管理器: 高DPI新API设置失败: {e}")
+            
+            # 启用高DPI缩放
+            try:
+                QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+                QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+                logger.info("文件管理器: 高DPI属性设置成功")
+            except Exception as e:
+                logger.warning(f"文件管理器: 高DPI属性设置失败（不影响运行）: {e}")
+        except Exception as e:
+            logger.warning(f"文件管理器: 高DPI设置异常: {e}")
+    
+    def _apply_global_font(self):
+        """应用全局字体设置，确保所有控件使用合适的字体大小"""
+        try:
+            from PyQt5.QtGui import QFont
+            from PyQt5.QtWidgets import QApplication
+            
+            # 获取系统默认字体
+            font = QFont()
+            
+            # 根据屏幕DPI动态设置字体大小（适中调整）
+            screen = QApplication.primaryScreen()
+            if screen:
+                dpi = screen.logicalDotsPerInch()
+                # 根据DPI调整字体大小（适中的字号）
+                if dpi >= 144:  # 150%+ 缩放
+                    font.setPointSize(12)
+                elif dpi >= 120:  # 125% 缩放
+                    font.setPointSize(11)
+                else:  # 标准DPI
+                    font.setPointSize(10)
+                
+                logger.info(f"文件管理器: 检测到屏幕DPI={dpi}, 设置字体大小={font.pointSize()}pt")
+            else:
+                # 默认字体大小
+                font.setPointSize(10)
+                logger.info("文件管理器: 使用默认字体大小 10pt")
+            
+            # 设置对话框的全局字体
+            self.setFont(font)
+            
+            # 为特定控件设置字体（适度增大）
+            # 树形控件字体（再增大1pt）
+            tree_font = QFont(font)
+            tree_font.setPointSize(font.pointSize() + 1)
+            self.deviceTree.setFont(tree_font)
+            self.localTree.setFont(tree_font)
+            
+            # 路径输入框字体（与全局一致）
+            input_font = QFont(font)
+            input_font.setPointSize(font.pointSize())
+            self.devicePathEdit.setFont(input_font)
+            self.localPathEdit.setFont(input_font)
+            
+            # 按钮字体（固定为13pt）
+            button_font = QFont(font)
+            button_font.setPointSize(13)
+            
+            # 日志文本框字体（10pt）
+            log_font = QFont("Consolas", 10) if hasattr(self, 'logText') else None
+            if log_font and hasattr(self, 'logText'):
+                self.logText.setFont(log_font)
+            
+            # 下拉框字体
+            combo_font = QFont(font)
+            combo_font.setPointSize(font.pointSize())
+            if hasattr(self, 'fm_device_combo'):
+                self.fm_device_combo.setFont(combo_font)
+            
+            # 复选框字体
+            checkbox_font = QFont(font)
+            checkbox_font.setPointSize(font.pointSize())
+            if hasattr(self, 'fm_u2_mode_check'):
+                self.fm_u2_mode_check.setFont(checkbox_font)
+            
+            logger.info("文件管理器: 全局字体设置应用成功")
+        except Exception as e:
+            logger.warning(f"文件管理器: 全局字体设置失败: {e}")
     
     def _init_controls(self):
         """初始化控件属性（从UI文件加载后）"""
@@ -935,8 +1168,65 @@ class FileManagerDialog(QDialog):
         self.progressBar.setVisible(False)
         self.progressBar.setFixedHeight(16)
         
-        # 设置状态栏样式
-        self.statusLabel.setStyleSheet("color: #909090; font-size: 11px;")
+        # 设置状态栏样式（适中字体）
+        self.statusLabel.setStyleSheet("color: #909090; font-size: 12px;")
+        
+        # 为路径输入框和按钮设置适中的字体和尺寸
+        path_input_style = """
+            QLineEdit {
+                font-size: 12px;
+                padding: 5px 8px;
+                min-height: 28px;
+            }
+        """
+        if hasattr(self, 'devicePathEdit'):
+            self.devicePathEdit.setStyleSheet(path_input_style)
+        if hasattr(self, 'localPathEdit'):
+            self.localPathEdit.setStyleSheet(path_input_style)
+        
+        # 为“转到”按钮设置样式
+        go_button_style = """
+            QPushButton {
+                background-color: #2c3e50;
+                color: #ffffff;
+                border: 1px solid #34495e;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+                font-weight: bold;
+                min-width: 60px;
+                min-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #34495e;
+                border: 1px solid #5a6c7d;
+            }
+            QPushButton:pressed {
+                background-color: #1a252f;
+                border: 1px solid #2c3e50;
+            }
+        """
+        if hasattr(self, 'btnDeviceGo'):
+            self.btnDeviceGo.setStyleSheet(go_button_style)
+        if hasattr(self, 'btnLocalGo'):
+            self.btnLocalGo.setStyleSheet(go_button_style)
+        
+        # 为“设备”和“本地”标签设置适中的字体
+        label_style = """
+            QLabel {
+                font-size: 12px;
+                font-weight: bold;
+                min-height: 28px;
+            }
+        """
+        if hasattr(self, 'labelDevice'):
+            self.labelDevice.setStyleSheet(label_style)
+        if hasattr(self, 'labelLocal'):
+            self.labelLocal.setStyleSheet(label_style)
+        if hasattr(self, 'labelDeviceTitle'):
+            self.labelDeviceTitle.setStyleSheet(label_style)
+        if hasattr(self, 'labelLocalTitle'):
+            self.labelLocalTitle.setStyleSheet(label_style)
         
         # 统一两个面板的背景色
         panel_style = """
@@ -964,14 +1254,14 @@ class FileManagerDialog(QDialog):
         # 统一所有工具栏按钮的样式（颜色、大小、悬停效果）
         from PyQt5.QtCore import QSize
         
-        # 统一定义按钮样式
+        # 统一定义按钮样式（适中字体和内边距）
         button_style = """
             QPushButton {
                 background-color: #2c3e50;
                 color: #ffffff;
                 border: 1px solid #34495e;
                 border-radius: 4px;
-                padding: 5px 10px;
+                padding: 6px 12px;
                 font-size: 13px;
                 font-weight: bold;
                 min-width: 80px;
@@ -1000,6 +1290,14 @@ class FileManagerDialog(QDialog):
     
     def _connect_signals(self):
         """连接信号槽"""
+        # 设备管理信号
+        if hasattr(self, 'fm_refresh_button'):
+            self.fm_refresh_button.clicked.connect(self._refresh_devices)
+        if hasattr(self, 'fm_device_combo'):
+            self.fm_device_combo.currentTextChanged.connect(self._on_device_changed)
+        if hasattr(self, 'fm_u2_mode_check'):
+            self.fm_u2_mode_check.stateChanged.connect(self._on_mode_changed)
+        
         # 路径导航
         self.devicePathEdit.returnPressed.connect(self._navigate_device_path)
         self.btnDeviceGo.clicked.connect(self._navigate_device_path)
@@ -1026,6 +1324,152 @@ class FileManagerDialog(QDialog):
         
         self.localTree.itemDoubleClicked.connect(self._on_local_item_double_clicked)
         self.localTree.customContextMenuRequested.connect(self._show_local_context_menu)
+    
+    def _refresh_devices(self):
+        """刷新设备列表（复用主窗口的逻辑）"""
+        from Function_Moudle.device_threads import RefreshDevicesThread
+        
+        try:
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText("正在刷新设备...")
+            
+            self.refresh_devices_thread = RefreshDevicesThread()
+            self.refresh_devices_thread.progress_signal.connect(self._log_message)
+            self.refresh_devices_thread.devices_signal.connect(self._handle_refreshed_devices)
+            self.refresh_devices_thread.error_signal.connect(self._log_message)
+            self.refresh_devices_thread.start()
+            
+            logger.info("文件管理器: 开始刷新设备列表")
+        except Exception as e:
+            logger.error(f"文件管理器: 刷新设备失败: {e}")
+            self._log_message(f"刷新设备失败: {e}")
+    
+    def _handle_refreshed_devices(self, device_ids):
+        """处理刷新后的设备列表"""
+        if not hasattr(self, 'fm_device_combo'):
+            return
+        
+        # 保存当前选择的设备
+        current_device = self.fm_device_combo.currentText()
+        
+        # 清空并重新填充设备列表
+        self.fm_device_combo.clear()
+        for device_id in device_ids:
+            self.fm_device_combo.addItem(device_id)
+        
+        if device_ids:
+            # 如果之前有选择设备，尝试恢复选择
+            if current_device and current_device in device_ids:
+                index = self.fm_device_combo.findText(current_device)
+                if index >= 0:
+                    self.fm_device_combo.setCurrentIndex(index)
+            else:
+                # 否则选择第一个设备
+                self.fm_device_combo.setCurrentIndex(0)
+                current_device = device_ids[0]
+            
+            # 自动连接第一个设备
+            if current_device:
+                self._connect_selected_device(current_device)
+        else:
+            self._log_message("未找到任何设备")
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText("未找到设备")
+    
+    def _on_device_changed(self, device_id):
+        """设备选择改变事件"""
+        if device_id and device_id != "请点击刷新设备":
+            self._connect_selected_device(device_id)
+    
+    def _on_mode_changed(self, state):
+        """连接模式改变事件"""
+        # 如果已连接设备，重新连接
+        if self.device_id:
+            self._connect_selected_device(self.device_id)
+    
+    def _connect_selected_device(self, device_id):
+        """连接选中的设备"""
+        if not device_id:
+            return
+        
+        # 清理旧连接
+        if self.d:
+            try:
+                # uiautomator2没有直接的disconnect方法，只需将引用置为None
+                self.d = None
+            except:
+                pass
+        
+        # 判断连接模式
+        use_u2 = hasattr(self, 'fm_u2_mode_check') and self.fm_u2_mode_check.isChecked()
+        
+        if use_u2:
+            # U2模式连接
+            self._try_u2_connection(device_id)
+        else:
+            # ADB模式
+            self.connection_mode = 'adb'
+            self.device_id = device_id
+            self._log_message(f"使用ADB模式连接设备: {device_id}")
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText(f"已连接 (ADB): {device_id}")
+            # 刷新文件列表
+            self._refresh_device_files()
+    
+    def _try_u2_connection(self, device_id):
+        """尝试U2连接（异步）"""
+        from Function_Moudle.device_threads import U2ConnectThread
+        
+        try:
+            self._log_message(f"正在使用U2模式连接: {device_id}")
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText(f"正在连接U2: {device_id}...")
+            
+            self.u2_connect_thread = U2ConnectThread(device_id)
+            self.u2_connect_thread.progress_signal.connect(self._log_message)
+            self.u2_connect_thread.connected_signal.connect(self._on_u2_connected)
+            self.u2_connect_thread.error_signal.connect(self._log_message)
+            self.u2_connect_thread.start()
+            
+        except Exception as e:
+            logger.error(f"U2连接失败: {e}")
+            self._log_message(f"U2连接失败: {e}")
+            # 降级到ADB模式
+            self.connection_mode = 'adb'
+            self.device_id = device_id
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText(f"U2连接失败，降级到ADB: {device_id}")
+            self._refresh_device_files()
+    
+    def _on_u2_connected(self, d, device_id):
+        """U2连接成功回调"""
+        if d:
+            self.d = d
+            self.connection_mode = 'u2'
+            self.device_id = device_id
+            self._log_message(f"U2连接成功: {device_id}")
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText(f"已连接 (U2): {device_id}")
+            # 刷新文件列表
+            self._refresh_device_files()
+        else:
+            # 连接失败，降级到ADB模式
+            self.connection_mode = 'adb'
+            self.device_id = device_id
+            self._log_message(f"U2连接失败，降级到ADB模式: {device_id}")
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText(f"已连接 (ADB): {device_id}")
+            self._refresh_device_files()
+    
+    def _log_message(self, message):
+        """记录日志消息（输出到控制台和状态栏）"""
+        logger.info(f"文件管理器: {message}")
+        if hasattr(self, 'fm_status_label'):
+            # 只在状态栏显示简短信息
+            if len(message) > 50:
+                self.fm_status_label.setText(message[:50] + "...")
+            else:
+                self.fm_status_label.setText(message)
     
     def _refresh_device_files(self):
         """刷新设备文件列表"""
@@ -2138,13 +2582,34 @@ class FileManagerDialog(QDialog):
         dialog.exec_()
     
     def closeEvent(self, event):
-        """关闭事件"""
-        # 确保线程结束
-        for thread in [self.list_thread, self.transfer_thread, self.batch_transfer_thread,
-                       self.delete_thread, self.rename_thread, self.chmod_thread, self.text_read_thread, 
-                       self.text_write_thread, self.folder_upload_thread, self.folder_download_thread]:
+        """关闭事件 - 清理所有线程和资源"""
+        logger.info("文件管理器: 正在关闭窗口")
+        
+        # 停止所有运行中的线程
+        threads_to_stop = [
+            self.list_thread, self.transfer_thread, self.batch_transfer_thread,
+            self.delete_thread, self.rename_thread, self.chmod_thread, 
+            self.text_read_thread, self.text_write_thread, 
+            self.folder_upload_thread, self.folder_download_thread,
+            self.refresh_devices_thread, self.u2_connect_thread
+        ]
+        
+        for thread in threads_to_stop:
             if thread and thread.isRunning():
-                thread.wait(1000)
+                logger.info(f"等待线程结束: {thread.__class__.__name__}")
+                thread.wait(1000)  # 最多等待1秒
+                if thread.isRunning():
+                    logger.warning(f"强制终止线程: {thread.__class__.__name__}")
+                    thread.terminate()
+        
+        # 清理u2连接
+        if self.d:
+            try:
+                self.d = None
+            except:
+                pass
+        
+        logger.info("文件管理器: 已关闭")
         event.accept()
 
 

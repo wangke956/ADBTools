@@ -190,34 +190,46 @@ class FileOperationsManager:
             self.textBrowser.append("设备未连接！")
 
     def show_file_manager_dialog(self):
-        """打开文件管理器对话框"""
+        """打开文件管理器对话框（独立窗口，非模态）"""
+        # 获取当前设备信息作为初始值（可选）
         device_id = self.main_window.get_selected_device()
         devices_id_lst = self.main_window.get_new_device_lst()
         
         log_button_click("file_manager_button", "打开文件管理器")
+        
+        # 记录当前主窗口的连接状态
+        logger.info(f"文件管理器: 主窗口设备ID={device_id}, 在列表中={device_id in devices_id_lst}")
+        logger.info(f"文件管理器: 主窗口连接模式={getattr(self.main_window, 'connection_mode', None)}")
+        logger.info(f"文件管理器: 主窗口d对象={'存在' if getattr(self.main_window, 'd', None) else 'None'}")
 
-        if device_id in devices_id_lst:
-            try:
-                from Function_Moudle.file_manager_dialog import FileManagerDialog
-                
-                # 获取连接模式和设备对象，默认使用adb模式
-                connection_mode = getattr(self.main_window, 'connection_mode', None)
-                if connection_mode is None:
-                    connection_mode = 'adb'
-                d = getattr(self.main_window, 'd', None)
-                
-                dialog = FileManagerDialog(
-                    self.main_window, 
-                    device_id, 
-                    connection_mode, 
-                    d
-                )
-                dialog.exec_()
-                
-                log_method_result("show_file_manager_dialog", True, "文件管理器已打开")
-            except Exception as e:
-                log_method_result("show_file_manager_dialog", False, str(e))
-                self.textBrowser.append(f"打开文件管理器失败: {e}")
-        else:
-            log_method_result("show_file_manager_dialog", False, "设备未连接")
-            self.textBrowser.append("设备未连接！")
+        try:
+            from Function_Moudle.file_manager_dialog import FileManagerDialog
+            
+            # 获取连接模式和设备对象，默认使用adb模式
+            connection_mode = getattr(self.main_window, 'connection_mode', None)
+            if connection_mode is None:
+                connection_mode = 'adb'
+            d = getattr(self.main_window, 'd', None)
+            
+            # 创建文件管理器窗口（传入父窗口以便管理生命周期）
+            dialog = FileManagerDialog(
+                self.main_window, 
+                device_id if device_id in devices_id_lst else None,  # 如果设备未连接则传None
+                connection_mode, 
+                d
+            )
+            
+            # 设置为非模态窗口，不阻塞主窗口
+            dialog.setModal(False)
+            
+            # 显示窗口
+            dialog.show()
+            
+            # 提升窗口到前台
+            dialog.raise_()
+            dialog.activateWindow()
+            
+            log_method_result("show_file_manager_dialog", True, "文件管理器已打开（独立窗口）")
+        except Exception as e:
+            log_method_result("show_file_manager_dialog", False, str(e))
+            self.textBrowser.append(f"打开文件管理器失败: {e}")
