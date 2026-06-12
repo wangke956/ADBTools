@@ -20,11 +20,11 @@ class RefreshDevicesThread(BaseThread):
         
     def _run_implementation(self):
         """执行刷新设备列表操作"""
-        self.progress_signal.emit("开始刷新设备列表...")
-        
-        from adb_utils import ADBUtils
-        
         try:
+            self.progress_signal.emit("开始刷新设备列表...")
+            
+            from adb_utils import ADBUtils
+            
             # 使用性能监控
             with measure_performance("refresh_devices"):
                 # 执行 ADB 命令获取设备列表
@@ -68,6 +68,7 @@ class RefreshDevicesThread(BaseThread):
             self.error_signal.emit("刷新设备列表超时，请检查ADB连接")
             self.devices_signal.emit([])
         except Exception as e:
+            self.logger.error(f"刷新设备列表时发生错误: {str(e)}", exc_info=True)
             self.error_signal.emit(f"刷新设备列表时发生错误: {str(e)}")
             self.devices_signal.emit([])
 

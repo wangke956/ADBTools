@@ -1159,7 +1159,23 @@ class FileManagerDialog(QDialog):
             logger.warning(f"文件管理器: 全局字体设置失败: {e}")
     
     def _init_controls(self):
-        """初始化控件属性（从UI文件加载后）"""
+        """
+        初始化控件属性（从UI文件加载后）
+        
+        【可调整参数】
+        - 第1169行: self.deviceTree.setColumnWidth(0, 200) - 设备树名称列宽度(px)
+        - 第1175行: self.localTree.setColumnWidth(0, 200) - 本地树名称列宽度(px)
+        - 第1181行: self.splitter.setSizes([500, 500]) - 左右面板宽度比例
+        - 第1185行: self.progressBar.setFixedHeight(16) - 进度条高度(px)
+        """
+        # ============================================
+        # 移除布局的默认边距和间距（消除标签左侧空白）
+        # ============================================
+        # 获取路径栏布局并设置边距为0
+        if hasattr(self, 'pathLayout'):
+            self.pathLayout.setContentsMargins(0, 0, 0, 0)  # 【修改此处】上右下左边距(px)，当前全为0
+            self.pathLayout.setSpacing(5)  # 【修改此处】控件之间的间距(px)，当前为5px
+        
         # 设置初始路径
         self.devicePathEdit.setText(self.device_current_path)
         self.localPathEdit.setText(self.local_current_path)
@@ -1218,6 +1234,7 @@ class FileManagerDialog(QDialog):
                 font-size: 18px;        /* 【修改此处】路径输入框字体大小(px) */
                 padding: 3px 4px;       /* 【修改此处】内边距：上下5px 左右8px */
                 min-height: 28px;       /* 【修改此处】最小高度(px) */
+                min-width: 400px;
             }
         """
         if hasattr(self, 'devicePathEdit'):
@@ -1374,55 +1391,69 @@ class FileManagerDialog(QDialog):
         self.localTree.customContextMenuRequested.connect(self._show_local_context_menu)
     
     def _refresh_devices(self):
-        """刷新设备列表（复用主窗口的逻辑）"""
+        """刷新设备列表(复用主窗口的逻辑)"""
         from Function_Moudle.device_threads import RefreshDevicesThread
-        
+            
         try:
+            # 检查是否有正在运行的线程
+            if hasattr(self, 'refresh_devices_thread') and self.refresh_devices_thread and self.refresh_devices_thread.isRunning():
+                logger.warning("文件管理器: 刷新设备线程已在运行中")
+                self._log_message("刷新设备操作正在进行中...")
+                return
+                
             if hasattr(self, 'fm_status_label'):
                 self.fm_status_label.setText("正在刷新设备...")
-            
+                
             self.refresh_devices_thread = RefreshDevicesThread()
             self.refresh_devices_thread.progress_signal.connect(self._log_message)
             self.refresh_devices_thread.devices_signal.connect(self._handle_refreshed_devices)
             self.refresh_devices_thread.error_signal.connect(self._log_message)
             self.refresh_devices_thread.start()
-            
+                
             logger.info("文件管理器: 开始刷新设备列表")
         except Exception as e:
-            logger.error(f"文件管理器: 刷新设备失败: {e}")
+            logger.error(f"文件管理器: 刷新设备失败: {e}", exc_info=True)
             self._log_message(f"刷新设备失败: {e}")
+            if hasattr(self, 'fm_status_label'):
+                self.fm_status_label.setText("刷新设备失败")
     
     def _handle_refreshed_devices(self, device_ids):
         """处理刷新后的设备列表"""
-        if not hasattr(self, 'fm_device_combo'):
-            return
-        
-        # 保存当前选择的设备
-        current_device = self.fm_device_combo.currentText()
-        
-        # 清空并重新填充设备列表
-        self.fm_device_combo.clear()
-        for device_id in device_ids:
-            self.fm_device_combo.addItem(device_id)
-        
-        if device_ids:
-            # 如果之前有选择设备，尝试恢复选择
-            if current_device and current_device in device_ids:
-                index = self.fm_device_combo.findText(current_device)
-                if index >= 0:
-                    self.fm_device_combo.setCurrentIndex(index)
-            else:
-                # 否则选择第一个设备
-                self.fm_device_combo.setCurrentIndex(0)
-                current_device = device_ids[0]
+        try:
+            if not hasattr(self, 'fm_device_combo'):
+                return
             
-            # 自动连接第一个设备
-            if current_device:
-                self._connect_selected_device(current_device)
-        else:
-            self._log_message("未找到任何设备")
+            # 保存当前选择的设备
+            current_device = self.fm_device_combo.currentText()
+            
+            # 清空并重新填充设备列表
+            self.fm_device_combo.clear()
+            for device_id in device_ids:
+                self.fm_device_combo.addItem(device_id)
+            
+            if device_ids:
+                # 如果之前有选择设备，尝试恢复选择
+                if current_device and current_device in device_ids:
+                    index = self.fm_device_combo.findText(current_device)
+                    if index >= 0:
+                        self.fm_device_combo.setCurrentIndex(index)
+                else:
+                    # 否则选择第一个设备
+                    self.fm_device_combo.setCurrentIndex(0)
+                    current_device = device_ids[0]
+                
+                # 自动连接第一个设备
+                if current_device:
+                    self._connect_selected_device(current_device)
+            else:
+                self._log_message("未找到任何设备")
+                if hasattr(self, 'fm_status_label'):
+                    self.fm_status_label.setText("未找到设备")
+        except Exception as e:
+            logger.error(f"文件管理器: 处理设备列表失败: {e}", exc_info=True)
+            self._log_message(f"处理设备列表失败: {e}")
             if hasattr(self, 'fm_status_label'):
-                self.fm_status_label.setText("未找到设备")
+                self.fm_status_label.setText("处理设备列表失败")
     
     def _on_device_changed(self, device_id):
         """设备选择改变事件"""
@@ -2644,11 +2675,16 @@ class FileManagerDialog(QDialog):
         
         for thread in threads_to_stop:
             if thread and thread.isRunning():
-                logger.info(f"等待线程结束: {thread.__class__.__name__}")
-                thread.wait(1000)  # 最多等待1秒
-                if thread.isRunning():
-                    logger.warning(f"强制终止线程: {thread.__class__.__name__}")
-                    thread.terminate()
+                try:
+                    logger.info(f"等待线程结束: {thread.__class__.__name__}")
+                    thread.quit()
+                    thread.wait(1000)  # 最多等待1秒
+                    if thread.isRunning():
+                        logger.warning(f"强制终止线程: {thread.__class__.__name__}")
+                        thread.terminate()
+                        thread.wait(500)
+                except Exception as e:
+                    logger.error(f"清理线程失败 {thread.__class__.__name__}: {e}")
         
         # 清理u2连接
         if self.d:
