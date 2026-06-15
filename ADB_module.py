@@ -267,6 +267,7 @@ class ADB_Mainwindow(QMainWindow):
         self.select_releasenote_excel_button.clicked.connect(self.select_releasenote_excel)  # 选择集成清单文件
         self.start_check_button.clicked.connect(self.app_version_check)
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
+        self.SOC_8155_Projact_enter_ActivatePage.clicked.connect(self.open_soc8155_activate_page)  # SOC 8155项目进入激活页面
         self.start_app.clicked.connect(self.app_operations.show_start_app_dialog)  # 启动应用
         
         # 大通功能信号连接
@@ -975,6 +976,10 @@ QPushButton:hover {{
     def as33r_open_engineering_mode(self):
         """AS33R国项目打开工程模式"""
         self._start_app_helper("AS33R_open_engineering_mode_button", "启动AS33R国工程模式", "com.saicmotor.diag/.ui.main.MainActivity")
+
+    def open_soc8155_activate_page(self):
+        """SOC 8155项目进入激活页面"""
+        self._start_app_helper("SOC_8155_Projact_enter_ActivatePage", "启动SOC 8155激活页面", "com.saicvehicleservice/.MainActivity")
 
     def _start_app_with_thread(self, app_name):
         """使用异步线程启动应用（支持U2和ADB模式）"""
