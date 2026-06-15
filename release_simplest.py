@@ -160,9 +160,7 @@ def create_github_release(version: str) -> bool:
     description = f"""
 ## ADBTools v{version}
 
-### 1. 增加文件管理器选择设备功能
-### 2. 增加文件管理器窗口单独使用，不会阻塞主窗口的使用
-### 3. 优化文件管理器页面显示
+### 1. 增加打开激活页面功能
 """
     
     # 临时创建描述文件
