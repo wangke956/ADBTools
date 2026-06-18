@@ -270,6 +270,21 @@ class ADB_Mainwindow(QMainWindow):
         self.SOC_8155_Projact_enter_ActivatePage.clicked.connect(self.open_soc8155_activate_page)  # SOC 8155项目进入激活页面
         self.start_app.clicked.connect(self.app_operations.show_start_app_dialog)  # 启动应用
         
+        # 网联版项目功能信号连接
+        try:
+            self.open_8155_engineering_button = self.findChild(QtWidgets.QPushButton, 'open_8155_engineering_button')
+            if self.open_8155_engineering_button:
+                self.open_8155_engineering_button.clicked.connect(self.open_8155_engineering_mode)  # 打开8155工程模式
+        except Exception:
+            pass
+        
+        try:
+            self.network_proxy_button = self.findChild(QtWidgets.QPushButton, 'network_proxy_button')
+            if self.network_proxy_button:
+                self.network_proxy_button.clicked.connect(self.app_operations.show_network_proxy_dialog)  # 网络代理管理
+        except Exception:
+            pass
+        
         # 大通功能信号连接
         self.datong_factory_button.clicked.connect(self.datong_manager.factory_action)  # 拉起中环工厂
         self.datong_disable_verity_button.clicked.connect(self.datong_manager.disable_verity_action)  # 禁用verity校验
@@ -980,6 +995,10 @@ QPushButton:hover {{
     def open_soc8155_activate_page(self):
         """SOC 8155项目进入激活页面"""
         self._start_app_helper("SOC_8155_Projact_enter_ActivatePage", "启动SOC 8155激活页面", "com.saicvehicleservice/.MainActivity")
+
+    def open_8155_engineering_mode(self):
+        """打开8155工程模式"""
+        self._start_app_helper("open_8155_engineering_button", "启动8155工程模式", "com.zone.hmi.engineeringmode/.EngineeringModeActivity")
 
     def _start_app_with_thread(self, app_name):
         """使用异步线程启动应用（支持U2和ADB模式）"""

@@ -390,3 +390,210 @@ class AppOperationsManager:
         except Exception as e:
             log_method_result("app_version_check", False, str(e))
             self.textBrowser.append(f"启动版本检查线程失败: {e}")
+    
+    def show_network_proxy_dialog(self):
+        """显示网络代理管理对话框"""
+        device_id = self.main_window.get_selected_device()
+        devices_id_lst = self.main_window.get_new_device_lst()
+        
+        log_button_click("network_proxy_button", "网络代理管理")
+
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("设备未连接！")
+            return
+        
+        # 创建对话框
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QGroupBox
+        dialog = QDialog(self.main_window)
+        dialog.setWindowTitle("网络代理管理")
+        dialog.setMinimumWidth(400)
+        
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        # 标题
+        title_label = QLabel("网络代理设置")
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #0078d4;")
+        layout.addWidget(title_label)
+        
+        # 代理地址输入组
+        proxy_group = QGroupBox("代理服务器")
+        proxy_layout = QVBoxLayout()
+        
+        address_layout = QHBoxLayout()
+        address_label = QLabel("地址:")
+        self.proxy_address_input = QLineEdit("192.168.137.1")
+        self.proxy_address_input.setPlaceholderText("例如: 192.168.137.1")
+        address_layout.addWidget(address_label)
+        address_layout.addWidget(self.proxy_address_input)
+        
+        port_layout = QHBoxLayout()
+        port_label = QLabel("端口:")
+        self.proxy_port_input = QLineEdit("7897")
+        self.proxy_port_input.setPlaceholderText("例如: 7897")
+        port_layout.addWidget(port_label)
+        port_layout.addWidget(self.proxy_port_input)
+        
+        proxy_layout.addLayout(address_layout)
+        proxy_layout.addLayout(port_layout)
+        proxy_group.setLayout(proxy_layout)
+        layout.addWidget(proxy_group)
+        
+        # 按钮组
+        button_layout = QVBoxLayout()
+        button_layout.setSpacing(8)
+        
+        # 获取代理按钮
+        get_proxy_btn = QPushButton("获取当前代理")
+        get_proxy_btn.clicked.connect(lambda: self._get_network_proxy(device_id))
+        button_layout.addWidget(get_proxy_btn)
+        
+        # 设置代理按钮
+        set_proxy_btn = QPushButton("设置代理")
+        set_proxy_btn.clicked.connect(lambda: self._set_network_proxy(device_id))
+        button_layout.addWidget(set_proxy_btn)
+        
+        # 清除代理按钮
+        clear_proxy_btn = QPushButton("清除代理")
+        clear_proxy_btn.clicked.connect(lambda: self._clear_network_proxy(device_id))
+        button_layout.addWidget(clear_proxy_btn)
+        
+        layout.addLayout(button_layout)
+        
+        # 关闭按钮
+        close_btn = QPushButton("关闭")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        
+        dialog.setLayout(layout)
+        dialog.exec_()
+    
+    def _get_network_proxy(self, device_id):
+        """获取网络代理信息"""
+        try:
+            # 检查连接状态
+            if self.main_window.connection_mode == 'u2':
+                if not self.main_window.d:
+                    self.main_window.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+            
+            if self.main_window.connection_mode == 'u2' and self.main_window.d:
+                from Function_Moudle.adb_network_proxy_thread import GetProxyThread
+                self.main_window.get_proxy_thread = GetProxyThread(
+                    device_id=device_id,
+                    connection_mode='u2',
+                    u2_device=self.main_window.d
+                )
+            elif self.main_window.connection_mode == 'adb':
+                from Function_Moudle.adb_network_proxy_thread import GetProxyThread
+                self.main_window.get_proxy_thread = GetProxyThread(
+                    device_id=device_id,
+                    connection_mode='adb'
+                )
+            else:
+                log_method_result("_get_network_proxy", False, "设备未连接")
+                self.textBrowser.append("设备未连接！")
+                return
+            
+            self.main_window.get_proxy_thread.progress_signal.connect(self.textBrowser.append)
+            self.main_window.get_proxy_thread.result_signal.connect(self.textBrowser.append)
+            self.main_window.get_proxy_thread.error_signal.connect(self.textBrowser.append)
+            self.main_window.get_proxy_thread.start()
+            
+            log_method_result("_get_network_proxy", True, "获取代理线程已启动")
+        except Exception as e:
+            log_method_result("_get_network_proxy", False, str(e))
+            self.textBrowser.append(f"启动获取代理线程失败: {e}")
+    
+    def _set_network_proxy(self, device_id):
+        """设置网络代理"""
+        proxy_address = self.proxy_address_input.text().strip()
+        proxy_port = self.proxy_port_input.text().strip()
+        
+        if not proxy_address or not proxy_port:
+            self.textBrowser.append("代理地址和端口不能为空！")
+            return
+        
+        try:
+            # 验证端口是否为数字
+            int(proxy_port)
+        except ValueError:
+            self.textBrowser.append("端口号必须是数字！")
+            return
+        
+        try:
+            # 检查连接状态
+            if self.main_window.connection_mode == 'u2':
+                if not self.main_window.d:
+                    self.main_window.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+            
+            if self.main_window.connection_mode == 'u2' and self.main_window.d:
+                from Function_Moudle.adb_network_proxy_thread import SetProxyThread
+                self.main_window.set_proxy_thread = SetProxyThread(
+                    device_id=device_id,
+                    proxy_address=proxy_address,
+                    proxy_port=proxy_port,
+                    connection_mode='u2',
+                    u2_device=self.main_window.d
+                )
+            elif self.main_window.connection_mode == 'adb':
+                from Function_Moudle.adb_network_proxy_thread import SetProxyThread
+                self.main_window.set_proxy_thread = SetProxyThread(
+                    device_id=device_id,
+                    proxy_address=proxy_address,
+                    proxy_port=proxy_port,
+                    connection_mode='adb'
+                )
+            else:
+                log_method_result("_set_network_proxy", False, "设备未连接")
+                self.textBrowser.append("设备未连接！")
+                return
+            
+            self.main_window.set_proxy_thread.progress_signal.connect(self.textBrowser.append)
+            self.main_window.set_proxy_thread.result_signal.connect(self.textBrowser.append)
+            self.main_window.set_proxy_thread.error_signal.connect(self.textBrowser.append)
+            self.main_window.set_proxy_thread.start()
+            
+            log_method_result("_set_network_proxy", True, f"设置代理线程已启动: {proxy_address}:{proxy_port}")
+        except Exception as e:
+            log_method_result("_set_network_proxy", False, str(e))
+            self.textBrowser.append(f"启动设置代理线程失败: {e}")
+    
+    def _clear_network_proxy(self, device_id):
+        """清除网络代理"""
+        try:
+            # 检查连接状态
+            if self.main_window.connection_mode == 'u2':
+                if not self.main_window.d:
+                    self.main_window.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+            
+            if self.main_window.connection_mode == 'u2' and self.main_window.d:
+                from Function_Moudle.adb_network_proxy_thread import ClearProxyThread
+                self.main_window.clear_proxy_thread = ClearProxyThread(
+                    device_id=device_id,
+                    connection_mode='u2',
+                    u2_device=self.main_window.d
+                )
+            elif self.main_window.connection_mode == 'adb':
+                from Function_Moudle.adb_network_proxy_thread import ClearProxyThread
+                self.main_window.clear_proxy_thread = ClearProxyThread(
+                    device_id=device_id,
+                    connection_mode='adb'
+                )
+            else:
+                log_method_result("_clear_network_proxy", False, "设备未连接")
+                self.textBrowser.append("设备未连接！")
+                return
+            
+            self.main_window.clear_proxy_thread.progress_signal.connect(self.textBrowser.append)
+            self.main_window.clear_proxy_thread.result_signal.connect(self.textBrowser.append)
+            self.main_window.clear_proxy_thread.error_signal.connect(self.textBrowser.append)
+            self.main_window.clear_proxy_thread.start()
+            
+            log_method_result("_clear_network_proxy", True, "清除代理线程已启动")
+        except Exception as e:
+            log_method_result("_clear_network_proxy", False, str(e))
+            self.textBrowser.append(f"启动清除代理线程失败: {e}")

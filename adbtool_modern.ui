@@ -2287,6 +2287,46 @@ border-radius: 4px;</string>
  </property>
  </widget>
  </item>
+ <item>
+ <widget class="QPushButton" name="open_8155_engineering_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 打开8155工程模式</string>
+ </property>
+ </widget>
+ </item>
+ <item>
+ <widget class="QPushButton" name="network_proxy_button">
+ <property name="minimumSize">
+ <size>
+ <width>0</width>
+ <height>22</height>
+ </size>
+ </property>
+ <property name="font">
+ <font>
+ <family>Microsoft YaHei UI</family>
+ <pointsize>9</pointsize>
+ <bold>true</bold>
+ </font>
+ </property>
+ <property name="text">
+ <string> 网络代理管理</string>
+ </property>
+ </widget>
+ </item>
  </layout>
  </widget>
  </item>
