@@ -282,8 +282,8 @@ class ADB_Mainwindow(QMainWindow):
             self.network_proxy_button = self.findChild(QtWidgets.QPushButton, 'network_proxy_button')
             if self.network_proxy_button:
                 self.network_proxy_button.clicked.connect(self.app_operations.show_network_proxy_dialog)  # 网络代理管理
-        except Exception:
-            pass
+        except Exception as e:
+            print("设备代理管理器报错：",e)
         
         # 大通功能信号连接
         self.datong_factory_button.clicked.connect(self.datong_manager.factory_action)  # 拉起中环工厂

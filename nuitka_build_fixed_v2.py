@@ -161,7 +161,12 @@ def get_nuitka_command(build_type="onefile"):
     function_module_dir = PROJECT_ROOT / "Function_Moudle"
     if function_module_dir.exists():
         cmd.append(f"--include-package-data=Function_Moudle")
-    
+
+    # 强制单独打包Dialog_proxy.ui兜底
+    dialog_ui = PROJECT_ROOT / "Function_Moudle/Dialog_proxy.ui"
+    if dialog_ui.exists():
+        cmd.append(f"--include-data-files={dialog_ui}=Function_Moudle/Dialog_proxy.ui")
+
     # 添加ADB工具文件（如果存在）
     adb_files_to_check = [
         "adb.exe",

@@ -406,19 +406,46 @@ def copy_files_to_build_dir(platform_tools_path: Optional[Path]) -> bool:
     
     total_copied = 0
     
-    # 0. 复制 Nuitka 生成的主程序（从 main.dist 目录）
-    print("0. 复制 Nuitka 主程序:")
+    # # 0. 复制 Nuitka 生成的主程序（从 main.dist 目录）
+    # print("0. 复制 Nuitka 主程序:")
+    # main_dist_dir = build_dir / "main.dist"
+    # if main_dist_dir.exists():
+    #     try:
+    #         # 复制所有文件从 main.dist 到 build_nuitka 根目录
+    #         for item in main_dist_dir.iterdir():
+    #             if item.is_file():
+    #                 dest_path = build_dir / item.name
+    #                 shutil.copy2(item, dest_path)
+    #                 print(f"   ✓ {item.name}")
+    #                 total_copied += 1
+    #         print(f"   ✅ 已从 main.dist 复制 {total_copied} 个文件")
+    #     except Exception as e:
+    #         print(f"   ❌ 复制主程序文件失败: {e}")
+    #         return False
+    # else:
+    #     print(f"   ❌ 未找到 main.dist 目录: {main_dist_dir}")
+    #     print("   Nuitka 构建可能未正确完成")
+    #     return False
+
+    # 0. 复制 Nuitka 生成的主程序（从 main.dist 目录，包含子文件夹）
+    print("0. 复制 Nuitka 主程序及内部目录:")
     main_dist_dir = build_dir / "main.dist"
     if main_dist_dir.exists():
         try:
-            # 复制所有文件从 main.dist 到 build_nuitka 根目录
+            # 遍历main.dist下所有文件+文件夹完整复制
             for item in main_dist_dir.iterdir():
+                dest_path = build_dir / item.name
                 if item.is_file():
-                    dest_path = build_dir / item.name
                     shutil.copy2(item, dest_path)
                     print(f"   ✓ {item.name}")
                     total_copied += 1
-            print(f"   ✅ 已从 main.dist 复制 {total_copied} 个文件")
+                elif item.is_dir():
+                    # 递归复制子文件夹（解决Function_Moudle丢失）
+                    if dest_path.exists():
+                        shutil.rmtree(dest_path)
+                    shutil.copytree(item, dest_path)
+                    print(f"   ✓ 目录 {item.name}/ 完整复制")
+            print(f"   ✅ 已从 main.dist 复制全部文件与子目录")
         except Exception as e:
             print(f"   ❌ 复制主程序文件失败: {e}")
             return False
@@ -426,6 +453,7 @@ def copy_files_to_build_dir(platform_tools_path: Optional[Path]) -> bool:
         print(f"   ❌ 未找到 main.dist 目录: {main_dist_dir}")
         print("   Nuitka 构建可能未正确完成")
         return False
+
     
     # 1. 复制 platform-tools 文件（如果提供了路径）
     if platform_tools_path is not None:

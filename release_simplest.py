@@ -160,7 +160,8 @@ def create_github_release(version: str) -> bool:
     description = f"""
 ## ADBTools v{version}
 
-### 1. 增加打开激活页面功能
+### 1. 增加打开8155工程模式
+### 2. 添加设备网络代理配置功能
 """
     
     # 临时创建描述文件
