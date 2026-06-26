@@ -46,11 +46,13 @@ class VRController:
     
     def _get_connection_mode(self):
         """获取当前连接模式"""
-        return self.main_window.connection_mode
+        # 安全获取连接模式，如果为None则默认为'adb'
+        mode = getattr(self.main_window, 'connection_mode', 'adb')
+        return mode if mode else 'adb'
     
     def _get_u2_device(self):
         """获取U2设备对象"""
-        return self.main_window.d
+        return getattr(self.main_window, 'd', None)
     
     def _is_device_connected(self):
         """检查设备是否已连接"""
@@ -242,13 +244,35 @@ class VRController:
             return
         
         device_id = self._get_selected_device()
+        connection_mode = self._get_connection_mode()
         
         try:
-            from Function_Moudle.skip_power_limit_thread import SkipPowerLimitThread
-            self.skip_power_limit_thread = SkipPowerLimitThread(device_id)
+            if connection_mode == 'u2':
+                u2_device = self._get_u2_device()
+                if not u2_device:
+                    log_method_result("skip_power_limit", False, "U2设备连接失败")
+                    self._append_output("U2设备连接失败！")
+                    return
+                from Function_Moudle.skip_power_limit_thread import SkipPowerLimitThread
+                self.skip_power_limit_thread = SkipPowerLimitThread(
+                    device_id=device_id,
+                    connection_mode='u2',
+                    u2_device=u2_device
+                )
+            elif connection_mode == 'adb':
+                from Function_Moudle.skip_power_limit_thread import SkipPowerLimitThread
+                self.skip_power_limit_thread = SkipPowerLimitThread(
+                    device_id=device_id,
+                    connection_mode='adb'
+                )
+            else:
+                log_method_result("skip_power_limit", False, f"不支持的连接模式: {connection_mode}")
+                self._append_output(f"不支持的连接模式: {connection_mode}")
+                return
+            
             self._connect_thread_signals(self.skip_power_limit_thread)
             self.skip_power_limit_thread.start()
-            log_method_result("skip_power_limit", True, "线程已启动")
+            log_method_result("skip_power_limit", True, f"线程已启动 (模式: {connection_mode})")
             
         except Exception as e:
             log_method_result("skip_power_limit", False, str(e))

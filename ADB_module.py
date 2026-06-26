@@ -117,6 +117,9 @@ class ADB_Mainwindow(QMainWindow):
             return "1.5.0"
     
     def __init__(self, parent=None):
+        self.undo_action = None
+        self.current_size = None
+        self.original_size = None
         logger.info("初始化 ADB 主窗口...")
         super(ADB_Mainwindow, self).__init__(parent)
         self.app_name = None
@@ -202,7 +205,7 @@ class ADB_Mainwindow(QMainWindow):
         self.datong_manager = DatongManager(self)
         self.vr_controller = VRController(self)
         self.device_manager = DeviceManager(self)
-        self.log_operations = LogManager(self)
+        self.log_operations = LogManager(self, self.device_id, self.connection_mode, self.d)
         self.file_operations = FileOperationsManager(self)
         self.input_operations = InputOperationsManager(self)
         self.app_operations = AppOperationsManager(self)
@@ -275,16 +278,15 @@ class ADB_Mainwindow(QMainWindow):
             self.open_8155_engineering_button = self.findChild(QtWidgets.QPushButton, 'open_8155_engineering_button')
             if self.open_8155_engineering_button:
                 self.open_8155_engineering_button.clicked.connect(self.open_8155_engineering_mode)  # 打开8155工程模式
-        except Exception:
-            pass
+        except Exception as e:
+            self.textBrowser.append(str(e))
         
         try:
             self.network_proxy_button = self.findChild(QtWidgets.QPushButton, 'network_proxy_button')
             if self.network_proxy_button:
                 self.network_proxy_button.clicked.connect(self.app_operations.show_network_proxy_dialog)  # 网络代理管理
         except Exception as e:
-            print("设备代理管理器报错：",e)
-        
+            self.textBrowser.append(str(e))
         # 大通功能信号连接
         self.datong_factory_button.clicked.connect(self.datong_manager.factory_action)  # 拉起中环工厂
         self.datong_disable_verity_button.clicked.connect(self.datong_manager.disable_verity_action)  # 禁用verity校验
@@ -300,8 +302,8 @@ class ADB_Mainwindow(QMainWindow):
             self.reinit_u2_button = self.findChild(QtWidgets.QPushButton, 'reinit_u2_button')
             if self.reinit_u2_button:
                 self.reinit_u2_button.clicked.connect(self.reinit_uiautomator2)
-        except Exception:
-            pass
+        except Exception as e:
+            self.textBrowser.append(str(e))
         
         # ========== 侧边栏导航按钮绑定 ==========
         self._init_navigation_buttons()
@@ -315,8 +317,8 @@ class ADB_Mainwindow(QMainWindow):
             self.config_button = self.findChild(QtWidgets.QPushButton, 'config_button')
             if self.config_button:
                 self.config_button.clicked.connect(self.open_config_dialog)
-        except Exception:
-            pass
+        except Exception as e:
+            self.textBrowser.append(str(e))
         
         # 窗口缩放功能初始化
         self.init_window_scaling()
@@ -1248,10 +1250,6 @@ QPushButton:hover {{
         """断开设备连接 - 委托给 device_manager"""
         self.device_manager.disconnect_device()
     
-    def reinit_uiautomator2(self):
-        """重新初始化u2 - 委托给 device_manager"""
-        self.device_manager.reinit_uiautomator2()
-
     def get_selected_device(self):
         return self.ComboxButton.currentText()  # 返回的类型为str
 

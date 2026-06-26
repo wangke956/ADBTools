@@ -4,6 +4,8 @@
 
 import os
 from PyQt5.QtWidgets import QFileDialog
+from numpy.distutils.fcompiler import none
+
 from logger_manager import (
     get_logger, log_operation, log_exception,
     log_button_click, log_method_result, log_device_operation
@@ -15,15 +17,22 @@ logger = get_logger("ADBTools.LogManager")
 class LogManager:
     """日志操作管理器 - 处理日志拉取、语音录制等功能"""
     
-    def __init__(self, main_window):
+    def __init__(self, main_window, device_id, connection_mode="adb", u2_device=None):
         """
         初始化日志管理器
         
         Args:
             main_window: 主窗口实例 (ADB_Mainwindow)
+            device_id: 设备ID
+            connection_mode: 连接模式 ('u2' 或 'adb')，默认为 'adb'
+            u2_device: U2设备对象
         """
         self.main_window = main_window
-    
+        self.device_id = device_id
+        # 确保connection_mode不为None，如果为None则使用默认值'adb'
+        self.connection_mode = connection_mode if connection_mode else "adb"
+        self.u2_device = u2_device
+
     def get_selected_device(self):
         """获取当前选中的设备ID"""
         return self.main_window.ComboxButton.currentText()
@@ -114,8 +123,16 @@ class LogManager:
 
         if device_id in devices_id_lst:
             try:
+                # 动态获取当前的连接模式和u2设备
+                current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+                current_u2_device = getattr(self.main_window, 'd', None)
+                
                 from Function_Moudle.voice_record_thread import VoiceRecordThread
-                self.main_window.voice_record_thread = VoiceRecordThread(device_id)
+                self.main_window.voice_record_thread = VoiceRecordThread(
+                    device_id=device_id,
+                    connection_mode=current_connection_mode,
+                    u2_device=current_u2_device
+                )
                 self.main_window.voice_record_thread.progress_signal.connect(self.main_window.textBrowser.append)
                 self.main_window.voice_record_thread.record_signal.connect(self.main_window.textBrowser.append)
                 self.main_window.voice_record_thread.start()
@@ -137,8 +154,16 @@ class LogManager:
 
         if device_id in devices_id_lst:
             try:
+                # 动态获取当前的连接模式和u2设备
+                current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+                current_u2_device = getattr(self.main_window, 'd', None)
+                
                 from Function_Moudle.voice_stop_record_thread import VoiceStopRecordThread
-                self.main_window.voice_record_thread = VoiceStopRecordThread(device_id)
+                self.main_window.voice_record_thread = VoiceStopRecordThread(
+                    device_id=device_id,
+                    connection_mode=current_connection_mode,
+                    u2_device=current_u2_device
+                )
                 self.main_window.voice_record_thread.voice_stop_record_signal.connect(self.main_window.textBrowser.append)
                 self.main_window.voice_record_thread.start()
                 
@@ -159,8 +184,32 @@ class LogManager:
 
         if device_id in devices_id_lst:
             try:
+                # 从控件中获取设备录音文件路径
+                device_record_file_path = self.main_window.device_record_path.text().strip()
+                if not device_record_file_path:
+                    log_method_result("voice_pull_record_file", False, "设备录音文件路径不能为空")
+                    self.main_window.textBrowser.append("设备录音文件路径不能为空！")
+                    return
+                
+                # 获取本地保存路径（使用日志保存路径输入框）
+                local_save_path = self.main_window.inputbox_log_path.text().strip()
+                if not local_save_path:
+                    log_method_result("voice_pull_record_file", False, "本地保存路径不能为空")
+                    self.main_window.textBrowser.append("请先设置本地保存路径！")
+                    return
+                
                 from Function_Moudle.voice_pull_record_file_thread import VoicePullRecordFileThread
-                self.main_window.voice_pull_record_file_thread = VoicePullRecordFileThread(device_id)
+                # 动态获取当前的连接模式和u2设备
+                current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+                current_u2_device = getattr(self.main_window, 'd', None)
+                
+                self.main_window.voice_pull_record_file_thread = VoicePullRecordFileThread(
+                    device_id=device_id,
+                    file_path=local_save_path,
+                    device_record_file_path=device_record_file_path,
+                    connection_mode=current_connection_mode,
+                    u2_device=current_u2_device
+                )
                 self.main_window.voice_pull_record_file_thread.progress_signal.connect(self.main_window.textBrowser.append)
                 self.main_window.voice_pull_record_file_thread.result_signal.connect(self.main_window.textBrowser.append)
                 self.main_window.voice_pull_record_file_thread.start()
@@ -177,15 +226,32 @@ class LogManager:
         """删除语音录制文件"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        
+
         log_button_click("remove_record_file_button", "删除语音录制文件")
 
         if device_id in devices_id_lst:
             try:
+                # 从控件中获取设备录音文件路径
+                device_record_file_path = self.main_window.device_record_path.text().strip()
+                if not device_record_file_path:
+                    log_method_result("remove_voice_record_file", False, "设备录音文件路径不能为空")
+                    self.main_window.textBrowser.append("设备录音文件路径不能为空！")
+                    return
+                
+                # 动态获取当前的连接模式和u2设备（确保使用最新的状态）
+                current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+                current_u2_device = getattr(self.main_window, 'd', None)
+                
                 from Function_Moudle.remove_record_file_thread import RemoveRecordFileThread
-                self.main_window.remove_record_file_thread = RemoveRecordFileThread(device_id)
+                self.main_window.remove_record_file_thread = RemoveRecordFileThread(
+                    device_id=device_id,
+                    device_record_file_path=device_record_file_path,
+                    connection_mode=current_connection_mode,
+                    u2_device=current_u2_device
+                )
                 self.main_window.remove_record_file_thread.progress_signal.connect(self.main_window.textBrowser.append)
                 self.main_window.remove_record_file_thread.result_signal.connect(self.main_window.textBrowser.append)
+                self.main_window.remove_record_file_thread.signal_remove_voice_record_file.connect(self.main_window.textBrowser.append)
                 self.main_window.remove_record_file_thread.start()
                 
                 log_method_result("remove_voice_record_file", True, "删除线程已启动")
