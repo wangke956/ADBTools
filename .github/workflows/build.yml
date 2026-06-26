@@ -1,0 +1,236 @@
+name: Build and Package ADBTools
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (例如: 1.6.2)'
+        required: false
+        default: ''
+      release:
+        description: '是否创建 Release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.10'
+  APP_NAME: ADBTools
+
+jobs:
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install system dependencies
+      run: |
+        # 安装 Visual C++ Build Tools（Nuitka 需要）
+        choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools" --no-progress
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements_nuitka.txt
+        
+    - name: Verify Nuitka installation
+      run: |
+        python -m nuitka --version
+        
+    - name: Get version from tag or input
+      id: get_version
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(date +'%Y.%m.%d')
+          fi
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION="${{ github.ref_name }}"
+          VERSION=${VERSION#v}
+        else
+          VERSION=$(date +'%Y.%m.%d')
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+    - name: Update version in config
+      shell: python
+      run: |
+        import json
+        from pathlib import Path
+        
+        version = "${{ steps.get_version.outputs.version }}"
+        config_file = Path("adbtools_config.json")
+        
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # 更新版本号
+            config['version'] = version
+            config['file_version'] = version
+            
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+            
+            print(f"Updated version to: {version}")
+        else:
+            print("Config file not found, skipping version update")
+        
+    - name: Download platform-tools
+      run: |
+        # 下载 Android platform-tools
+        $url = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
+        $output = "platform-tools.zip"
+        
+        Write-Host "Downloading platform-tools..."
+        Invoke-WebRequest -Uri $url -OutFile $output
+        
+        Write-Host "Extracting platform-tools..."
+        Expand-Archive -Path $output -DestinationPath "." -Force
+        
+        Remove-Item $output
+        Write-Host "platform-tools downloaded successfully"
+        
+    - name: Copy platform-tools to build directory
+      run: |
+        # 复制 platform-tools 到项目根目录（Nuitka 构建时会使用）
+        $platformToolsSrc = "platform-tools"
+        $projectRoot = "."
+        
+        $adbFiles = @("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "aapt.exe", "fastboot.exe")
+        
+        foreach ($file in $adbFiles) {
+            $src = Join-Path $platformToolsSrc $file
+            $dst = Join-Path $projectRoot $file
+            
+            if (Test-Path $src) {
+                Copy-Item $src $dst -Force
+                Write-Host "Copied: $file"
+            } else {
+                Write-Host "Warning: $file not found in platform-tools"
+            }
+        }
+        
+    - name: Build with Nuitka (OneFile)
+      run: |
+        python nuitka_build_fixed_v2.py --build onefile
+        
+    - name: Verify build output
+      run: |
+        Write-Host "Checking build output..."
+        
+        if (Test-Path "dist_nuitka\ADBTools_nuitka.exe") {
+            Write-Host "✅ Build successful!"
+            Get-Item "dist_nuitka\ADBTools_nuitka.exe" | Select-Object Name, Length, LastWriteTime
+        } else {
+            Write-Host "❌ Build failed - executable not found"
+            exit 1
+        }
+        
+    - name: Create release package
+      run: |
+        # 创建发布包目录
+        $releaseDir = "release_package"
+        New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+        
+        # 复制可执行文件和必要资源
+        Copy-Item "dist_nuitka\*" "$releaseDir\" -Recurse -Force
+        
+        # 复制配置文件
+        Copy-Item "adbtools_config.json" "$releaseDir\" -Force
+        Copy-Item "adbtool.ui" "$releaseDir\" -Force
+        Copy-Item "file_manager_ui.ui" "$releaseDir\" -Force
+        
+        # 压缩为 ZIP
+        Compress-Archive -Path "$releaseDir\*" -DestinationPath "ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip" -Force
+        
+        Write-Host "Release package created: ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip"
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ADBTools-Windows-${{ steps.get_version.outputs.version }}
+        path: ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip
+        retention-days: 90
+        
+    - name: Create GitHub Release
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true' || startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip
+        name: ADBTools v${{ steps.get_version.outputs.version }}
+        body: |
+          ## ADBTools v${{ steps.get_version.outputs.version }}
+          
+          ### 更新内容
+          - 自动构建版本
+          - 支持 U2 和 ADB 双模式
+          - 优化 VR 功能
+          - 修复已知问题
+          
+          ### 下载
+          - [ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.version }}/ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip)
+          
+          ### 系统要求
+          - Windows 10/11
+          - .NET Framework 4.5+
+          
+          ### 使用说明
+          1. 下载并解压 ZIP 文件
+          2. 运行 ADBTools_nuitka.exe
+          3. 连接 Android 设备
+          4. 开始使用
+        draft: false
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Send notification (optional)
+      if: always()
+      env:
+        SERVERCHAN_API_KEY: ${{ secrets.SERVERCHAN_API_KEY }}
+      run: |
+        if ($env:SERVERCHAN_API_KEY) {
+          $status = if ($LASTEXITCODE -eq 0) { "成功" } else { "失败" }
+          $title = "ADBTools 构建${status}"
+          $content = "版本: ${{ steps.get_version.outputs.version }}`n分支: ${{ github.ref_name }}`n提交: ${{ github.sha }}"
+          
+          $body = @{
+            title = $title
+            desp = $content
+          } | ConvertTo-Json
+          
+          try {
+            Invoke-RestMethod -Uri "https://sctapi.ftqq.com/$env:SERVERCHAN_API_KEY.send" -Method Post -Body $body -ContentType "application/json"
+            Write-Host "Notification sent"
+          } catch {
+            Write-Host "Failed to send notification: $_"
+          }
+        } else {
+          Write-Host "SERVERCHAN_API_KEY not set, skipping notification"
+        }

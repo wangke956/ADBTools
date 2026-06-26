@@ -1,0 +1,19 @@
+name: Test Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Job
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Hello World
+      run: echo "Hello from GitHub Actions!"
+      
+    - name: Check Files
+      run: |
+        ls -la
+        echo "---"
+        ls -la .github/workflows/ || echo "No workflows directory"
