@@ -172,13 +172,18 @@ jobs:
         
     - name: Install Inno Setup
       run: |
-        # 使用 Chocolatey 安装 Inno Setup
-        choco install innosetup --version=6.3.2 -y --no-progress
-        
-        # 添加到 PATH
+        # GitHub Actions Windows runner 已经预装了 Inno Setup v6.7.1
+        # 只需添加到 PATH 即可使用
         $innoPath = "C:\Program Files (x86)\Inno Setup 6"
-        echo "$innoPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        Write-Host "Inno Setup installed successfully via Chocolatey"
+        if (Test-Path $innoPath) {
+            echo "$innoPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Using pre-installed Inno Setup v6.7.1"
+        } else {
+            # 如果预装版本不存在，尝试使用 Chocolatey 安装最新版本
+            choco install innosetup -y --no-progress
+            echo "$innoPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Inno Setup installed via Chocolatey"
+        }
         
     - name: Update version in .iss file
       run: |
