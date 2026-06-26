@@ -68,19 +68,32 @@ jobs:
       id: get_version
       shell: bash
       run: |
+        # 版本号优先级：
+        # 1. Git Tag (如 v1.0.0) - 推荐用于正式版本发布
+        # 2. 手动输入 (workflow_dispatch) - 测试用
+        # 3. 日期格式 (YYYY.MM.DD) - 开发版本默认值
+        
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           VERSION="${{ github.event.inputs.version }}"
           if [ -z "$VERSION" ]; then
             VERSION=$(date +'%Y.%m.%d')
+            echo "Using date-based version: $VERSION"
+          else
+            echo "Using manual version: $VERSION"
           fi
         elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          # 从 tag 提取版本号，去掉 'v' 前缀
           VERSION="${{ github.ref_name }}"
           VERSION=${VERSION#v}
+          echo "Using tag version: $VERSION"
         else
+          # 推送 main 分支时使用日期作为版本号
           VERSION=$(date +'%Y.%m.%d')
+          echo "Using auto-generated date version: $VERSION"
         fi
+        
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION"
+        echo "Final version: $VERSION"
         
     - name: Update version in config
       shell: python
