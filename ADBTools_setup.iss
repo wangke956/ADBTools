@@ -39,7 +39,8 @@ PrivilegesRequiredOverridesAllowed=dialog
 ChangesAssociations=yes
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; 注释掉中文语言支持，因为 GitHub Actions 预装的 Inno Setup 可能不包含该语言文件
+; Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
