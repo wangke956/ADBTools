@@ -162,10 +162,12 @@ def get_nuitka_command(build_type="onefile"):
     if function_module_dir.exists():
         cmd.append(f"--include-package-data=Function_Moudle")
 
-    # 强制单独打包Dialog_proxy.ui兜底
-    dialog_ui = PROJECT_ROOT / "Function_Moudle/Dialog_proxy.ui"
+    # 强制单独打包Dialog_proxy.ui兜底（文件在项目根目录）
+    dialog_ui = PROJECT_ROOT / "Dialog_proxy.ui"
     if dialog_ui.exists():
-        cmd.append(f"--include-data-files={dialog_ui}=Function_Moudle/Dialog_proxy.ui")
+        cmd.append(f"--include-data-files={dialog_ui}=Dialog_proxy.ui")
+    else:
+        print("警告: Dialog_proxy.ui 文件不存在")
 
     # 添加ADB工具文件（如果存在）
     adb_files_to_check = [
@@ -437,7 +439,6 @@ def build_onefile():
             u2_assets_src = None
         
         u2_assets_dst = CONFIG["dist_dir"] / "uiautomator2" / "assets"
-        
         if u2_assets_src and u2_assets_src.exists():
             if u2_assets_dst.exists():
                 shutil.rmtree(u2_assets_dst)
@@ -457,7 +458,6 @@ def build_onefile():
             adbutils_binaries_src = None
         
         adbutils_binaries_dst = CONFIG["dist_dir"] / "adbutils" / "binaries"
-        
         if adbutils_binaries_src and adbutils_binaries_src.exists():
             if adbutils_binaries_dst.exists():
                 shutil.rmtree(adbutils_binaries_dst)
