@@ -171,10 +171,14 @@ jobs:
         }
         
     - name: Install Inno Setup
-      uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
-      with:
-        path: .
-        version: '6.3.2'
+      run: |
+        # 使用 Chocolatey 安装 Inno Setup
+        choco install innosetup --version=6.3.2 -y --no-progress
+        
+        # 添加到 PATH
+        $innoPath = "C:\Program Files (x86)\Inno Setup 6"
+        echo "$innoPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "Inno Setup installed successfully via Chocolatey"
         
     - name: Update version in .iss file
       run: |
