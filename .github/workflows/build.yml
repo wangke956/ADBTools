@@ -37,6 +37,7 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
+        cache-dependency-path: ''
         
     - name: Cache pip dependencies
       uses: actions/cache@v4
