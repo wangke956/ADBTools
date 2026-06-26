@@ -182,8 +182,16 @@ def get_nuitka_command(build_type="onefile"):
             cmd.append(f"--include-data-files={adb_path}={adb_file}")
     
     # 添加uiautomator2的assets目录文件
-    u2_assets_dir = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "uiautomator2" / "assets"
-    if u2_assets_dir.exists():
+    # 动态查找 uiautomator2 包的位置
+    try:
+        import uiautomator2
+        u2_package_dir = Path(uiautomator2.__file__).parent
+        u2_assets_dir = u2_package_dir / "assets"
+    except ImportError:
+        print("警告: uiautomator2 未安装")
+        u2_assets_dir = None
+    
+    if u2_assets_dir and u2_assets_dir.exists():
         # 复制所有assets文件，确保完整性
         import shutil
         
@@ -419,10 +427,18 @@ def build_onefile():
                 shutil.copy2(src_path, dst_path)
         
         # 确保uiautomator2 assets目录存在
-        u2_assets_src = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "uiautomator2" / "assets"
+        # 动态查找 uiautomator2 包的位置
+        try:
+            import uiautomator2
+            u2_package_dir = Path(uiautomator2.__file__).parent
+            u2_assets_src = u2_package_dir / "assets"
+        except ImportError:
+            print("警告: uiautomator2 未安装")
+            u2_assets_src = None
+        
         u2_assets_dst = CONFIG["dist_dir"] / "uiautomator2" / "assets"
         
-        if u2_assets_src.exists():
+        if u2_assets_src and u2_assets_src.exists():
             if u2_assets_dst.exists():
                 shutil.rmtree(u2_assets_dst)
             shutil.copytree(u2_assets_src, u2_assets_dst)
@@ -431,10 +447,18 @@ def build_onefile():
             print("警告: uiautomator2 assets 目录不存在")
         
         # 确保adbutils binaries目录存在
-        adbutils_binaries_src = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "adbutils" / "binaries"
+        # 动态查找 adbutils 包的位置
+        try:
+            import adbutils
+            adbutils_package_dir = Path(adbutils.__file__).parent
+            adbutils_binaries_src = adbutils_package_dir / "binaries"
+        except ImportError:
+            print("警告: adbutils 未安装")
+            adbutils_binaries_src = None
+        
         adbutils_binaries_dst = CONFIG["dist_dir"] / "adbutils" / "binaries"
         
-        if adbutils_binaries_src.exists():
+        if adbutils_binaries_src and adbutils_binaries_src.exists():
             if adbutils_binaries_dst.exists():
                 shutil.rmtree(adbutils_binaries_dst)
             shutil.copytree(adbutils_binaries_src, adbutils_binaries_dst)
