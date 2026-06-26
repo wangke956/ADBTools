@@ -173,7 +173,7 @@ jobs:
     - name: Install Inno Setup
       run: |
         # 下载并安装 Inno Setup
-        $innoUrl = "https://files.jrsoftware.org/is6/innosetup-6.2.2.exe"
+        $innoUrl = "https://files.jrsoftware.org/is6/innosetup-6.3.2.exe"
         $innoInstaller = "innosetup-installer.exe"
         
         Write-Host "Downloading Inno Setup..."
