@@ -48,37 +48,8 @@ Name: "desktopicon"; Description: "创建桌面图标(&D)"; GroupDescription: "�
 Name: "quicklaunchicon"; Description: "创建快速启动图标(&Q)"; GroupDescription: "附加图标:"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 
 [Files]
-; 主程序文件
+; 主程序文件（Nuitka OneFile 模式已将所有 DLL 打包到 exe 中）
 Source: "{#SourceDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-
-; Python 运行时库
-Source: "{#SourceDir}\python310.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\python3.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\pythoncom310.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\pywintypes310.dll"; DestDir: "{app}"; Flags: ignoreversion
-
-; Visual C++ 运行时库
-Source: "{#SourceDir}\vcruntime140.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\vcruntime140_1.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\msvcp140.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\msvcp140_1.dll"; DestDir: "{app}"; Flags: ignoreversion
-
-; OpenSSL 库
-Source: "{#SourceDir}\libcrypto-1_1-x64.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\libssl-1_1-x64.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\libcrypto-3-x64.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\libssl-3-x64.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\libeay32.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\ssleay32.dll"; DestDir: "{app}"; Flags: ignoreversion
-
-; 其他系统库
-Source: "{#SourceDir}\ffi.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\libbz2.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\liblzma.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\zlib.dll"; DestDir: "{app}"; Flags: ignoreversion
-
-; Python 扩展模块 (.pyd 文件)
-Source: "{#SourceDir}\*.pyd"; DestDir: "{app}"; Flags: ignoreversion
 
 ; UI 和配置文件
 Source: "{#SourceDir}\adbtool.ui"; DestDir: "{app}"; Flags: ignoreversion
