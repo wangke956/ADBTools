@@ -4,7 +4,6 @@
 
 import os
 from PyQt5.QtWidgets import QFileDialog
-from numpy.distutils.fcompiler import none
 
 from logger_manager import (
     get_logger, log_operation, log_exception,
