@@ -60,48 +60,11 @@ Source: "{#SourceDir}\adbtools_config.json"; DestDir: "{app}"; Flags: ignorevers
 ; 图标文件
 Source: "{#SourceDir}\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
-; PyQt5 相关文件和插件（包含 Qt5 子目录）
-Source: "{#SourceDir}\PyQt5\*"; DestDir: "{app}\PyQt5"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#SourceDir}\qt5*.dll"; DestDir: "{app}"; Flags: ignoreversion
-
-; uiautomator2 资源文件
+; uiautomator2 资源文件（Nuitka OneFile 模式不会自动包含，需手动复制）
 Source: "{#SourceDir}\uiautomator2\*"; DestDir: "{app}\uiautomator2"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; adbutils 二进制文件（包含 adb.exe 等）
+; adbutils 二进制文件（包含 adb.exe 等，Nuitka OneFile 模式不会自动包含，需手动复制）
 Source: "{#SourceDir}\adbutils\*"; DestDir: "{app}\adbutils"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; apkutils 数据文件
-Source: "{#SourceDir}\apkutils\*"; DestDir: "{app}\apkutils"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; certifi 证书文件
-Source: "{#SourceDir}\certifi\*"; DestDir: "{app}\certifi"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; charset_normalizer 模块
-Source: "{#SourceDir}\charset_normalizer\*"; DestDir: "{app}\charset_normalizer"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; cryptography 模块
-Source: "{#SourceDir}\cryptography\*"; DestDir: "{app}\cryptography"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; jaraco 文本数据
-Source: "{#SourceDir}\jaraco\*"; DestDir: "{app}\jaraco"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; lxml 模块
-Source: "{#SourceDir}\lxml\*"; DestDir: "{app}\lxml"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; markupsafe 模块
-Source: "{#SourceDir}\markupsafe\*"; DestDir: "{app}\markupsafe"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; PIL/Pillow 图像处理库
-Source: "{#SourceDir}\PIL\*"; DestDir: "{app}\PIL"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; psutil 系统监控模块
-Source: "{#SourceDir}\psutil\*"; DestDir: "{app}\psutil"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; pytz 时区数据
-Source: "{#SourceDir}\pytz\*"; DestDir: "{app}\pytz"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; zstandard 压缩库
-Source: "{#SourceDir}\zstandard\*"; DestDir: "{app}\zstandard"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
