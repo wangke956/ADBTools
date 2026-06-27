@@ -292,7 +292,8 @@ jobs:
           4. 从开始菜单或桌面快捷方式启动
         draft: false
         prerelease: false
-        token: ${{ secrets.GITHUB_TOKEN }}
+        # GITHUB_TOKEN 会自动提供，无需显式指定
+        # token: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Send notification (optional)
       if: always()
