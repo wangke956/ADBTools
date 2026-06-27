@@ -82,49 +82,89 @@ class U2ConnectThread(DeviceBaseThread):
         super().__init__(device_id, "U2ConnectThread")
         
     def _run_implementation(self):
-        """尝试U2连接"""
+        """尝试U2连接（带自动重试机制）"""
         start_time = time.time()
         self.progress_signal.emit(f"正在连接到设备: {self.device_id}")
         
-        try:
-            # 直接尝试U2连接
-            d = u2.connect(self.device_id)
-            
-            if d:
-                # 获取设备详细信息
-                try:
-                    info = d.info
-                    device_info = {
-                        'serial': self.device_id,
-                        'model': info.get('model', 'Unknown'),
-                        'brand': info.get('brand', 'Unknown'),
-                        'version': info.get('version', 'Unknown'),
-                        'sdk': info.get('sdk', 'Unknown'),
-                        'manufacturer': info.get('manufacturer', 'Unknown')
-                    }
-                    
-                    elapsed_time = time.time() - start_time
-                    self.progress_signal.emit(f"U2连接成功: {self.device_id}")
-                    self.progress_signal.emit(f"设备型号: {device_info['brand']} {device_info['model']}")
-                    self.progress_signal.emit(f"Android版本: {device_info['version']}")
-                    self.progress_signal.emit(f"SDK版本: {device_info['sdk']}")
-                    
-                    self.connected_signal.emit(d, self.device_id)
-                    
-                except Exception as info_error:
-                    # 如果获取设备信息失败，降级到ADB模式
-                    self.progress_signal.emit(f"U2连接无法获取设备信息，降级到ADB模式: {self.device_id}")
-                    self.progress_signal.emit(f"原因: {str(info_error)}")
-                    self.connected_signal.emit(None, self.device_id)
-            else:
-                error_msg = f"U2连接失败: 无法连接到设备 {self.device_id}"
-                self.error_signal.emit(error_msg)
-                self.connected_signal.emit(None, self.device_id)
+        # 配置重试参数
+        max_retries = 3  # 最大重试次数
+        retry_delay = 2  # 每次重试间隔（秒）
+        
+        last_error = None
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                if attempt > 1:
+                    self.progress_signal.emit(f"第{attempt}次尝试U2连接...")
                 
-        except Exception as e:
-            error_msg = f"U2连接异常: {str(e)}"
-            self.error_signal.emit(error_msg)
-            self.connected_signal.emit(None, self.device_id)
+                # 尝试U2连接
+                d = u2.connect(self.device_id)
+                
+                if d:
+                    # 获取设备详细信息
+                    try:
+                        info = d.info
+                        device_info = {
+                            'serial': self.device_id,
+                            'model': info.get('model', 'Unknown'),
+                            'brand': info.get('brand', 'Unknown'),
+                            'version': info.get('version', 'Unknown'),
+                            'sdk': info.get('sdk', 'Unknown'),
+                            'manufacturer': info.get('manufacturer', 'Unknown')
+                        }
+                        
+                        elapsed_time = time.time() - start_time
+                        if attempt > 1:
+                            self.progress_signal.emit(f"U2连接成功（第{attempt}次尝试）: {self.device_id}")
+                        else:
+                            self.progress_signal.emit(f"U2连接成功: {self.device_id}")
+                        self.progress_signal.emit(f"设备型号: {device_info['brand']} {device_info['model']}")
+                        self.progress_signal.emit(f"Android版本: {device_info['version']}")
+                        self.progress_signal.emit(f"SDK版本: {device_info['sdk']}")
+                        
+                        self.connected_signal.emit(d, self.device_id)
+                        return  # 连接成功，直接返回
+                        
+                    except Exception as info_error:
+                        error_str = str(info_error)
+                        # 如果是ApplicationSharedMemory未初始化错误，说明server还没启动完成，需要重试
+                        if 'ApplicationSharedMemory not initialized' in error_str and attempt < max_retries:
+                            self.progress_signal.emit(f"U2服务尚未完全启动，等待{retry_delay}秒后重试...")
+                            last_error = info_error
+                            time.sleep(retry_delay)
+                            continue
+                        else:
+                            # 其他错误或已达到最大重试次数，降级到ADB模式
+                            self.progress_signal.emit(f"U2连接无法获取设备信息，降级到ADB模式: {self.device_id}")
+                            self.progress_signal.emit(f"原因: {error_str}")
+                            self.connected_signal.emit(None, self.device_id)
+                            return
+                else:
+                    error_msg = f"U2连接失败: 无法连接到设备 {self.device_id}"
+                    self.error_signal.emit(error_msg)
+                    self.connected_signal.emit(None, self.device_id)
+                    return
+                    
+            except Exception as e:
+                error_str = str(e)
+                # 如果是ApplicationSharedMemory未初始化错误，且还有重试机会
+                if 'ApplicationSharedMemory not initialized' in error_str and attempt < max_retries:
+                    self.progress_signal.emit(f"U2服务尚未完全启动，等待{retry_delay}秒后重试...")
+                    last_error = e
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    # 其他错误或已达到最大重试次数
+                    error_msg = f"U2连接异常: {error_str}"
+                    self.error_signal.emit(error_msg)
+                    self.connected_signal.emit(None, self.device_id)
+                    return
+        
+        # 所有重试都失败，降级到ADB模式
+        self.progress_signal.emit(f"U2连接多次尝试失败，降级到ADB模式: {self.device_id}")
+        if last_error:
+            self.progress_signal.emit(f"最后错误: {str(last_error)}")
+        self.connected_signal.emit(None, self.device_id)
 
 
 class RebootDeviceThread(DeviceBaseThread):
