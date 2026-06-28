@@ -85,12 +85,14 @@ jobs:
         
         TAG_NAME="v${{ steps.get_version.outputs.version }}"
         
-        # 检查 tag 是否已存在
-        if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-          echo "Tag $TAG_NAME already exists, deleting..."
-          git tag -d "$TAG_NAME"
-          git push origin ":refs/tags/$TAG_NAME" || true
+        # 检查 tag 是否已存在于远程
+        if git ls-remote --tags origin "$TAG_NAME" | grep -q "$TAG_NAME"; then
+          echo "Tag $TAG_NAME already exists on remote, deleting..."
+          git push origin --delete "$TAG_NAME" || exit 1
         fi
+        
+        # 删除本地 tag（如果存在）
+        git tag -d "$TAG_NAME" 2>/dev/null || true
         
         # 创建新 tag
         git tag "$TAG_NAME"
