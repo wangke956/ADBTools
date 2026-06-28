@@ -100,6 +100,27 @@ jobs:
         
         echo "✅ Created and pushed tag: $TAG_NAME"
         
+    - name: Verify git tag was created
+      shell: bash
+      run: |
+        TAG_NAME="v${{ steps.get_version.outputs.version }}"
+        
+        # 验证本地 tag
+        if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+          echo "✅ Tag $TAG_NAME 已在本地创建"
+        else
+          echo "❌ 本地找不到 tag $TAG_NAME"
+          exit 1
+        fi
+        
+        # 验证远程 tag
+        if git ls-remote --tags origin "$TAG_NAME" | grep -q "refs/tags/$TAG_NAME"; then
+          echo "✅ Tag $TAG_NAME 已成功推送到远程"
+        else
+          echo "❌ 远程找不到 tag $TAG_NAME"
+          exit 1
+        fi
+        
     - name: Update version in config
       shell: python
       run: |
@@ -262,6 +283,7 @@ jobs:
       if: github.event.inputs.release == 'true'
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: v${{ steps.get_version.outputs.version }}
         files: |
           ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip
           Output/ADBTools_Setup.exe
