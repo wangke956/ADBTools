@@ -59,5 +59,6 @@ Write-Host "🔗 查看构建进度:" -ForegroundColor Cyan
 Write-Host "   https://github.com/wangke956/ADBTools/actions" -ForegroundColor Blue
 Write-Host ""
 Write-Host "🔗 构建完成后下载:" -ForegroundColor Cyan
-Write-Host "   https://github.com/wangke956/ADBTools/releases/tag/v$Version" -ForegroundColor Blue
+$releaseUrl = "https://github.com/wangke956/ADBTools/releases/tag/v$Version"
+Write-Host "   $releaseUrl" -ForegroundColor Blue
 Write-Host ""
