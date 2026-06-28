@@ -1,5 +1,8 @@
 name: Build and Package ADBTools
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -74,6 +77,7 @@ jobs:
         echo "Final version: $VERSION"
         
     - name: Create and push git tag
+      shell: bash
       run: |
         # 为 Release 创建对应的 git tag
         git config user.name "GitHub Actions"
