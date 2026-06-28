@@ -2,7 +2,6 @@ name: Build and Package ADBTools
 
 on:
   push:
-    branches: [ main, master ]
     tags:
       - 'v*'
   pull_request:
@@ -17,7 +16,7 @@ on:
         description: '是否创建 Release'
         required: false
         type: boolean
-        default: false
+        default: true
 
 env:
   PYTHON_VERSION: '3.10'
@@ -254,7 +253,7 @@ jobs:
         retention-days: 90
         
     - name: Create GitHub Release
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true' || startsWith(github.ref, 'refs/tags/v')
+      if: (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true') || startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v2
       with:
         files: |
