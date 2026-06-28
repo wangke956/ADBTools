@@ -97,51 +97,6 @@ jobs:
             out.write(f"version={version}\n")
         print('Using version:', version)
         
-    - name: Create and push git tag
-      shell: bash
-      run: |
-        # 为 Release 创建对应的 git tag
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-        
-        TAG_NAME="v${{ steps.get_version.outputs.version }}"
-        
-        # 检查 tag 是否已存在于远程
-        if git ls-remote --tags origin "$TAG_NAME" | grep -q "$TAG_NAME"; then
-          echo "Tag $TAG_NAME already exists on remote, deleting..."
-          git push origin --delete "$TAG_NAME" || exit 1
-        fi
-        
-        # 删除本地 tag（如果存在）
-        git tag -d "$TAG_NAME" 2>/dev/null || true
-        
-        # 创建新 tag
-        git tag "$TAG_NAME"
-        git push origin "$TAG_NAME"
-        
-        echo "✅ Created and pushed tag: $TAG_NAME"
-        
-    - name: Verify git tag was created
-      shell: bash
-      run: |
-        TAG_NAME="v${{ steps.get_version.outputs.version }}"
-        
-        # 验证本地 tag
-        if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-          echo "✅ Tag $TAG_NAME 已在本地创建"
-        else
-          echo "❌ 本地找不到 tag $TAG_NAME"
-          exit 1
-        fi
-        
-        # 验证远程 tag
-        if git ls-remote --tags origin "$TAG_NAME" | grep -q "refs/tags/$TAG_NAME"; then
-          echo "✅ Tag $TAG_NAME 已成功推送到远程"
-        else
-          echo "❌ 远程找不到 tag $TAG_NAME"
-          exit 1
-        fi
-        
     - name: Update version in config
       shell: python
       run: |
@@ -175,7 +130,101 @@ jobs:
                 print('Failed to update config:', e)
         else:
             print('Config file not found, skipping version update')
+
+    - name: Update version in .iss file
+      run: |
+        # 从 config_manager 获取版本号并更新 .iss 文件
+        $version = "${{ steps.get_version.outputs.version }}"
+        $issFile = "ADBTools_setup.iss"
         
+        if (Test-Path $issFile) {
+            $content = Get-Content $issFile -Raw
+            $content = $content -replace '#define MyAppVersion "[^"]+"', "#define MyAppVersion `"$version`""
+            Set-Content -Path $issFile -Value $content -NoNewline
+            Write-Host "Updated .iss version to: $version"
+        } else {
+            Write-Host "Warning: ADBTools_setup.iss not found"
+        }
+
+    - name: Write version into source files (config_manager.py & config_manager_enhanced.py)
+      env:
+        VERSION: ${{ steps.get_version.outputs.version }}
+      shell: python
+      run: |
+        import os, re
+        version = os.environ.get('VERSION', '1.0.0')
+        parts = version.split('.')
+        def to_int(i):
+            try:
+                return int(i)
+            except:
+                return 0
+        major = to_int(parts[0]) if len(parts)>0 else 1
+        minor = to_int(parts[1]) if len(parts)>1 else 0
+        patch = to_int(parts[2]) if len(parts)>2 else 0
+        build = to_int(parts[3]) if len(parts)>3 else 0
+
+        def replace_version_block(text):
+            new_block = (
+                '"version": {\n'
+                f'            "major": {major},\n'
+                f'            "minor": {minor},\n'
+                f'            "patch": {patch},\n'
+                f'            "build": {build},\n'
+                '        }'
+            )
+            # replace the first occurrence of "version": { ... }
+            return re.sub(r'"version"\s*:\s*\{.*?\}', new_block, text, count=1, flags=re.S)
+
+        files = ['config_manager.py', 'config_manager_enhanced.py']
+        for fp in files:
+            if os.path.exists(fp):
+                with open(fp, 'r', encoding='utf-8') as f:
+                    txt = f.read()
+                new_txt = replace_version_block(txt)
+                if new_txt != txt:
+                    with open(fp, 'w', encoding='utf-8') as f:
+                        f.write(new_txt)
+                    print(f'Updated version in {fp} to {version}')
+                else:
+                    print(f'No version block replaced in {fp} (pattern not found)')
+            else:
+                print(f'{fp} not found, skipping')
+
+    - name: Commit updated version files
+      shell: bash
+      env:
+        VERSION: ${{ steps.get_version.outputs.version }}
+      run: |
+        set -e
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add config_manager.py config_manager_enhanced.py adbtools_config.json ADBTools_setup.iss || true
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "ci: update version to v${VERSION} in source/config files"
+          git push origin HEAD:${{ github.ref_name }}
+        fi
+
+    - name: Force-update tag to point to latest commit
+      if: always()
+      shell: bash
+      env:
+        VERSION: ${{ steps.get_version.outputs.version }}
+      run: |
+        set -e
+        TAG_NAME="v${VERSION}"
+        # Delete remote tag if exists
+        if git ls-remote --tags origin "$TAG_NAME" | grep -q "refs/tags/$TAG_NAME"; then
+          git push origin --delete "$TAG_NAME" || true
+        fi
+        # Delete local tag if exists
+        git tag -d "$TAG_NAME" 2>/dev/null || true
+        # Create new tag at current HEAD
+        git tag "$TAG_NAME"
+        git push origin "$TAG_NAME"
+
     - name: Download platform-tools
       run: |
         # 下载 Android platform-tools
@@ -240,21 +289,6 @@ jobs:
             choco install innosetup -y --no-progress
             echo "$innoPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
             Write-Host "Inno Setup installed via Chocolatey"
-        }
-        
-    - name: Update version in .iss file
-      run: |
-        # 从 config_manager 获取版本号并更新 .iss 文件
-        $version = "${{ steps.get_version.outputs.version }}"
-        $issFile = "ADBTools_setup.iss"
-        
-        if (Test-Path $issFile) {
-            $content = Get-Content $issFile -Raw
-            $content = $content -replace '#define MyAppVersion "[^"]+"', "#define MyAppVersion `"$version`""
-            Set-Content -Path $issFile -Value $content -NoNewline
-            Write-Host "Updated .iss version to: $version"
-        } else {
-            Write-Host "Warning: ADBTools_setup.iss not found"
         }
         
     - name: Build installer with Inno Setup
