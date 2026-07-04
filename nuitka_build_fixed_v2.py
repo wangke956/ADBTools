@@ -213,7 +213,7 @@ def get_nuitka_command(build_type="onefile"):
         if dist_assets_dir.exists():
             shutil.rmtree(dist_assets_dir)
         dist_assets_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(u2_assets_dir, dist_assets_dir)
+        # shutil.copytree(u2_assets_dir, dist_assets_dir)
         print(f"已复制 uiautomator2 assets 目录到: {dist_assets_dir}")
 
         # 复制到 build_nuitka 目录（重要！Nuitka打包时会从这里读取资源）
@@ -252,7 +252,7 @@ def get_nuitka_command(build_type="onefile"):
         if dist_binaries_dir.exists():
             shutil.rmtree(dist_binaries_dir)
         dist_binaries_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(adbutils_binaries_dir, dist_binaries_dir)
+        # shutil.copytree(adbutils_binaries_dir, dist_binaries_dir)
         print(f"已复制 adbutils binaries 目录到: {dist_binaries_dir}")
 
         # 复制到 build_nuitka 目录

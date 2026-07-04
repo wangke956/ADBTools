@@ -63,11 +63,12 @@ jobs:
           
     - name: Install system dependencies
       run: |
-        # 安装 Visual C++ Build Tools（Nuitka 需要）
         choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools" --no-progress
-        # 新增MinGW，解决LTO链接失败无exe
         choco install mingw --no-progress
-        echo "C:\tools\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        # 改用全局持久PATH，所有步骤（Python/Shell）都能读取
+        echo "C:\tools\mingw64\bin" >> $env:GITHUB_PATH
+        # 验证gcc是否可用，提前打印日志
+        gcc --version
         
     - name: Install Python dependencies
       run: |
@@ -206,6 +207,7 @@ jobs:
                 print(f'{fp} not found, skipping')
 
     - name: Commit updated version files
+      if: false  # 新增，临时关闭
       shell: bash
       env:
         VERSION: ${{ steps.get_version.outputs.version }}
@@ -276,8 +278,9 @@ jobs:
         
     - name: Build with Nuitka (OneFile)
       run: |
+        $env:Path = "C:\tools\mingw64\bin;" + $env:Path
+        gcc --version
         python nuitka_build_fixed_v2.py --build onefile
-        # 强制打印目录，定位exe在哪、有没有生成
         Write-Host "==== build_nuitka 全部文件 ===="
         Get-ChildItem -Recurse build_nuitka -ErrorAction SilentlyContinue
         Write-Host "==== dist_nuitka 全部文件 ===="
