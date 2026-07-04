@@ -466,12 +466,12 @@ class ChmodThread(QThread):
 
 
 class FolderUploadThread(QThread):
-    """文件夹上传线程 - 递归上传整个文件夹到设备"""
+    """文件夹上传线程 - 递归上传整个文件夹到设备【修复权限崩溃问题】"""
     progress_signal = pyqtSignal(str)  # 进度信息
     progress_percent = pyqtSignal(int)  # 进度百分比 (0-100)
     file_progress_signal = pyqtSignal(int, int)  # 当前文件数, 总文件数
     finished_signal = pyqtSignal(int, int, int)  # 成功数, 失败数, 跳过数
-    
+
     def __init__(self, device_id, local_folder, device_folder, connection_mode='adb', d=None):
         super().__init__()
         self.device_id = device_id
@@ -489,13 +489,13 @@ class FolderUploadThread(QThread):
         folder_name = os.path.basename(self.local_folder)
         target_folder = self.device_folder.rstrip('/') + '/' + folder_name
 
-        # 统计总文件数（先修复统计函数，跳过权限目录）
+        # 统计总文件（安全遍历，跳过无权目录）
         def safe_count_walk(root_path):
             cnt = 0
             try:
                 for root, dirs, files in os.walk(root_path):
                     cnt += len(files)
-                    # 过滤无权访问的子目录，防止walk进入
+                    # 过滤无权子目录
                     valid_dirs = []
                     for d in dirs:
                         full_d = os.path.join(root, d)
@@ -504,6 +504,8 @@ class FolderUploadThread(QThread):
                     dirs[:] = valid_dirs
             except PermissionError:
                 logger.warning(f"统计文件跳过无权目录：{root_path}")
+            except Exception as e:
+                logger.warning(f"统计目录异常 {root_path}: {str(e)}")
             return cnt
 
         total_files = safe_count_walk(self.local_folder)
@@ -511,15 +513,29 @@ class FolderUploadThread(QThread):
 
         self.progress_signal.emit(f"准备上传文件夹: {folder_name} ({total_files} 个文件)")
 
-        # 在设备上创建根目录
+        # 创建设备根目录
         if not self._create_device_dir(target_folder):
             self.finished_signal.emit(0, 0, 0)
             return
 
-        # 递归遍历本地文件夹（安全版，捕获权限异常）
+        # 【修复点1】外层捕获整体遍历异常，防止直接崩溃
         try:
-            for root, dirs, files in os.walk(self.local_folder):
-                # 过滤掉无读取权限的子文件夹，阻止walk进入
+            walk_generator = os.walk(self.local_folder)
+            while True:
+                try:
+                    root, dirs, files = next(walk_generator)
+                except StopIteration:
+                    break
+                except PermissionError as e:
+                    skip_count += 1
+                    logger.warning(f"遍历目录无权限跳过: {e.filename}")
+                    continue
+                except Exception as e:
+                    fail_count += 1
+                    logger.error(f"遍历目录发生未知异常: {str(e)}")
+                    continue
+
+                # 过滤无权子文件夹，阻止walk进入
                 valid_sub_dirs = []
                 for dir_name in dirs:
                     sub_dir_full = os.path.join(root, dir_name)
@@ -528,15 +544,14 @@ class FolderUploadThread(QThread):
                     else:
                         skip_count += 1
                         logger.warning(f"跳过无权限本地子目录：{sub_dir_full}")
-                # 原地修改dirs，os.walk只会遍历保留的目录
                 dirs[:] = valid_sub_dirs
 
-                # 计算相对路径
+                # 拼接相对路径
                 rel_path = os.path.relpath(root, self.local_folder)
                 if rel_path == '.':
                     rel_path = ''
 
-                # 在设备上创建子目录
+                # 创建设备子目录
                 for dir_name in dirs:
                     if rel_path:
                         device_subdir = f"{target_folder}/{rel_path}/{dir_name}".replace('\\', '/')
@@ -544,10 +559,16 @@ class FolderUploadThread(QThread):
                         device_subdir = f"{target_folder}/{dir_name}"
                     self._create_device_dir(device_subdir)
 
-                # 上传文件
+                # 循环上传单个文件
                 for file_name in files:
                     current_file += 1
                     local_file = os.path.join(root, file_name)
+
+                    # 【修复点2】单文件读取权限预检
+                    if not os.access(local_file, os.R_OK):
+                        skip_count += 1
+                        logger.warning(f"文件无读取权限跳过：{local_file}")
+                        continue
 
                     if rel_path:
                         device_file = f"{target_folder}/{rel_path}/{file_name}".replace('\\', '/')
@@ -555,7 +576,6 @@ class FolderUploadThread(QThread):
                         device_file = f"{target_folder}/{file_name}"
 
                     self.file_progress_signal.emit(current_file, total_files)
-                    # 计算进度百分比
                     percent = int((current_file / total_files) * 100) if total_files > 0 else 0
                     self.progress_percent.emit(percent)
                     self.progress_signal.emit(f"上传中 ({current_file}/{total_files}): {file_name}")
@@ -570,28 +590,23 @@ class FolderUploadThread(QThread):
                                 raise Exception(result.stderr)
                         success_count += 1
                         logger.info(f"上传成功: {file_name}")
-                    except PermissionError:
-                        # 单文件无读取权限，跳过
-                        skip_count += 1
-                        logger.error(f"本地文件无读取权限，跳过：{local_file}")
                     except Exception as e:
                         fail_count += 1
                         logger.error(f"上传失败: {file_name} - {str(e)}")
-        except PermissionError as e:
-            skip_count += 1
-            logger.warning(f"遍历目录遇到权限限制，部分文件已跳过：{str(e)}")
+
         except Exception as e:
-            fail_count += 1
-            logger.error(f"遍历文件夹异常: {str(e)}")
+            # 兜底捕获顶层遍历全部异常
+            skip_count += 1
+            logger.error(f"文件夹整体遍历异常，部分文件已跳过: {str(e)}")
 
         self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count, skip_count)
-    
+
     def _create_device_dir(self, dir_path):
         """在设备上创建目录"""
         try:
             mkdir_cmd = f'mkdir -p "{dir_path}"'
-            
+
             if self.connection_mode == 'u2' and self.d:
                 self.d.shell(mkdir_cmd)
             else:
