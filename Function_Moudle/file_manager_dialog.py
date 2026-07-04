@@ -479,72 +479,111 @@ class FolderUploadThread(QThread):
         self.device_folder = device_folder
         self.connection_mode = connection_mode
         self.d = d
-    
+
     def run(self):
         success_count = 0
         fail_count = 0
         skip_count = 0
-        
+
         # 获取文件夹名称
         folder_name = os.path.basename(self.local_folder)
         target_folder = self.device_folder.rstrip('/') + '/' + folder_name
-        
-        # 统计总文件数
-        total_files = sum(len(files) for _, _, files in os.walk(self.local_folder))
+
+        # 统计总文件数（先修复统计函数，跳过权限目录）
+        def safe_count_walk(root_path):
+            cnt = 0
+            try:
+                for root, dirs, files in os.walk(root_path):
+                    cnt += len(files)
+                    # 过滤无权访问的子目录，防止walk进入
+                    valid_dirs = []
+                    for d in dirs:
+                        full_d = os.path.join(root, d)
+                        if os.access(full_d, os.R_OK):
+                            valid_dirs.append(d)
+                    dirs[:] = valid_dirs
+            except PermissionError:
+                logger.warning(f"统计文件跳过无权目录：{root_path}")
+            return cnt
+
+        total_files = safe_count_walk(self.local_folder)
         current_file = 0
-        
+
         self.progress_signal.emit(f"准备上传文件夹: {folder_name} ({total_files} 个文件)")
-        
+
         # 在设备上创建根目录
         if not self._create_device_dir(target_folder):
             self.finished_signal.emit(0, 0, 0)
             return
-        
-        # 递归遍历本地文件夹
-        for root, dirs, files in os.walk(self.local_folder):
-            # 计算相对路径
-            rel_path = os.path.relpath(root, self.local_folder)
-            if rel_path == '.':
-                rel_path = ''
-            
-            # 在设备上创建子目录
-            for dir_name in dirs:
-                if rel_path:
-                    device_subdir = f"{target_folder}/{rel_path}/{dir_name}".replace('\\', '/')
-                else:
-                    device_subdir = f"{target_folder}/{dir_name}"
-                self._create_device_dir(device_subdir)
-            
-            # 上传文件
-            for file_name in files:
-                current_file += 1
-                local_file = os.path.join(root, file_name)
-                
-                if rel_path:
-                    device_file = f"{target_folder}/{rel_path}/{file_name}".replace('\\', '/')
-                else:
-                    device_file = f"{target_folder}/{file_name}"
-                
-                self.file_progress_signal.emit(current_file, total_files)
-                # 计算进度百分比
-                percent = int((current_file / total_files) * 100) if total_files > 0 else 0
-                self.progress_percent.emit(percent)
-                self.progress_signal.emit(f"上传中 ({current_file}/{total_files}): {file_name}")
-                
-                try:
-                    if self.connection_mode == 'u2' and self.d:
-                        self.d.push(local_file, device_file)
+
+        # 递归遍历本地文件夹（安全版，捕获权限异常）
+        try:
+            for root, dirs, files in os.walk(self.local_folder):
+                # 过滤掉无读取权限的子文件夹，阻止walk进入
+                valid_sub_dirs = []
+                for dir_name in dirs:
+                    sub_dir_full = os.path.join(root, dir_name)
+                    if os.access(sub_dir_full, os.R_OK):
+                        valid_sub_dirs.append(dir_name)
                     else:
-                        cmd = f'adb -s {self.device_id} push "{local_file}" "{device_file}"'
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-                        if result.returncode != 0:
-                            raise Exception(result.stderr)
-                    success_count += 1
-                    logger.info(f"上传成功: {file_name}")
-                except Exception as e:
-                    fail_count += 1
-                    logger.error(f"上传失败: {file_name} - {str(e)}")
-        
+                        skip_count += 1
+                        logger.warning(f"跳过无权限本地子目录：{sub_dir_full}")
+                # 原地修改dirs，os.walk只会遍历保留的目录
+                dirs[:] = valid_sub_dirs
+
+                # 计算相对路径
+                rel_path = os.path.relpath(root, self.local_folder)
+                if rel_path == '.':
+                    rel_path = ''
+
+                # 在设备上创建子目录
+                for dir_name in dirs:
+                    if rel_path:
+                        device_subdir = f"{target_folder}/{rel_path}/{dir_name}".replace('\\', '/')
+                    else:
+                        device_subdir = f"{target_folder}/{dir_name}"
+                    self._create_device_dir(device_subdir)
+
+                # 上传文件
+                for file_name in files:
+                    current_file += 1
+                    local_file = os.path.join(root, file_name)
+
+                    if rel_path:
+                        device_file = f"{target_folder}/{rel_path}/{file_name}".replace('\\', '/')
+                    else:
+                        device_file = f"{target_folder}/{file_name}"
+
+                    self.file_progress_signal.emit(current_file, total_files)
+                    # 计算进度百分比
+                    percent = int((current_file / total_files) * 100) if total_files > 0 else 0
+                    self.progress_percent.emit(percent)
+                    self.progress_signal.emit(f"上传中 ({current_file}/{total_files}): {file_name}")
+
+                    try:
+                        if self.connection_mode == 'u2' and self.d:
+                            self.d.push(local_file, device_file)
+                        else:
+                            cmd = f'adb -s {self.device_id} push "{local_file}" "{device_file}"'
+                            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+                            if result.returncode != 0:
+                                raise Exception(result.stderr)
+                        success_count += 1
+                        logger.info(f"上传成功: {file_name}")
+                    except PermissionError:
+                        # 单文件无读取权限，跳过
+                        skip_count += 1
+                        logger.error(f"本地文件无读取权限，跳过：{local_file}")
+                    except Exception as e:
+                        fail_count += 1
+                        logger.error(f"上传失败: {file_name} - {str(e)}")
+        except PermissionError as e:
+            skip_count += 1
+            logger.warning(f"遍历目录遇到权限限制，部分文件已跳过：{str(e)}")
+        except Exception as e:
+            fail_count += 1
+            logger.error(f"遍历文件夹异常: {str(e)}")
+
         self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count, skip_count)
     
@@ -827,6 +866,9 @@ class FileManagerDialog(QDialog):
     
     def __init__(self, parent=None, device_id=None, connection_mode='adb', d=None):
         super().__init__(parent)
+        # 传输队列与运行锁
+        self.is_transfer_running = False  # 是否正在传输
+        self.folder_upload_queue = []  # 待上传文件夹队列
         
         # 应用高DPI适配和全局字体设置
         self._apply_high_dpi_settings()
@@ -925,6 +967,25 @@ class FileManagerDialog(QDialog):
             self._init_from_parent_connection(device_id, connection_mode, d)
             self._refresh_device_files()
             self._refresh_local_files()
+
+    def _process_next_upload_folder(self):
+        """处理队列中下一个待上传文件夹"""
+        # 队列为空，全部上传完成
+        if not self.folder_upload_queue:
+            self.is_transfer_running = False
+            return
+        # 取出队首文件夹
+        folder_path = self.folder_upload_queue.pop(0)
+        self._do_upload_folder(folder_path)
+
+    def _on_batch_file_upload_all_finished(self, success_count, fail_count):
+        """批量文件上传完成回调，继续处理文件夹队列"""
+        # 原有逻辑保留
+        self.progressBar.setVisible(False)
+        self.statusLabel.setText(f"上传文件完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self._refresh_device_files()
+        # 开始处理文件夹队列
+        self._process_next_upload_folder()
     
     def _init_device_controls(self):
         """初始化独立的设备管理控件"""
@@ -1611,19 +1672,12 @@ class FileManagerDialog(QDialog):
         """列表获取错误"""
         self.statusLabel.setText(error_msg)
         QMessageBox.warning(self, "错误", error_msg)
-    
+
     def _refresh_local_files(self):
         """刷新本地文件列表"""
         self.localTree.clear()
-        
+
         try:
-            # 添加返回上级目录
-            # if self.local_current_path != os.path.dirname(self.local_current_path):
-            #     parent_item = QTreeWidgetItem(['.. (上级目录)', '', '', ''])
-            #     parent_item.setData(0, Qt.UserRole, 'parent')
-            #     parent_item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
-            #     self.localTree.addTopLevelItem(parent_item)
-            
             items = os.listdir(self.local_current_path)
             for item_name in items:
                 item_path = os.path.join(self.local_current_path, item_name)
@@ -1632,10 +1686,10 @@ class FileManagerDialog(QDialog):
                     is_dir = stat.S_ISDIR(stat_info.st_mode)
                     size = stat_info.st_size if not is_dir else 0
                     mod_time = datetime.fromtimestamp(stat_info.st_mtime).strftime('%Y-%m-%d %H:%M')
-                    
+
                     size_str = '<DIR>' if is_dir else self._format_size(size)
                     file_type = '文件夹' if is_dir else os.path.splitext(item_name)[1] or '文件'
-                    
+
                     item = QTreeWidgetItem([
                         item_name,
                         size_str,
@@ -1643,16 +1697,21 @@ class FileManagerDialog(QDialog):
                         mod_time
                     ])
                     item.setData(0, Qt.UserRole, {'path': item_path, 'is_dir': is_dir, 'name': item_name})
-                    
+
                     if is_dir:
                         item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
                     else:
                         item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
-                    
+
                     self.localTree.addTopLevelItem(item)
                 except PermissionError:
+                    # 无权访问该文件/文件夹，直接跳过，不弹窗
+                    logger.warning(f"无权限访问本地路径，已跳过：{item_path}")
                     continue
-            
+                except Exception as e:
+                    logger.warning(f"读取本地文件失败 {item_path}: {str(e)}")
+                    continue
+
             self.localPathEdit.setText(self.local_current_path)
             self.statusLabel.setText(f"本地: {len(items)} 个项目")
         except Exception as e:
@@ -1982,13 +2041,61 @@ class FileManagerDialog(QDialog):
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
+    # def _upload_selected(self):
+    #     """上传选中的本地文件或文件夹"""
+    #     selected_items = self.localTree.selectedItems()
+    #     if not selected_items:
+    #         QMessageBox.information(self, "提示", "请先选择要上传的文件或文件夹")
+    #         return
+    #
+    #     # 分离文件和文件夹
+    #     file_paths = []
+    #     folder_paths = []
+    #     for item in selected_items:
+    #         data = item.data(0, Qt.UserRole)
+    #         if isinstance(data, dict):
+    #             if data.get('is_dir'):
+    #                 folder_paths.append(data['path'])
+    #             else:
+    #                 file_paths.append(data['path'])
+    #
+    #     if not file_paths and not folder_paths:
+    #         QMessageBox.information(self, "提示", "请选择有效的文件或文件夹")
+    #         return
+    #
+    #     # 构建确认消息
+    #     msg_parts = []
+    #     if file_paths:
+    #         msg_parts.append(f"{len(file_paths)} 个文件")
+    #     if folder_paths:
+    #         msg_parts.append(f"{len(folder_paths)} 个文件夹")
+    #
+    #     reply = QMessageBox.question(
+    #         self, '确认上传',
+    #         f"确定要上传 {' 和 '.join(msg_parts)} 到设备吗？\n目标路径: {self.device_current_path}",
+    #         QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+    #     )
+    #
+    #     if reply == QMessageBox.Yes:
+    #         # 上传文件
+    #         if file_paths:
+    #             self._upload_files_batch(file_paths)
+    #         # 上传文件夹
+    #         for folder_path in folder_paths:
+    #             self._do_upload_folder(folder_path)
+
     def _upload_selected(self):
         """上传选中的本地文件或文件夹"""
         selected_items = self.localTree.selectedItems()
         if not selected_items:
             QMessageBox.information(self, "提示", "请先选择要上传的文件或文件夹")
             return
-        
+
+        # 传输中禁止重复执行
+        if self.is_transfer_running:
+            QMessageBox.information(self, "提示", "当前正在传输文件，请等待完成后再操作")
+            return
+
         # 分离文件和文件夹
         file_paths = []
         folder_paths = []
@@ -1999,31 +2106,61 @@ class FileManagerDialog(QDialog):
                     folder_paths.append(data['path'])
                 else:
                     file_paths.append(data['path'])
-        
+
         if not file_paths and not folder_paths:
             QMessageBox.information(self, "提示", "请选择有效的文件或文件夹")
             return
-        
+
+        # ====================== 新增权限预检逻辑 START ======================
+        # 收集所有无读取权限的路径
+        no_perm_paths = []
+        all_upload_paths = file_paths + folder_paths
+        for path in all_upload_paths:
+            if not os.access(path, os.R_OK):
+                no_perm_paths.append(path)
+
+        # 如果存在无权路径，弹窗提示
+        if no_perm_paths:
+            tip_text = "检测到以下文件/文件夹无读取权限，上传过程中将自动跳过：\n"
+            # 最多展示前5条，避免弹窗过长
+            show_list = no_perm_paths[:5]
+            for p in show_list:
+                tip_text += f"- {p}\n"
+            if len(no_perm_paths) > 5:
+                tip_text += f"\n... 还有 {len(no_perm_paths) - 5} 个无权路径未展示"
+            tip_text += "\n是否继续上传其余可正常读取的文件？"
+            reply = QMessageBox.question(self, "权限警告", tip_text, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if reply == QMessageBox.No:
+                return
+        # ====================== 新增权限预检逻辑 END ======================
+
         # 构建确认消息
         msg_parts = []
         if file_paths:
             msg_parts.append(f"{len(file_paths)} 个文件")
         if folder_paths:
             msg_parts.append(f"{len(folder_paths)} 个文件夹")
-        
+
         reply = QMessageBox.question(
             self, '确认上传',
             f"确定要上传 {' 和 '.join(msg_parts)} 到设备吗？\n目标路径: {self.device_current_path}",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
         )
-        
-        if reply == QMessageBox.Yes:
-            # 上传文件
-            if file_paths:
-                self._upload_files_batch(file_paths)
-            # 上传文件夹
-            for folder_path in folder_paths:
-                self._do_upload_folder(folder_path)
+
+        if reply != QMessageBox.Yes:
+            return
+
+        # 标记传输开始
+        self.is_transfer_running = True
+        # 填充文件夹队列
+        self.folder_upload_queue = folder_paths.copy()
+
+        # 先执行文件批量上传
+        if file_paths:
+            self._upload_files_batch(file_paths)
+        else:
+            # 无文件，直接开始上传文件夹
+            self._process_next_upload_folder()
     
     def _upload_item(self, file_info):
         """上传单个文件"""
@@ -2044,11 +2181,58 @@ class FileManagerDialog(QDialog):
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
+    # def _on_files_dropped(self, file_paths):
+    #     """处理拖放文件上传"""
+    #     if not file_paths:
+    #         return
+    #
+    #     # 分离文件和文件夹
+    #     files = []
+    #     folders = []
+    #     for path in file_paths:
+    #         if os.path.isdir(path):
+    #             folders.append(path)
+    #         elif os.path.isfile(path):
+    #             files.append(path)
+    #
+    #     # 显示确认对话框
+    #     msg_parts = []
+    #     if files:
+    #         msg_parts.append(f"{len(files)} 个文件")
+    #     if folders:
+    #         msg_parts.append(f"{len(folders)} 个文件夹")
+    #
+    #     msg = f"确定要上传 {' 和 '.join(msg_parts)} 到设备吗？\n目标路径: {self.device_current_path}"
+    #
+    #     reply = QMessageBox.question(
+    #         self, '确认上传', msg,
+    #         QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+    #     )
+    #
+    #     if reply != QMessageBox.Yes:
+    #         return
+    #
+    #     # 上传文件
+    #     if files:
+    #         self._upload_files_batch(files)
+    #
+    #     # 上传文件夹（需要在文件上传完成后处理）
+    #     if folders:
+    #         # 如果有文件正在上传，等待完成后再上传文件夹
+    #         # 简单起见，我们依次上传文件夹
+    #         for folder_path in folders:
+    #             self._do_upload_folder(folder_path)
+
     def _on_files_dropped(self, file_paths):
         """处理拖放文件上传"""
         if not file_paths:
             return
-        
+
+        # 传输中拦截拖拽
+        if self.is_transfer_running:
+            QMessageBox.information(self, "提示", "文件传输中，暂不支持拖拽上传")
+            return
+
         # 分离文件和文件夹
         files = []
         folders = []
@@ -2057,34 +2241,55 @@ class FileManagerDialog(QDialog):
                 folders.append(path)
             elif os.path.isfile(path):
                 files.append(path)
-        
+
+        # ====================== 新增权限预检逻辑 START ======================
+        # 收集所有无读取权限的路径
+        no_perm_paths = []
+        all_upload_paths = files + folders
+        for path in all_upload_paths:
+            if not os.access(path, os.R_OK):
+                no_perm_paths.append(path)
+
+        # 如果存在无权路径，弹窗提示
+        if no_perm_paths:
+            tip_text = "检测到以下拖拽的文件/文件夹无读取权限，上传过程中将自动跳过：\n"
+            # 最多展示前5条，避免弹窗过长
+            show_list = no_perm_paths[:5]
+            for p in show_list:
+                tip_text += f"- {p}\n"
+            if len(no_perm_paths) > 5:
+                tip_text += f"\n... 还有 {len(no_perm_paths) - 5} 个无权路径未展示"
+            tip_text += "\n是否继续上传其余可正常读取的文件？"
+            reply = QMessageBox.question(self, "权限警告", tip_text, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if reply == QMessageBox.No:
+                return
+        # ====================== 新增权限预检逻辑 END ======================
+
         # 显示确认对话框
         msg_parts = []
         if files:
             msg_parts.append(f"{len(files)} 个文件")
         if folders:
             msg_parts.append(f"{len(folders)} 个文件夹")
-        
+
         msg = f"确定要上传 {' 和 '.join(msg_parts)} 到设备吗？\n目标路径: {self.device_current_path}"
-        
+
         reply = QMessageBox.question(
             self, '确认上传', msg,
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
         )
-        
+
         if reply != QMessageBox.Yes:
             return
-        
-        # 上传文件
+
+        self.is_transfer_running = True
+        self.folder_upload_queue = folders.copy()
+
+        # 先传文件，再串行处理文件夹队列
         if files:
             self._upload_files_batch(files)
-        
-        # 上传文件夹（需要在文件上传完成后处理）
-        if folders:
-            # 如果有文件正在上传，等待完成后再上传文件夹
-            # 简单起见，我们依次上传文件夹
-            for folder_path in folders:
-                self._do_upload_folder(folder_path)
+        else:
+            self._process_next_upload_folder()
     
     def _upload_files_batch(self, file_paths):
         """批量上传文件（使用线程，不阻塞界面）"""
@@ -2099,7 +2304,10 @@ class FileManagerDialog(QDialog):
         )
         self.batch_transfer_thread.progress_signal.connect(self.statusLabel.setText)
         self.batch_transfer_thread.progress_percent.connect(self.progressBar.setValue)
-        self.batch_transfer_thread.finished_signal.connect(self._on_batch_upload_finished)
+        # self.batch_transfer_thread.finished_signal.connect(self._on_batch_upload_finished)
+        self.batch_transfer_thread.finished_signal.connect(self._on_batch_file_upload_all_finished)
+        # 线程结束释放内存
+        self.batch_transfer_thread.finished_signal.connect(self.batch_transfer_thread.deleteLater)
         self.batch_transfer_thread.start()
     
     def _do_upload_folder(self, folder_path):
@@ -2116,13 +2324,17 @@ class FileManagerDialog(QDialog):
         self.folder_upload_thread.progress_signal.connect(self.statusLabel.setText)
         self.folder_upload_thread.progress_percent.connect(self.progressBar.setValue)
         self.folder_upload_thread.finished_signal.connect(self._on_folder_upload_finished)
+        # 新增，线程结束自动释放
+        self.folder_upload_thread.finished_signal.connect(self.folder_upload_thread.deleteLater)
         self.folder_upload_thread.start()
-    
+
     def _on_folder_upload_finished(self, success_count, fail_count, skip_count):
         """文件夹上传完成"""
         self.progressBar.setVisible(False)
         self.statusLabel.setText(f"文件夹上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
+        # 关键：上传完当前文件夹，继续队列下一个
+        self._process_next_upload_folder()
     
     def _do_download_folder(self, device_folder, local_folder):
         """执行文件夹下载"""
@@ -2659,20 +2871,26 @@ class FileManagerDialog(QDialog):
                                    self.device_id, self.connection_mode, self.d)
         dialog.saved_signal.connect(self._refresh_device_files)
         dialog.exec_()
-    
+
     def closeEvent(self, event):
         """关闭事件 - 清理所有线程和资源"""
         logger.info("文件管理器: 正在关闭窗口")
-        
+
+        # ========== 新增两行 START ==========
+        # 清空上传队列，终止传输标记
+        self.folder_upload_queue.clear()
+        self.is_transfer_running = False
+        # ========== 新增两行 END ==========
+
         # 停止所有运行中的线程
         threads_to_stop = [
             self.list_thread, self.transfer_thread, self.batch_transfer_thread,
-            self.delete_thread, self.rename_thread, self.chmod_thread, 
-            self.text_read_thread, self.text_write_thread, 
+            self.delete_thread, self.rename_thread, self.chmod_thread,
+            self.text_read_thread, self.text_write_thread,
             self.folder_upload_thread, self.folder_download_thread,
             self.refresh_devices_thread, self.u2_connect_thread
         ]
-        
+
         for thread in threads_to_stop:
             if thread and thread.isRunning():
                 try:
@@ -2685,14 +2903,14 @@ class FileManagerDialog(QDialog):
                         thread.wait(500)
                 except Exception as e:
                     logger.error(f"清理线程失败 {thread.__class__.__name__}: {e}")
-        
+
         # 清理u2连接
         if self.d:
             try:
                 self.d = None
             except:
                 pass
-        
+
         logger.info("文件管理器: 已关闭")
         event.accept()
 
