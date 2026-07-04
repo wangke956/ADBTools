@@ -2,7 +2,7 @@
   "version": {
     "major": 1,
     "minor": 8,
-    "patch": 31,
+    "patch": 32,
     "build": 0
   },
   "adb": {
@@ -101,5 +101,5 @@
     "pull_log": "Ctrl+L",
     "reboot_device": "Ctrl+R"
   },
-  "file_version": "1.8.31"
+  "file_version": "1.8.32"
 }
