@@ -31,7 +31,18 @@ jobs:
         fetch-depth: 0
         # fetch full history so tags and git metadata are available when needed
         # (prevents issues when relying on tags or setuptools_scm)
-        
+
+    - name: Check admin.manifest 清单文件
+      run: |
+        if (Test-Path "admin.manifest") {
+          Write-Host "✅ admin.manifest 存在"
+          # 输出内容排查BOM/中文乱码问题
+          Get-Content "admin.manifest" -Raw
+        } else {
+          Write-Host "❌ 缺失 admin.manifest，打包会失败"
+          exit 1
+        }  
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -54,9 +65,8 @@ jobs:
       run: |
         # 安装 Visual C++ Build Tools（Nuitka 需要）
         choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools" --no-progress
-        # 新增：安装 MinGW64 GCC 编译器，Nuitka LTO/链接必需
+        # 新增MinGW，解决LTO链接失败无exe
         choco install mingw --no-progress
-        # 把 MinGW 加入环境变量
         echo "C:\tools\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         
     - name: Install Python dependencies
@@ -267,10 +277,10 @@ jobs:
     - name: Build with Nuitka (OneFile)
       run: |
         python nuitka_build_fixed_v2.py --build onefile
-        # 新增：打印所有目录，排查文件是否生成
-        Write-Host "===== build_nuitka 目录内容 ====="
+        # 强制打印目录，定位exe在哪、有没有生成
+        Write-Host "==== build_nuitka 全部文件 ===="
         Get-ChildItem -Recurse build_nuitka -ErrorAction SilentlyContinue
-        Write-Host "===== dist_nuitka 目录内容 ====="
+        Write-Host "==== dist_nuitka 全部文件 ===="
         Get-ChildItem -Recurse dist_nuitka -ErrorAction SilentlyContinue
         
     - name: Verify build output
