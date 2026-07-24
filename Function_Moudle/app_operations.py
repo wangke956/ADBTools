@@ -368,28 +368,32 @@ class AppOperationsManager:
         else:
             log_method_result("view_apk_path_wrapper", False, "设备未连接")
             self.textBrowser.append("设备未连接！")
-    
-    def app_version_check(self):
-        """应用版本检查 - 读取本地集成清单文件，不需要设备连接"""
-        log_button_click("start_check_button", "检查应用版本", f"集成清单: {self.main_window.releasenote_file}")
 
-        try:
-            from Function_Moudle.app_version_check_thread import AppVersionCheckThread
-            self.main_window.releasenote_dict = {}
-            self.main_window.app_version_check_thread = AppVersionCheckThread(
-                None, self.main_window.releasenote_file
-            )
-            self.main_window.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
-            self.main_window.app_version_check_thread.error_signal.connect(self.textBrowser.append)
-            self.main_window.app_version_check_thread.release_note_signal.connect(
-                self.main_window.handle_progress
-            )
-            self.main_window.app_version_check_thread.start()
-            
-            log_method_result("app_version_check", True, "版本检查线程已启动")
-        except Exception as e:
-            log_method_result("app_version_check", False, str(e))
-            self.textBrowser.append(f"启动版本检查线程失败: {e}")
+    # def app_version_check(self):
+    #     """应用版本检查 - 读取本地集成清单文件，不需要设备连接"""
+    #     log_button_click("start_check_button", "检查应用版本", f"集成清单: {self.main_window.releasenote_file}")
+    #
+    #     try:
+    #         from Function_Moudle.app_version_check_thread import AppVersionCheckThread
+    #         self.main_window.releasenote_dict = {}
+    #         device_id = self.main_window.get_selected_device()
+    #         connection_mode = getattr(self.main_window, 'connection_mode', 'u2')
+    #         u2_device = getattr(self.main_window, 'd', None) if connection_mode == 'u2' else None
+    #         self.main_window.app_version_check_thread = AppVersionCheckThread(
+    #             u2_device, self.main_window.releasenote_file,
+    #             device_id=device_id, connection_mode=connection_mode
+    #         )
+    #         self.main_window.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
+    #         self.main_window.app_version_check_thread.error_signal.connect(self.textBrowser.append)
+    #         self.main_window.app_version_check_thread.release_note_signal.connect(
+    #             self.main_window.handle_progress
+    #         )
+    #         self.main_window.app_version_check_thread.start()
+    #
+    #         log_method_result("app_version_check", True, "版本检查线程已启动")
+    #     except Exception as e:
+    #         log_method_result("app_version_check", False, str(e))
+    #         self.textBrowser.append(f"启动版本检查线程失败: {e}")
     
     # def show_network_proxy_dialog(self):
     #     """显示网络代理管理对话框"""

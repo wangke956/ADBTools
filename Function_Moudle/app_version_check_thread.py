@@ -21,10 +21,12 @@ class AppVersionCheckThread(QThread):
     mismatch_list_signal = pyqtSignal(list)
     comparison_complete_signal = pyqtSignal(dict)
 
-    def __init__(self, d, releasenote_file: str):
+    def __init__(self, d, releasenote_file: str, device_id: str = None, connection_mode: str = 'u2'):
         super().__init__()
         self.d = d
         self.releasenote_file = releasenote_file
+        self.device_id = device_id
+        self.connection_mode = connection_mode
         self.release_note_dict: Dict[str, str] = {}
         self.compare_result_dict: Dict[str, Tuple[str, str, bool]] = {}
         self.mismatch_packages: List[Tuple[str, str, str]] = []
@@ -111,16 +113,24 @@ class AppVersionCheckThread(QThread):
             return False
 
     def _get_device_app_version(self, packagename: str) -> Optional[str]:
-        """获取设备端已安装应用的版本号 - 修复版本键名问题"""
+        """获取设备端已安装应用的版本号 - 支持u2和ADB两种模式"""
         try:
+            if self.connection_mode == 'adb':
+                from Function_Moudle.adb_device_utils import get_app_version
+                if not self.device_id:
+                    self.progress_signal.emit(f"  [DEBUG] ADB模式下device_id为空，无法获取 {packagename} 版本")
+                    return None
+                success, version_info = get_app_version(self.device_id, packagename)
+                if success:
+                    return version_info
+                return None
+
             try:
                 app_info = self.d.app_info(packagename)
 
-                # 调试输出
                 self.progress_signal.emit(f"  [DEBUG] 获取 {packagename} 的 app_info: {app_info}")
 
                 if app_info:
-                    # 尝试多种可能的键名
                     version_keys = ['versionName', 'version_name', 'version', 'VersionName']
                     for key in version_keys:
                         if key in app_info:
@@ -130,12 +140,10 @@ class AppVersionCheckThread(QThread):
 
                 return None
             except ValueError as e:
-                # 处理日期时间格式解析错误（如阿拉伯数字日期）
                 if "does not match format" in str(e) or "time data" in str(e):
                     self.progress_signal.emit(f"  [WARNING] {packagename} 遇到日期格式问题，尝试备用方法")
-                    # 尝试使用ADB命令获取版本信息
                     from Function_Moudle.adb_device_utils import get_app_version
-                    device_id = getattr(self.d, 'serial', None)
+                    device_id = getattr(self.d, 'serial', None) or self.device_id
                     if device_id:
                         success, version_info = get_app_version(device_id, packagename)
                         if success:

@@ -1095,23 +1095,24 @@ QPushButton:hover {{
         """检查应用版本"""
         device_id = self.get_selected_device()
         devices_id_lst = self.get_new_device_lst()
-        
+
         log_button_click("start_check_button", "检查应用版本", f"集成清单: {self.releasenote_file}")
 
         if device_id in devices_id_lst:
             try:
-                # 使用线程工厂创建应用版本检查线程
                 self.releasenote_dict = {}
                 self.app_version_check_thread = thread_factory.create_thread(
                     'app_version_check',
                     releasenote_file=self.releasenote_file,
-                    d = self.d
+                    d=self.d,
+                    device_id=device_id,
+                    connection_mode=self.connection_mode or 'adb'
                 )
                 self.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.error_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.release_note_signal.connect(self.handle_progress)
                 self.app_version_check_thread.start()
-                
+
                 log_method_result("app_version_check", True, "版本检查线程已启动")
             except Exception as e:
                 log_method_result("app_version_check", False, str(e))
