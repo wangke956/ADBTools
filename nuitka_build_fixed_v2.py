@@ -721,6 +721,7 @@ def main():
             print("\n注意: 确保ADB工具文件、admin.manifest已正确复制到分发目录")
         else:
             print("\n 构建失败，请检查错误信息")
+            sys.exit(1)
     else:
         parser.print_help()
         print("\n示例:")
