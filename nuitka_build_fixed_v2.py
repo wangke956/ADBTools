@@ -113,34 +113,20 @@ def get_nuitka_command(build_type="onefile"):
         file_version = "1.5.0.0"
         product_version = "1.5.0"
 
-    cmd = [
-        sys.executable, "-m", "nuitka",
-        "--standalone",
-        "--remove-output",
-        "--assume-yes-for-downloads",
-        "--plugin-enable=pyqt5",
-        # 性能优化：使用所有CPU核心进行并行编译
-        "--jobs=" + str(os.cpu_count()),
-        # 性能优化：启用 LTO 加速链接
-        "--lto=yes",
-        "--windows-icon-from-ico=" + str(PROJECT_ROOT / CONFIG["icon"]),
-        "--company-name=" + CONFIG["company_name"],
-        "--product-name=" + CONFIG["product_name"],
-        "--file-version=" + file_version,
-        "--product-version=" + product_version,
-        "--file-description=" + CONFIG["description"],
-        "--copyright=" + CONFIG["copyright"],
-        "--output-dir=" + str(CONFIG["build_dir"]),
-        "--output-filename=" + CONFIG["output_name"],
-    ]
+    cmd = [sys.executable, "-m", "nuitka", "--standalone", "--remove-output", "--assume-yes-for-downloads",
+           "--plugin-enable=pyqt5", "--jobs=" + str(os.cpu_count()), "--lto=yes",
+           "--windows-icon-from-ico=" + str(PROJECT_ROOT / CONFIG["icon"]), "--company-name=" + CONFIG["company_name"],
+           "--product-name=" + CONFIG["product_name"], "--file-version=" + file_version,
+           "--product-version=" + product_version, "--file-description=" + CONFIG["description"],
+           "--copyright=" + CONFIG["copyright"], "--output-dir=" + str(CONFIG["build_dir"]),
+           "--output-filename=" + CONFIG["output_name"], "--windows-uac-admin"]
 
-    # 新增：嵌入Windows manifest清单文件（管理员权限）
+    # 申请Windows管理员权限（UAC）
     manifest_path = PROJECT_ROOT / CONFIG["manifest_file"]
     if manifest_path.exists():
-        cmd.append(f"--windows-manifest-file={manifest_path}")
-        print(f"✅ 已加载Windows权限清单: {manifest_path}")
+        print(f"✅ Windows权限清单文件存在: {manifest_path}（通过 --windows-uac-admin 申请管理员权限）")
     else:
-        print(f"⚠️ 警告: 清单文件 {CONFIG['manifest_file']} 不存在，程序将无法自动申请管理员权限")
+        print(f"⚠️ 警告: 清单文件 {CONFIG['manifest_file']} 不存在")
 
     # 添加包含模块
     for module in CONFIG["include_modules"]:
