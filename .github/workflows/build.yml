@@ -381,8 +381,7 @@ jobs:
           ### 更新内容
           - 自动构建版本
           - 支持 U2 和 ADB 双模式
-          - 优化 VR 功能
-          - 修复已知问题
+          - 修复ADB模式下无法检查集成清单的问题
           
           ### 下载
           - [便携版 ZIP](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.version }}/ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip)
