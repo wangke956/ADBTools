@@ -1122,72 +1122,8 @@ QPushButton:hover {{
             self.textBrowser.append("设备未连接！")
 
     def handle_progress(self, result_dict):
-        self.releasenote_dict.update(result_dict)  # 更新暂存字典
+        self.releasenote_dict.update(result_dict)
         self.releasenote_package_version = result_dict
-        
-        # 检查设备连接
-        device_id = self.get_selected_device()
-        devices_id_lst = self.get_new_device_lst()
-        if device_id not in devices_id_lst:
-            self.textBrowser.append("设备未连接！")
-            return
-        
-        # 从字典result_dict中挨个读取packageName并用该包名取设备上获取该包名的版本号
-        true_count = 0
-        false_count = 0
-        for i in result_dict.keys():
-            if i is not None:
-                try:
-                    if self.connection_mode == 'u2':
-                        try:
-                            app_info = self.d.app_info(i)
-                            if app_info is None:
-                                self.textBrowser.append(f"应用 {i} 不存在")
-                                false_count += 1
-                                continue
-                            version_name = app_info.get('versionName', '未知版本')
-                        except ValueError as e:
-                            # 处理日期时间格式解析错误（如阿拉伯数字日期）
-                            if "does not match format" in str(e) or "time data" in str(e):
-                                # 尝试使用备用方法获取版本信息
-                                from Function_Moudle.adb_device_utils import get_app_version
-                                device_id = self.get_selected_device()
-                                version_success, version_info = get_app_version(device_id, i)
-                                if version_success:
-                                    version_name = version_info
-                                else:
-                                    self.textBrowser.append(f"应用 {i} 版本信息获取失败: 日期格式问题")
-                                    false_count += 1
-                                    continue
-                            else:
-                                raise
-                    elif self.connection_mode == 'adb':
-                        # 使用ADB命令获取应用版本信息
-                        from Function_Moudle.adb_device_utils import get_app_version
-                        version_success, version_info = get_app_version(device_id, i)
-                        if not version_success:
-                            self.textBrowser.append(f"应用 {i} 版本信息获取失败: {version_info}")
-                            false_count += 1
-                            continue
-                        version_name = version_info
-                    else:
-                        self.textBrowser.append("设备未连接！")
-                        return
-                        
-                    if str(version_name) == str(result_dict[i]):
-                        self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
-                        true_count += 1
-                        self.textBrowser.append(f"版本号匹配成功！")
-                    else:
-                        self.textBrowser.append(f"包名: {i}, 已安装版本号: {version_name}， 集成清单版本号: {result_dict[i]}")
-                        false_count += 1
-                        self.textBrowser.append(f"版本号匹配失败！")
-                except Exception as e:
-                    self.textBrowser.append(f"获取应用 {i} 信息失败: {e}")
-                    false_count += 1
-        self.textBrowser.append(f"匹配成功数: {true_count}, 匹配失败数: {false_count}")
-
-
 
     def select_releasenote_excel(self):
         """选择集成清单文件"""
