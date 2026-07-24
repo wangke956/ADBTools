@@ -1,10 +1,6 @@
 # Nuitka打包所需依赖 (完整版)
 # 使用以下命令安装: pip install -r requirements_nuitka.txt
 
-# ========== PyQt5 相关 ==========
-PyQt5>=5.15.0
-qdarkstyle>=3.2.0
-
 # ========== ADB 和设备管理 ==========
 uiautomator2>=3.2.0
 adbutils>=2.8.0
@@ -41,6 +37,6 @@ six>=1.16.0
 # ========== PyQt5 相关 ==========
 PyQt5>=5.15.0
 qdarkstyle>=3.2.0
-qdarktheme>=2.1.0
+pyqtdarktheme>=2.1.0
 PyQt-Fluent-Widgets>=1.5.0
 qtmodern>=0.2.0
