@@ -37,3 +37,10 @@ click>=8.0.0
 
 # ========== 兼容性库 ==========
 six>=1.16.0
+
+# ========== PyQt5 相关 ==========
+PyQt5>=5.15.0
+qdarkstyle>=3.2.0
+qdarktheme>=2.1.0
+PyQt-Fluent-Widgets>=1.5.0
+qtmodern>=0.2.0
