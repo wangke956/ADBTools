@@ -934,6 +934,114 @@ class AppOperationsManager:
         # 模态弹窗
         dialog.exec_()
 
+    # ========== 输入法操作 ==========
+
+    def load_input_methods(self):
+        """加载设备输入法列表到 comboBox"""
+        device_id = self.main_window.get_selected_device()
+        devices_id_lst = self.main_window.get_new_device_lst()
+
+        log_button_click("SetKeyboard_PushButton", "加载输入法列表")
+
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("设备未连接！")
+            return
+
+        try:
+            # 检查 U2 连接可用性
+            if self.main_window.connection_mode == 'u2':
+                if not self.main_window.d:
+                    self.main_window.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+
+            # 确保 connection_mode 有效（None 时默认为 adb）
+            connection_mode = self.main_window.connection_mode or 'adb'
+            logger.info(f"加载输入法列表: device={device_id}, mode={connection_mode}")
+
+            from Function_Moudle.setKeyboard_thread import SetKeyboardThread
+
+            self.main_window.keyboard_thread = SetKeyboardThread(
+                device_id=device_id,
+                mode='list',
+                connection_mode=connection_mode,
+                u2_device=self.main_window.d if connection_mode == 'u2' else None
+            )
+
+            # 连接信号
+            self.main_window.keyboard_thread.progress_signal.connect(self.textBrowser.append)
+            self.main_window.keyboard_thread.error_signal.connect(self.textBrowser.append)
+            self.main_window.keyboard_thread.result_signal.connect(self.textBrowser.append)
+
+            # 收到输入法列表后填充 comboBox
+            def _on_methods_received(methods):
+                combo = self.main_window.selectkeyboard_comboBox
+                combo.clear()
+                combo.addItems(methods)
+                self.textBrowser.append(f"已加载 {len(methods)} 个输入法，请从下拉框选择后点击[设置输入法]")
+
+            self.main_window.keyboard_thread.input_methods_signal.connect(_on_methods_received)
+
+            # 启动线程
+            self.main_window.keyboard_thread.start()
+            log_method_result("load_input_methods", True, "输入法列表线程已启动")
+
+        except Exception as e:
+            log_method_result("load_input_methods", False, str(e))
+            self.textBrowser.append(f"加载输入法列表失败: {e}")
+
+    def set_selected_input_method(self):
+        """设置 comboBox 中选中的输入法为默认"""
+        device_id = self.main_window.get_selected_device()
+        devices_id_lst = self.main_window.get_new_device_lst()
+
+        log_button_click("SetKeyboard_PushButton", "设置输入法")
+
+        if device_id not in devices_id_lst:
+            self.textBrowser.append("设备未连接！")
+            return
+
+        # 获取 comboBox 当前选中的输入法
+        combo = self.main_window.selectkeyboard_comboBox
+        target_method = combo.currentText()
+
+        if not target_method:
+            self.textBrowser.append("请先点击按钮加载输入法列表，或从下拉框中选择输入法")
+            return
+
+        try:
+            # 检查 U2 连接可用性
+            if self.main_window.connection_mode == 'u2':
+                if not self.main_window.d:
+                    self.main_window.connection_mode = 'adb'
+                    self.textBrowser.append("U2连接不可用，切换到ADB模式")
+
+            # 确保 connection_mode 有效（None 时默认为 adb）
+            connection_mode = self.main_window.connection_mode or 'adb'
+            logger.info(f"设置输入法: device={device_id}, method={target_method}, mode={connection_mode}")
+
+            from Function_Moudle.setKeyboard_thread import SetKeyboardThread
+
+            self.main_window.keyboard_thread = SetKeyboardThread(
+                device_id=device_id,
+                mode='set',
+                target_method=target_method,
+                connection_mode=connection_mode,
+                u2_device=self.main_window.d if connection_mode == 'u2' else None
+            )
+
+            # 连接信号
+            self.main_window.keyboard_thread.progress_signal.connect(self.textBrowser.append)
+            self.main_window.keyboard_thread.error_signal.connect(self.textBrowser.append)
+            self.main_window.keyboard_thread.result_signal.connect(self.textBrowser.append)
+
+            # 启动线程
+            self.main_window.keyboard_thread.start()
+            log_method_result("set_selected_input_method", True, f"设置输入法线程已启动: {target_method}")
+
+        except Exception as e:
+            log_method_result("set_selected_input_method", False, str(e))
+            self.textBrowser.append(f"设置输入法失败: {e}")
+
 
 if __name__ == "__main__":
     import sys

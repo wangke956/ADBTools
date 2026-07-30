@@ -472,9 +472,7 @@ class DatongManager:
                 f'时区: {timezone}\n'
                 f'时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
                 '注意：\n'
-                '1. 此操作将修改设备的系统时间\n'
-                '2. 设置成功后需要重启设备以使更改生效\n'
-                '3. 请确保已保存所有工作',
+                '1. 此操作将修改设备的系统时间\n',
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )

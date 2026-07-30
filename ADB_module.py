@@ -152,6 +152,7 @@ class ADB_Mainwindow(QMainWindow):
         self.batch_install_thread = None
         self.u2_reinit_thread = None
         self.u2_reinit_dialog = None
+        self.keyboard_thread = None  # 输入法操作线程
 
         # 动态加载ui文件
         try:
@@ -265,6 +266,14 @@ class ADB_Mainwindow(QMainWindow):
         self.upgrade_page_button.clicked.connect(self.open_yf_page)
         self.SOC_8155_Projact_enter_ActivatePage.clicked.connect(self.open_soc8155_activate_page)  # SOC 8155项目进入激活页面
         self.start_app.clicked.connect(self.app_operations.show_start_app_dialog)  # 启动应用
+        
+        # 输入法功能信号连接
+        try:
+            self.SetKeyboard_PushButton = self.findChild(QtWidgets.QPushButton, 'SetKeyboard_PushButton')
+            if self.SetKeyboard_PushButton:
+                self.SetKeyboard_PushButton.clicked.connect(self._on_set_keyboard_button_clicked)  # 设置输入法
+        except Exception as e:
+            self.textBrowser.append(str(e))
         
         # 网联版项目功能信号连接
         try:
@@ -1331,6 +1340,38 @@ QPushButton:hover {{
     def browse_log_save_path(self):
         """浏览日志保存路径 - 委托给 log_operations"""
         self.log_operations.browse_log_save_path()
+
+    # ========== 输入法操作 ==========
+
+    def _on_set_keyboard_button_clicked(self):
+        """设置输入法按钮点击处理
+        - 如果 comboBox 为空：加载设备输入法列表
+        - 如果 comboBox 有内容：设置选中的输入法为默认
+        """
+        combo = self.findChild(QComboBox, 'selectkeyboard_comboBox')
+        if combo is None:
+            self.textBrowser.append("错误：找不到输入法下拉框控件")
+            return
+
+        try:
+            count = combo.count()
+        except Exception:
+            # 底层C++对象可能已失效，尝试通过属性访问
+            combo = getattr(self, 'selectkeyboard_comboBox', None)
+            if combo is None:
+                self.textBrowser.append("错误：输入法下拉框控件已失效")
+                return
+            try:
+                count = combo.count()
+            except Exception:
+                count = 0  # 默认为空，触发加载
+
+        if count == 0:
+            # comboBox 为空，先加载输入法列表
+            self.app_operations.load_input_methods()
+        else:
+            # comboBox 有内容，设置选中的输入法
+            self.app_operations.set_selected_input_method()
 
     # ============================================
     # 窗口缩放功能相关方法
