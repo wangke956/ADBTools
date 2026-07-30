@@ -379,9 +379,8 @@ jobs:
           ## ADBTools v${{ steps.get_version.outputs.version }}
           
           ### 更新内容
-          - 自动构建版本
-          - 支持 U2 和 ADB 双模式
-          - 修复ADB模式下无法检查集成清单的问题
+          - 增加输入法切换功能
+          - 增加微软语音测试功能
           
           ### 下载
           - [便携版 ZIP](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.version }}/ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip)
