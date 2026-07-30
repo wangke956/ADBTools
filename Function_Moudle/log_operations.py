@@ -260,3 +260,42 @@ class LogManager:
         else:
             log_method_result("remove_voice_record_file", False, "设备未连接")
             self.main_window.textBrowser.append("设备未连接！")
+    
+    def voice_asr_test(self):
+        """语音识别测试"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+        
+        log_button_click("voice_asr_test_button", "语音识别测试")
+
+        if device_id in devices_id_lst:
+            try:
+                # 从输入框获取ASR测试文本
+                asr_text = self.main_window.asr_test_text_input.text().strip()
+                if not asr_text:
+                    log_method_result("voice_asr_test", False, "测试文本不能为空")
+                    self.main_window.textBrowser.append("请输入语音识别测试文本！")
+                    return
+                
+                # 动态获取当前的连接模式和u2设备
+                current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+                current_u2_device = getattr(self.main_window, 'd', None)
+                
+                from Function_Moudle.voice_asr_test_thread import VoiceAsrTestThread
+                self.main_window.voice_asr_test_thread = VoiceAsrTestThread(
+                    device_id=device_id,
+                    asr_text=asr_text,
+                    connection_mode=current_connection_mode,
+                    u2_device=current_u2_device
+                )
+                self.main_window.voice_asr_test_thread.progress_signal.connect(self.main_window.textBrowser.append)
+                self.main_window.voice_asr_test_thread.result_signal.connect(self.main_window.textBrowser.append)
+                self.main_window.voice_asr_test_thread.start()
+                
+                log_method_result("voice_asr_test", True, "语音识别测试线程已启动")
+            except Exception as e:
+                log_method_result("voice_asr_test", False, str(e))
+                self.main_window.textBrowser.append(f"语音识别测试失败: {e}")
+        else:
+            log_method_result("voice_asr_test", False, "设备未连接")
+            self.main_window.textBrowser.append("设备未连接！")

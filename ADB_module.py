@@ -153,6 +153,7 @@ class ADB_Mainwindow(QMainWindow):
         self.u2_reinit_thread = None
         self.u2_reinit_dialog = None
         self.keyboard_thread = None  # 输入法操作线程
+        self.voice_asr_test_thread = None  # 语音识别测试线程
 
         # 动态加载ui文件
         try:
@@ -252,6 +253,14 @@ class ADB_Mainwindow(QMainWindow):
         self.voice_stop_record_button.clicked.connect(self.log_operations.voice_stop_record)  # 停止语音录制
         self.voice_pull_record_file_button.clicked.connect(self.log_operations.voice_pull_record_file)  # 拉取录音文件
         self.remove_record_file_button.clicked.connect(self.log_operations.remove_voice_record_file)  # 删除语音录制文件
+        
+        # 语音识别测试按钮信号连接
+        try:
+            self.voice_asr_test_button = self.findChild(QtWidgets.QPushButton, 'voice_asr_test_button')
+            if self.voice_asr_test_button:
+                self.voice_asr_test_button.clicked.connect(self.log_operations.voice_asr_test)  # 测试语音识别
+        except Exception as e:
+            self.textBrowser.append(str(e))
         
         # 其他信号连接
         self.list_package_button.clicked.connect(self.list_package)
