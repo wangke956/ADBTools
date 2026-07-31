@@ -290,9 +290,9 @@ jobs:
       run: |
         Write-Host "Checking build output..."
         
-        if (Test-Path "dist_nuitka\ADBTools_nuitka.exe") {
+        if (Test-Path "dist_nuitka\\ADBTools_nuitka.exe") {
             Write-Host "✅ Build successful!"
-            Get-Item "dist_nuitka\ADBTools_nuitka.exe" | Select-Object Name, Length, LastWriteTime
+            Get-Item "dist_nuitka\\ADBTools_nuitka.exe" | Select-Object Name, Length, LastWriteTime
         } else {
             Write-Host "❌ Build failed - executable not found"
             exit 1
@@ -326,8 +326,8 @@ jobs:
                 Write-Host "✅ Installer built successfully!"
                 
                 # 列出生成的安装包
-                if (Test-Path "Output\ADBTools_Setup.exe") {
-                    Get-Item "Output\ADBTools_Setup.exe" | Select-Object Name, Length, LastWriteTime
+                if (Test-Path "Output\\ADBTools_Setup.exe") {
+                    Get-Item "Output\\ADBTools_Setup.exe" | Select-Object Name, Length, LastWriteTime
                 }
             } else {
                 Write-Host "❌ Inno Setup compilation failed"
@@ -405,7 +405,100 @@ jobs:
         draft: false
         prerelease: false
         token: ${{ secrets.GITHUB_TOKEN }}
-        
+
+    - name: Sync Release & Tag to Gitee
+      if: github.event.inputs.release == 'true'
+      env:
+        GITEE_TOKEN: ${{ secrets.GITEE_ACCESS_TOKEN }}
+        GITEE_USER: ${{ secrets.GITEE_OWNER }}
+        GITEE_REPO: ${{ secrets.GITEE_REPO }}
+        VERSION: ${{ steps.get_version.outputs.version }}
+        TAG_NAME: v${{ steps.get_version.outputs.version }}
+      shell: pwsh
+      run: |
+        $tag = $env:TAG_NAME
+        $version = $env:VERSION
+        $releaseName = "ADBTools $tag"
+
+        # 1. 推送Tag到Gitee仓库
+        $giteeUrl = "https://$($env:GITEE_USER):$($env:GITEE_TOKEN)@gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO).git"
+        git remote add gitee $giteeUrl
+        git push gitee $tag --force
+        git remote remove gitee
+
+        # 2. Release正文（⚠️@" 和 "@ 完全顶格，无前置空格，修复yaml语法报错）
+$body = @"
+## ADBTools v$version
+
+### 更新内容
+- 增加输入法切换功能
+- 增加微软语音测试功能
+
+### 下载
+- [便携版 ZIP](https://gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/download/$tag/ADBTools_${version}_Windows.zip)
+- [安装版 EXE](https://gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/download/$tag/ADBTools_Setup.exe)
+
+### 系统要求
+- Windows 10/11
+- .NET Framework 4.5+
+
+### 使用说明
+**便携版**：
+1. 下载并解压 ZIP 文件
+2. 运行 ADBTools_nuitka.exe
+3. 连接 Android 设备
+4. 开始使用
+
+**安装版**：
+1. 下载 ADBTools_Setup.exe
+2. 双击运行安装程序
+3. 按提示完成安装
+4. 从开始菜单或桌面快捷方式启动
+"@
+
+        # 3. 创建Gitee Release（Token放在Header，不拼接URL）
+        $releasePayload = @{
+          tag_name   = $tag
+          name       = $releaseName
+          body       = $body
+          draft      = $false
+          prerelease = $false
+        }
+        $header = @{
+          "Content-Type"  = "application/json"
+          "Authorization" = "token $($env:GITEE_TOKEN)"
+        }
+        $createUrl = "https://gitee.com/api/v5/repos/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases"
+        $resp = Invoke-RestMethod -Uri $createUrl -Method Post -Body ($releasePayload | ConvertTo-Json) -Headers $header
+        $releaseId = $resp.id
+        Write-Host "✅ Gitee Release 创建成功，ReleaseID: $releaseId"
+
+        # 4. 上传二进制附件函数
+        function Upload-GiteeAsset {
+          param(
+            [string]$filePath,
+            [string]$releaseId,
+            [string]$token,
+            [string]$owner,
+            [string]$repo
+          )
+          if (-not (Test-Path $filePath)) {
+            Write-Warning "文件不存在：$filePath"
+            return
+          }
+          $uploadHeader = @{
+            "Authorization" = "token $token"
+          }
+          $uploadUrl = "https://gitee.com/api/v5/repos/$owner/$repo/releases/$releaseId/assets"
+          Invoke-RestMethod -Uri $uploadUrl -Method Post -Form @{ file = Get-Item -Path $filePath } -Headers $uploadHeader
+          Write-Host "✅ 已上传：$filePath"
+        }
+
+        # 上传两个打包产物
+        Upload-GiteeAsset -filePath "ADBTools_${version}_Windows.zip" -releaseId $releaseId -token $env:GITEE_TOKEN -owner $env:GITEE_USER -repo $env:GITEE_REPO
+        Upload-GiteeAsset -filePath "Output/ADBTools_Setup.exe" -releaseId $releaseId -token $env:GITEE_TOKEN -owner $env:GITEE_USER -repo $env:GITEE_REPO
+    # ==========同步模块结束==========
+
     - name: Send notification (optional)
       if: always()
       env:
