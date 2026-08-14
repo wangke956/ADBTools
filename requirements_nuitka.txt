@@ -38,7 +38,8 @@ six>=1.16.0
 # 项目已从 PyQt5 迁移到 PyQt6，注意版本号从 6.x 开始
 PyQt6>=6.5.0
 qdarkstyle>=3.2.0
-pyqtdarktheme>=2.1.0
+# pyqtdarktheme 已停更，仅支持 Python <3.12，故移除；
+# 代码中 qdarktheme 导入均有 try/except 回退（自动降级到 Fusion 主题）
 # PyQt6 版 Fluent Widgets（导入名仍为 qfluentwidgets）
 PyQt6-Fluent-Widgets>=1.5.0
 qtmodern>=0.2.0

@@ -10,7 +10,7 @@ dependencies:
       # ========== PyQt6 相关 ==========
       - PyQt6>=6.5.0
       - qdarkstyle>=3.2.0
-      - pyqtdarktheme>=2.1.0
+      # pyqtdarktheme 已停更（仅支持 Python <3.12），移除，代码有 Fusion 回退
       - PyQt6-Fluent-Widgets>=1.5.0
       - qtmodern>=0.2.0
       # ========== ADB 和设备管理 ==========

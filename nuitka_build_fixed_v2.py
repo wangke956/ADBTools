@@ -45,13 +45,13 @@ CONFIG = {
     ],
 
     # 需要包含的Python模块
+    # 注：qdarktheme 已停更（不支持 Python 3.12+），改为运行时检测，存在才包含
     "include_modules": [
         "PyQt6",
         "PyQt6.QtCore",
         "PyQt6.QtWidgets",
         "PyQt6.QtGui",
         "qdarkstyle",
-        "qdarktheme",
         "qfluentwidgets",
         "qtmodern",
         "qtmodern.styles",
@@ -132,8 +132,18 @@ def get_nuitka_command(build_type="onefile"):
     else:
         print(f"⚠️ 警告: 清单文件 {CONFIG['manifest_file']} 不存在")
 
-    # 添加包含模块
-    for module in CONFIG["include_modules"]:
+    # 添加包含模块（qdarktheme 仅在已安装时包含，避免云环境缺失导致构建警告/失败）
+    include_modules = list(CONFIG["include_modules"])
+    try:
+        import importlib.util
+        if importlib.util.find_spec("qdarktheme") is not None:
+            include_modules.append("qdarktheme")
+            print("✅ 检测到 qdarktheme，已加入包含列表")
+        else:
+            print("⚠️ 未安装 qdarktheme（已停更），跳过包含，运行时将使用 Fusion 回退主题")
+    except Exception:
+        pass
+    for module in include_modules:
         cmd.append(f"--include-module={module}")
 
     # 添加排除模块
