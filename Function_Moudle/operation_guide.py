@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QTextEdit, QProgressBar)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont
 from typing import List, Dict, Any, Optional
 
 
@@ -92,11 +92,11 @@ class OperationGuide(QDialog):
     def start(self) -> int:
         """开始引导"""
         if not self.steps:
-            return QDialog.Rejected
+            return QDialog.DialogCode.Rejected
         
         self.current_step = 0
         self._update_ui()
-        return self.exec_()
+        return self.exec()
     
     def _update_ui(self):
         """更新UI"""
@@ -200,7 +200,7 @@ ADBTools 是一个强大的Android设备管理工具，主要功能包括：
 def show_quick_guide(parent) -> None:
     """显示快速入门引导"""
     guide = QuickGuide(parent)
-    guide.exec_()
+    guide.exec()
 
 
 def create_device_setup_guide(parent) -> OperationGuide:

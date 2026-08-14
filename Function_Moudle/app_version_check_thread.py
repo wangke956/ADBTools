@@ -3,7 +3,7 @@ import os
 from typing import Dict, Optional, Tuple, List
 from collections import defaultdict
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 import openpyxl
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -358,7 +358,7 @@ if __name__ == "__main__":
 
     # 如果需要完整测试，取消下面的注释
     # import sys
-    # from PyQt5.QtWidgets import QApplication
+    # from PyQt6.QtWidgets import QApplication
     #
     # app = QApplication(sys.argv)
     # d = u2.connect("192.168.43.47:5555")

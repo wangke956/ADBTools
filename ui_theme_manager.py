@@ -1,11 +1,42 @@
 #!/usr/bin/env python3
-"""主题管理器 - 仅保留用户指定的四种现代 PyQt5 皮肤，并提供彻底的样式重置功能"""
+"""主题管理器 - 仅保留用户指定的四种现代 PyQt6 皮肤，并提供彻底的样式重置功能"""
 
 import os
 import sys
-from PyQt5.QtWidgets import QApplication, QStyleFactory
-from PyQt5.QtGui import QPalette
+from PyQt6.QtWidgets import QApplication, QStyleFactory
+from PyQt6.QtGui import QPalette
 from config_manager import config_manager
+
+
+def _apply_fusion_dark_palette(app):
+    """应用 Fusion 深色调色板（当 qdarkstyle 等库未安装时使用）"""
+    from PyQt6.QtGui import QPalette, QColor
+    from PyQt6.QtGui import QPalette as QPaletteClass
+    
+    palette = QPalette()
+    
+    # 基础颜色
+    dark_color = QColor(45, 45, 45)
+    mid_color = QColor(60, 60, 60)
+    light_color = QColor(180, 180, 180)
+    text_color = QColor(200, 200, 200)
+    highlight_color = QColor(42, 130, 218)
+    
+    palette.setColor(QPalette.ColorRole.Window, dark_color)
+    palette.setColor(QPalette.ColorRole.WindowText, text_color)
+    palette.setColor(QPalette.ColorRole.Base, QColor(30, 30, 30))
+    palette.setColor(QPalette.ColorRole.AlternateBase, dark_color)
+    palette.setColor(QPalette.ColorRole.ToolTipBase, text_color)
+    palette.setColor(QPalette.ColorRole.ToolTipText, text_color)
+    palette.setColor(QPalette.ColorRole.Text, text_color)
+    palette.setColor(QPalette.ColorRole.Button, dark_color)
+    palette.setColor(QPalette.ColorRole.ButtonText, text_color)
+    palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 51, 51))
+    palette.setColor(QPalette.ColorRole.Link, highlight_color)
+    palette.setColor(QPalette.ColorRole.Highlight, highlight_color)
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(240, 240, 240))
+    
+    app.setPalette(palette)
 
 class ThemeManager:
     """主题管理器"""
@@ -84,39 +115,57 @@ class ThemeManager:
             cls._reset_app_style(app)
             
             # 明确设置环境变量
-            os.environ['QT_API'] = 'pyqt5'
+            os.environ['QT_API'] = 'PyQt6'
             
             # 根据主题名称应用新样式
             if theme_name == "qdarkstyle_dark":
-                import qdarkstyle
-                app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt5'))
-                msg = "成功切换到 QDarkStyle (深色)"
+                try:
+                    import qdarkstyle
+                    app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='PyQt6'))
+                    msg = "成功切换到 QDarkStyle (深色)"
+                except ImportError:
+                    # qdarkstyle 未安装，使用 Fusion 深色作为回退
+                    app.setStyle(QStyleFactory.create('Fusion'))
+                    _apply_fusion_dark_palette(app)
+                    msg = "已应用 Fusion 深色 (QDarkStyle 未安装)"
                     
             elif theme_name == "pyqtdarktheme_dark":
-                import qdarktheme
-                # 显式重置并应用深色
-                qdarktheme.setup_theme("dark")
-                msg = "成功切换到 PyQtDarkTheme (深色)"
+                try:
+                    import qdarktheme
+                    qdarktheme.setup_theme("dark")
+                    msg = "成功切换到 PyQtDarkTheme (深色)"
+                except ImportError:
+                    app.setStyle(QStyleFactory.create('Fusion'))
+                    _apply_fusion_dark_palette(app)
+                    msg = "已应用 Fusion 深色 (PyQtDarkTheme 未安装)"
                     
             elif theme_name == "fluent_light":
-                from qfluentwidgets import setTheme, Theme, FluentStyleSheet, setStyleSheet
-                setTheme(Theme.LIGHT)
-                # 应用 Fluent 的全局样式表
-                setStyleSheet(app, FluentStyleSheet.FLUENT_WINDOW)
-                msg = "成功切换到 Fluent Design (浅色)"
+                try:
+                    from qfluentwidgets import setTheme, Theme, FluentStyleSheet, setStyleSheet
+                    setTheme(Theme.LIGHT)
+                    setStyleSheet(app, FluentStyleSheet.FLUENT_WINDOW)
+                    msg = "成功切换到 Fluent Design (浅色)"
+                except ImportError:
+                    # qfluentwidgets 未安装，使用 Fusion 浅色作为回退
+                    app.setStyle(QStyleFactory.create('Fusion'))
+                    msg = "已应用 Fusion 浅色 (Fluent Widgets 未安装)"
 
             elif theme_name == "qtmodern":
-                import qtmodern.styles
-                # qtmodern 会修改 palette
-                qtmodern.styles.dark(app)
-                msg = "成功切换到 QtModern"
+                try:
+                    import qtmodern.styles
+                    qtmodern.styles.dark(app)
+                    msg = "成功切换到 QtModern"
+                except ImportError:
+                    app.setStyle(QStyleFactory.create('Fusion'))
+                    _apply_fusion_dark_palette(app)
+                    msg = "已应用 Fusion 深色 (QtModern 未安装)"
             
             else:
                 # 默认回退
-                import qdarkstyle
-                app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api='pyqt5'))
+                app.setStyle(QStyleFactory.create('Fusion'))
+                _apply_fusion_dark_palette(app)
                 theme_name = "qdarkstyle_dark"
-                msg = "已回退到默认 QDarkStyle (深色)"
+                msg = "已回退到 Fusion 深色"
             
             # 保存配置
             config_manager.set("ui.theme", theme_name)

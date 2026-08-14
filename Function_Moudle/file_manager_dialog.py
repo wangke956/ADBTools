@@ -7,15 +7,15 @@ import os
 import stat
 import subprocess
 from datetime import datetime
-from PyQt5.QtWidgets import (
-    QDialog, QTreeWidget, QTreeWidgetItem,
+from PyQt6.QtWidgets import (
+    QDialog, QTreeWidget, QTreeWidgetItem, QAbstractItemView,
     QPushButton, QLabel, QLineEdit, QComboBox, QMessageBox, QProgressBar,
-    QHeaderView, QMenu, QAction, QInputDialog, QWidget, QFileDialog,
+    QHeaderView, QMenu, QInputDialog, QWidget, QFileDialog,
     QTextEdit, QApplication, QSplitter
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData, QUrl
-from PyQt5.QtGui import QIcon, QCursor, QDropEvent, QDrag
-from PyQt5 import uic
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QUrl
+from PyQt6.QtGui import QIcon, QCursor, QDropEvent, QDrag, QAction
+from PyQt6 import uic
 
 from Function_Moudle.dialog_styles import apply_dialog_style, DIALOG_STYLE
 from logger_manager import get_logger
@@ -29,7 +29,7 @@ class LocalFileTree(QTreeWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setDragEnabled(True)
-        self.setDragDropMode(QTreeWidget.DragOnly)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
     
     def startDrag(self, supportedActions):
         """重写拖拽开始事件 - 设置文件URL"""
@@ -51,7 +51,7 @@ class LocalFileTree(QTreeWidget):
             mime_data.setUrls(urls)
             drag = QDrag(self)
             drag.setMimeData(mime_data)
-            drag.exec_(Qt.CopyAction)
+            drag.exec(Qt.DropAction.CopyAction)
 
 
 class DeviceFileTree(QTreeWidget):
@@ -929,7 +929,7 @@ class FileManagerDialog(QDialog):
     def _init_device_controls(self):
         """初始化独立的设备管理控件"""
         # 创建设备管理工具栏
-        from PyQt5.QtWidgets import QHBoxLayout, QLabel, QComboBox, QPushButton, QCheckBox
+        from PyQt6.QtWidgets import QHBoxLayout, QLabel, QComboBox, QPushButton, QCheckBox
         
         # 查找主布局（假设UI文件中有centralWidget或类似容器）
         try:
@@ -937,14 +937,14 @@ class FileManagerDialog(QDialog):
             if hasattr(self, 'centralWidget') and self.centralWidget():
                 main_layout = self.centralWidget().layout()
                 if not main_layout:
-                    from PyQt5.QtWidgets import QVBoxLayout
+                    from PyQt6.QtWidgets import QVBoxLayout
                     main_layout = QVBoxLayout(self.centralWidget())
                     self.centralWidget().setLayout(main_layout)
             else:
                 # 如果没有centralWidget，直接在对话框上创建布局
                 main_layout = self.layout()
                 if not main_layout:
-                    from PyQt5.QtWidgets import QVBoxLayout
+                    from PyQt6.QtWidgets import QVBoxLayout
                     main_layout = QVBoxLayout(self)
                     self.setLayout(main_layout)
         except:
@@ -1053,8 +1053,8 @@ class FileManagerDialog(QDialog):
     def _apply_high_dpi_settings(self):
         """应用高DPI适配设置（与主窗口保持一致）"""
         try:
-            from PyQt5.QtCore import QCoreApplication
-            from PyQt5.QtGui import QGuiApplication
+            from PyQt6.QtCore import QCoreApplication
+            from PyQt6.QtGui import QGuiApplication
             import sys
             
             # 检查Qt版本
@@ -1070,10 +1070,13 @@ class FileManagerDialog(QDialog):
                 except Exception as e:
                     logger.warning(f"文件管理器: 高DPI新API设置失败: {e}")
             
-            # 启用高DPI缩放
+            # Qt6 默认启用高DPI缩放，不再需要手动设置
             try:
-                QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-                QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+                from PyQt6.QtCore import Qt
+                if hasattr(Qt, 'AA_EnableHighDpiScaling'):
+                    QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+                if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
+                    QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
                 logger.info("文件管理器: 高DPI属性设置成功")
             except Exception as e:
                 logger.warning(f"文件管理器: 高DPI属性设置失败（不影响运行）: {e}")
@@ -1093,8 +1096,8 @@ class FileManagerDialog(QDialog):
         - 第1125行: log_font = QFont("Consolas", 10) - 日志文本框字体大小，单位pt
         """
         try:
-            from PyQt5.QtGui import QFont
-            from PyQt5.QtWidgets import QApplication
+            from PyQt6.QtGui import QFont
+            from PyQt6.QtWidgets import QApplication
             
             # 获取系统默认字体
             font = QFont()
@@ -1184,14 +1187,14 @@ class FileManagerDialog(QDialog):
         self.deviceTree.setHeaderLabels(['名称', '大小', '权限', '修改日期'])
         self.deviceTree.setColumnWidth(0, 200)
         self.deviceTree.setSortingEnabled(True)
-        self.deviceTree.setSelectionMode(QTreeWidget.ExtendedSelection)
-        self.deviceTree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.deviceTree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.deviceTree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         
         self.localTree.setHeaderLabels(['名称', '大小', '类型', '修改日期'])
         self.localTree.setColumnWidth(0, 200)
         self.localTree.setSortingEnabled(True)
-        self.localTree.setSelectionMode(QTreeWidget.ExtendedSelection)
-        self.localTree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.localTree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.localTree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         
         # 设置分割器比例
         self.splitter.setSizes([500, 500])
@@ -1317,7 +1320,7 @@ class FileManagerDialog(QDialog):
         # 工具栏主按钮样式设置（统一应用于所有功能按钮）
         # 包括：上移、刷新、下载、上传、新建文件夹、选择文件、浏览目录等按钮
         # ============================================
-        from PyQt5.QtCore import QSize
+        from PyQt6.QtCore import QSize
         
         # 统一定义按钮样式（适中字体和内边距）
         button_style = """
@@ -1749,7 +1752,7 @@ class FileManagerDialog(QDialog):
             menu.addSeparator()
         
         if not selected_items:
-            menu.exec_(self.deviceTree.viewport().mapToGlobal(pos))
+            menu.exec(self.deviceTree.viewport().mapToGlobal(pos))
             return
         
         # 单选模式
@@ -1810,7 +1813,7 @@ class FileManagerDialog(QDialog):
             batch_delete_action.triggered.connect(self._delete_selected_device_items)
             menu.addAction(batch_delete_action)
         
-        menu.exec_(self.deviceTree.viewport().mapToGlobal(pos))
+        menu.exec(self.deviceTree.viewport().mapToGlobal(pos))
     
     def _show_local_context_menu(self, pos):
         """显示本地文件右键菜单"""
@@ -1843,7 +1846,7 @@ class FileManagerDialog(QDialog):
                 paste_action.setEnabled(False)
             menu.addAction(paste_action)
             
-            menu.exec_(self.localTree.viewport().mapToGlobal(pos))
+            menu.exec(self.localTree.viewport().mapToGlobal(pos))
             return
         
         data = item.data(0, Qt.UserRole)
@@ -1895,7 +1898,7 @@ class FileManagerDialog(QDialog):
                 edit_action.triggered.connect(lambda: self._edit_local_text_file(data))
                 menu.addAction(edit_action)
         
-        menu.exec_(self.localTree.viewport().mapToGlobal(pos))
+        menu.exec(self.localTree.viewport().mapToGlobal(pos))
     
     def _download_selected(self):
         """下载选中的设备文件或文件夹"""
@@ -1930,10 +1933,10 @@ class FileManagerDialog(QDialog):
         reply = QMessageBox.question(
             self, '确认下载',
             f"确定要下载 {' 和 '.join(msg_parts)} 到本地吗？\n保存位置: {self.local_current_path}",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             # 下载文件
             if file_paths:
                 if len(file_paths) == 1:
@@ -2014,10 +2017,10 @@ class FileManagerDialog(QDialog):
         reply = QMessageBox.question(
             self, '确认上传',
             f"确定要上传 {' 和 '.join(msg_parts)} 到设备吗？\n目标路径: {self.device_current_path}",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             # 上传文件
             if file_paths:
                 self._upload_files_batch(file_paths)
@@ -2069,10 +2072,10 @@ class FileManagerDialog(QDialog):
         
         reply = QMessageBox.question(
             self, '确认上传', msg,
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes
         )
         
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
         
         # 上传文件
@@ -2169,7 +2172,7 @@ class FileManagerDialog(QDialog):
         sender = self.sender()
         if sender:
             pos = sender.mapToGlobal(sender.rect().bottomLeft())
-            action = menu.exec_(pos)
+            action = menu.exec(pos)
         else:
             action = file_action
         
@@ -2197,9 +2200,9 @@ class FileManagerDialog(QDialog):
                 reply = QMessageBox.question(
                     self, '确认上传',
                     f"确定要上传文件夹到设备吗？\n文件夹: {os.path.basename(folder_path)}\n目标路径: {self.device_current_path}",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes
                 )
-                if reply == QMessageBox.Yes:
+                if reply == QMessageBox.StandardButton.Yes:
                     self._do_upload_folder(folder_path)
     
     def _on_transfer_finished(self, success, message):
@@ -2329,10 +2332,10 @@ class FileManagerDialog(QDialog):
         reply = QMessageBox.question(
             self, '确认删除',
             f"确定要删除 '{name}' 吗？\n此操作不可撤销！",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             path = file_info.get('path', '')
             try:
                 if is_dir:
@@ -2402,7 +2405,7 @@ class FileManagerDialog(QDialog):
             # 显示编辑对话框
             dialog = LocalTextEditorDialog(self, file_path, file_name, content)
             dialog.saved_signal.connect(self._refresh_local_files)
-            dialog.exec_()
+            dialog.exec()
         except Exception as e:
             QMessageBox.warning(self, "打开失败", f"无法打开文件: {str(e)}")
     
@@ -2411,10 +2414,10 @@ class FileManagerDialog(QDialog):
         reply = QMessageBox.question(
             self, '确认删除',
             f"确定要删除 '{file_info['name']}' 吗？\n此操作不可撤销！",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             path = self._join_device_path(self.device_current_path, file_info['name'])
             
             self.delete_thread = FileDeleteThread(
@@ -2435,7 +2438,7 @@ class FileManagerDialog(QDialog):
     
     def _chmod_item(self, file_info):
         """修改文件权限"""
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
         
         # 创建权限管理对话框
         dialog = QDialog(self)
@@ -2514,7 +2517,7 @@ class FileManagerDialog(QDialog):
         btn_layout.addWidget(btn_cancel)
         layout.addLayout(btn_layout)
         
-        dialog.exec_()
+        dialog.exec()
     
     def _on_chmod_finished(self, success, message):
         """权限修改完成"""
@@ -2584,10 +2587,10 @@ class FileManagerDialog(QDialog):
         reply = QMessageBox.question(
             self, '确认批量删除',
             f"确定要删除选中的 {count} 个项目吗？\n此操作不可撤销！",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No
         )
         
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
         
         # 批量删除
@@ -2658,7 +2661,7 @@ class FileManagerDialog(QDialog):
         dialog = TextPreviewDialog(self, file_path, file_name, content, 
                                    self.device_id, self.connection_mode, self.d)
         dialog.saved_signal.connect(self._refresh_device_files)
-        dialog.exec_()
+        dialog.exec()
     
     def closeEvent(self, event):
         """关闭事件 - 清理所有线程和资源"""
@@ -2718,7 +2721,7 @@ class TextPreviewDialog(QDialog):
         self.resize(900, 600)
         apply_dialog_style(self)
         
-        from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
+        from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout
         layout = QVBoxLayout(self)
         
         # 文件路径显示
@@ -2819,7 +2822,7 @@ class LocalTextEditorDialog(QDialog):
         self.resize(900, 600)
         apply_dialog_style(self)
         
-        from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
+        from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout
         layout = QVBoxLayout(self)
         
         # 文件路径显示

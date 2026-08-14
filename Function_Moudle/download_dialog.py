@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QProgressBar, QPushButton, QMessageBox, QTextEdit)
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 import os
 import subprocess
 import sys
@@ -41,7 +41,7 @@ class DownloadDialog(QDialog):
         # 标题
         title_label = QLabel("下载新版本")
         title_label.setStyleSheet(TITLE_LABEL_STYLE)
-        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title_label)
         
         # 版本信息
@@ -49,7 +49,7 @@ class DownloadDialog(QDialog):
             version_text = f"当前版本: v{self.update_info.get('current_version', '未知')}\n"
             version_text += f"最新版本: v{self.update_info.get('latest_version', '未知')}"
             version_label = QLabel(version_text)
-            version_label.setAlignment(Qt.AlignCenter)
+            version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             main_layout.addWidget(version_label)
             
             # 更新说明
@@ -70,7 +70,7 @@ class DownloadDialog(QDialog):
         # 状态标签
         self.status_label = QLabel("准备下载...")
         self.status_label.setWordWrap(True)
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(self.status_label)
         
         # 详细日志

@@ -1,4 +1,4 @@
-from PyQt5.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from .base_thread import BaseThread, DeviceBaseThread
 from logger_manager import log_device_operation, log_operation, measure_performance
 import subprocess

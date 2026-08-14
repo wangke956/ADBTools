@@ -5,7 +5,7 @@
 """
 
 import os
-from PyQt5.QtWidgets import QInputDialog, QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
+from PyQt6.QtWidgets import QInputDialog, QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
 
 from logger_manager import log_button_click, log_method_result, get_logger
 

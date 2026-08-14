@@ -27,8 +27,8 @@ ADBTools 是一个功能强大的 Android 设备管理工具，支持：
 - ✅ 工程模式访问
 
 ### 技术栈
-- **语言**: Python 3.10
-- **UI框架**: PyQt5
+- **语言**: Python 3.13
+- **UI框架**: PyQt6
 - **编译工具**: Nuitka (OneFile 模式)
 - **打包工具**: Inno Setup
 - **CI/CD**: GitHub Actions
@@ -140,7 +140,7 @@ git push origin main
 #### 主要步骤
 
 1. **环境准备**
-   - 安装 Python 3.10
+   - 安装 Python 3.13
    - 安装 Visual C++ Build Tools
    - 安装项目依赖
 
@@ -860,7 +860,7 @@ finished_signal = pyqtSignal()       # 完成信号（无参数）
 ```python
 # Function_Moudle/my_feature_thread.py
 
-from PyQt5.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from Function_Moudle.base_thread import DeviceBaseThread
 
 
@@ -933,7 +933,7 @@ class DeviceBaseThread(BaseThread):
 ```python
 # Function_Moudle/adb_my_feature_thread.py
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 import subprocess
 
 
@@ -994,7 +994,7 @@ class ADBMyFeatureThread(QThread):
 ```python
 # Function_Moudle/my_dual_mode_thread.py
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 
 
 class MyDualModeThread(QThread):
@@ -1229,7 +1229,7 @@ class AppOperationsManager:
                         self.textBrowser.append("U2连接不可用，切换到ADB模式")
                 
                 # 5. 获取用户输入（如果需要）
-                from PyQt5.QtWidgets import QInputDialog
+                from PyQt6.QtWidgets import QInputDialog
                 param, ok = QInputDialog.getText(
                     self.main_window, "输入参数", "请输入要处理的参数："
                 )
@@ -1422,7 +1422,7 @@ def run(self):
 新建 `Function_Moudle/adb_get_battery_info_thread.py`：
 
 ```python
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 import subprocess
 
 
@@ -1482,7 +1482,7 @@ class ADBGetBatteryInfoThread(QThread):
 新建 `Function_Moudle/get_battery_info_thread.py`：
 
 ```python
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 
 
 class GetBatteryInfoThread(QThread):

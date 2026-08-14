@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """增强版配置对话框 - 提供完整的配置文件修改功能"""
 
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QFileDialog, QMessageBox,
                              QGroupBox, QFormLayout, QCheckBox, QSpinBox,
                              QComboBox, QTabWidget, QWidget, QTextEdit,
@@ -9,8 +9,8 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QSplitter, QTreeWidget, QTreeWidgetItem,
                              QListWidget, QListWidgetItem, QStackedWidget,
                              QInputDialog, QDialogButtonBox)
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QSize
-from PyQt5.QtGui import QFont, QColor, QBrush
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QSize
+from PyQt6.QtGui import QFont, QColor, QBrush
 import os
 import sys
 import json
@@ -251,7 +251,7 @@ class EnhancedConfigDialog(QDialog):
         self.backup_table = QTableWidget()
         self.backup_table.setColumnCount(5)
         self.backup_table.setHorizontalHeaderLabels(["文件名", "大小", "修改时间", "操作", ""])
-        self.backup_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.backup_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         
         # 按钮
         backup_button_layout = QHBoxLayout()
@@ -443,7 +443,7 @@ class EnhancedConfigDialog(QDialog):
     
     def on_checkbox_changed(self, key, state):
         """复选框变化"""
-        value = state == Qt.Checked
+        value = state == Qt.CheckState.Checked
         self.update_config_value(key, value)
     
     def on_spinbox_changed(self, key, value):
@@ -640,7 +640,7 @@ class EnhancedConfigDialog(QDialog):
             
             layout.addWidget(text_edit)
             dialog.setLayout(layout)
-            dialog.exec_()
+            dialog.exec()
         except Exception as e:
             QMessageBox.warning(self, "错误", f"查看备份失败:\n{str(e)}")
     

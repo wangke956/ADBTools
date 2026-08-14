@@ -87,17 +87,17 @@ class DatongManager:
             self._append_output("设备未连接！")
             return
         
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认执行verity命令',
             f'是否要在设备 {device_id} 上执行adb disable-verity和adb enable-verity命令？\n\n'
             '注意：执行此操作可能需要设备重启才能生效。',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             from Function_Moudle.adb_verity_thread import ADBVerityThread
             self.verity_thread = ADBVerityThread(
                 device_id,
@@ -120,7 +120,7 @@ class DatongManager:
         
         device_id = self._get_selected_device()
         
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认执行adb disable-verity',
@@ -129,11 +129,11 @@ class DatongManager:
             '1. 此操作将禁用设备的verity校验\n'
             '2. 执行成功后需要将主机断电重启才能生效\n'
             '3. 请确保已保存所有工作',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             from Function_Moudle.adb_verity_thread import ADBDisableVerityThread
             self.disable_verity_thread = ADBDisableVerityThread(
                 device_id,
@@ -152,7 +152,7 @@ class DatongManager:
     def _handle_disable_verity_result(self, result_message):
         """处理adb disable-verity执行结果"""
         if "执行完成" in result_message or "成功" in result_message:
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.information(
                 self.main_window,
                 'adb disable-verity执行成功',
@@ -164,7 +164,7 @@ class DatongManager:
                 '2. 断开设备连接\n'
                 '3. 关闭主机电源\n'
                 '4. 等待10秒后重新启动主机',
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
     
     def enable_verity_action(self):
@@ -178,7 +178,7 @@ class DatongManager:
         
         device_id = self._get_selected_device()
         
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认执行adb enable-verity',
@@ -187,11 +187,11 @@ class DatongManager:
             '1. 此操作将启用设备的verity校验\n'
             '2. 执行成功后需要将主机断电重启才能生效\n'
             '3. 请确保已保存所有工作',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             from Function_Moudle.adb_verity_thread import ADBEnableVerityThread
             self.enable_verity_thread = ADBEnableVerityThread(
                 device_id,
@@ -210,7 +210,7 @@ class DatongManager:
     def _handle_enable_verity_result(self, result_message):
         """处理adb enable-verity执行结果"""
         if "执行完成" in result_message or "成功" in result_message:
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.information(
                 self.main_window,
                 'adb enable-verity执行成功',
@@ -222,7 +222,7 @@ class DatongManager:
                 '2. 断开设备连接\n'
                 '3. 关闭主机电源\n'
                 '4. 等待10秒后重新启动主机',
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
     
     # ========== 批量安装 ==========
@@ -247,17 +247,17 @@ class DatongManager:
         
         logger.info(f"用户选择了 {len(selected_files)} 个APK文件")
         
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认批量安装',
             f'已选择 {len(selected_files)} 个APK文件，是否继续批量安装？\n\n'
             f'文件列表:\n' + '\n'.join(selected_files),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             device_id = self._get_selected_device()
             from Function_Moudle.adb_batch_install_thread import ADBBatchInstallThread
             self.batch_install_thread = ADBBatchInstallThread(
@@ -293,17 +293,17 @@ class DatongManager:
         
         logger.info(f"用户选择了 {len(selected_files)} 个APK文件进行测试")
         
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认测试批量安装',
             f'已选择 {len(selected_files)} 个APK文件进行测试，是否继续？\n\n'
             f'文件列表:\n' + '\n'.join(selected_files),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             device_id = self._get_selected_device()
             from Function_Moudle.adb_batch_install_test_thread import ADBBatchInstallTestThread
             self.batch_install_test_thread = ADBBatchInstallTestThread(
@@ -340,17 +340,17 @@ class DatongManager:
         
         logger.info(f"用户选择了 {len(selected_files)} 个APK文件进行版本验证")
         
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认版本验证',
             f'已选择 {len(selected_files)} 个APK文件进行版本验证，是否继续？\n\n'
             f'文件列表:\n' + '\n'.join(selected_files),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             device_id = self._get_selected_device()
             from Function_Moudle.adb_batch_verify_version_thread import ADBBatchVerifyVersionThread
             self.batch_verify_thread = ADBBatchVerifyVersionThread(
@@ -381,16 +381,16 @@ class DatongManager:
         password = "Kfs73p940a"
         device_id = self._get_selected_device()
         
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认输入密码',
             f'确定要在设备 {device_id} 上输入密码 {password} 吗？',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             logger.info(f"输入密码: {password}")
             from Function_Moudle.datong_input_password_thread import DatongInputPasswordThread
             self.input_password_thread = DatongInputPasswordThread(device_id, password)
@@ -438,7 +438,7 @@ class DatongManager:
         
         try:
             from datetime import datetime
-            from PyQt5.QtWidgets import QInputDialog
+            from PyQt6.QtWidgets import QInputDialog
             
             timezones = [
                 "Asia/Shanghai (GMT+8)", "Asia/Tokyo (GMT+9)", "Asia/Seoul (GMT+9)",
@@ -464,7 +464,7 @@ class DatongManager:
             # 提取时区名称
             timezone_name = timezone.split(' (')[0]
             
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             reply = QMessageBox.question(
                 self.main_window,
                 '确认设置日期时间',
@@ -473,11 +473,11 @@ class DatongManager:
                 f'时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n'
                 '注意：\n'
                 '1. 此操作将修改设备的系统时间\n',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
             )
             
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 from Function_Moudle.datong_set_datetime_thread import DatongSetDatetimeThread
                 self.datetime_thread = DatongSetDatetimeThread(
                     device_id,

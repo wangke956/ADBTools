@@ -5,7 +5,7 @@
 提供获取、设置和清除网络代理功能
 """
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 import sys
 import os
 # 添加项目根目录到Python路径

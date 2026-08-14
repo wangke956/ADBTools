@@ -5,7 +5,7 @@
 """
 
 import os
-from PyQt5.QtWidgets import QInputDialog, QFileDialog, QMessageBox
+from PyQt6.QtWidgets import QInputDialog, QFileDialog, QMessageBox
 
 from logger_manager import log_button_click, log_method_result, get_logger
 
@@ -400,7 +400,7 @@ class AppOperationsManager:
     #     log_button_click("network_proxy_button", "网络代理管理")
     #
     #     # 创建对话框
-    #     from PyQt5.QtWidgets import (
+    #     from PyQt6.QtWidgets import (
     #         QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     #         QPushButton, QGroupBox, QComboBox, QTextBrowser
     #     )
@@ -711,8 +711,8 @@ class AppOperationsManager:
         print(ui_full_path)
         # ui_full_path = os.path.join(base_dir, "Dialog_proxy.ui")
         # uic.loadUi(ui_full_path, dialog)
-        from PyQt5 import uic
-        from PyQt5.QtWidgets import (
+        from PyQt6 import uic
+        from PyQt6.QtWidgets import (
             QDialog, QLabel, QComboBox, QLineEdit, QPushButton, QGroupBox, QTextBrowser
         )
         log_button_click("network_proxy_button", "网络代理管理")
@@ -932,7 +932,7 @@ class AppOperationsManager:
         log_method_result("代理管理器", True, "代理管理器已启动")
 
         # 模态弹窗
-        dialog.exec_()
+        dialog.exec()
 
     # ========== 输入法操作 ==========
 
@@ -1046,7 +1046,7 @@ class AppOperationsManager:
 if __name__ == "__main__":
     import sys
     import qdarkstyle
-    from PyQt5.QtWidgets import QApplication, QMainWindow
+    from PyQt6.QtWidgets import QApplication, QMainWindow
 
 
     class MockMainWindow(QMainWindow):
@@ -1056,7 +1056,7 @@ if __name__ == "__main__":
             self.connection_mode = "adb"
             self.d = None
             self.releasenote_file = ""
-            from PyQt5.QtWidgets import QTextBrowser
+            from PyQt6.QtWidgets import QTextBrowser
             self.textBrowser = QTextBrowser()
             self.Findstr = QTextBrowser()
 
@@ -1069,9 +1069,9 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     # 全局加载暗黑样式
-    app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+    app.setStyleSheet(qdarkstyle.load_stylesheet_PyQt6())
 
     main_win = MockMainWindow()
     op_mgr = AppOperationsManager(main_win)
     op_mgr.show_network_proxy_dialog()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

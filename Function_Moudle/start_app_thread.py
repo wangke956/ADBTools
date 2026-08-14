@@ -4,7 +4,7 @@
 启动应用线程 - 支持U2和ADB两种模式
 """
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 import sys
 import os
 

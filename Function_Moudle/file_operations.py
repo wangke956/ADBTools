@@ -5,7 +5,7 @@
 """
 
 import os
-from PyQt5.QtWidgets import QFileDialog, QInputDialog
+from PyQt6.QtWidgets import QFileDialog, QInputDialog
 
 from logger_manager import log_button_click, log_method_result, get_logger
 
@@ -134,6 +134,7 @@ class FileOperationsManager:
                     self.main_window.install_file_thread = InstallFileThread(device_id, package_path)
                     self.main_window.install_file_thread.progress_signal.connect(self.textBrowser.append)
                     self.main_window.install_file_thread.signal_status.connect(self.textBrowser.append)
+                    self.main_window.finished.connect(lambda: setattr(self, "install_file_thread", None))
                     self.main_window.install_file_thread.start()
                     
                     log_method_result("show_install_file_dialog", True, f"安装线程已启动: {os.path.basename(package_path)}")

@@ -73,7 +73,7 @@ def main():
     print("\n📦 检查依赖...")
     try:
         import nuitka
-        import PyQt5
+        import PyQt6
         import uiautomator2
         import adbutils
         print("  ✅ 所有依赖已安装")

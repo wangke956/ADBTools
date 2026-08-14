@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 
 class SetVrTimeoutThread(QThread):
     signal_timeout = pyqtSignal(str)

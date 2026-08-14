@@ -16,7 +16,7 @@ on:
         default: true
 
 env:
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.13'  # PyQt6 需要 Python >= 3.9，与本地开发环境保持一致
   APP_NAME: ADBTools
 
 jobs:

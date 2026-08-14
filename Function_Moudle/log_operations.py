@@ -3,7 +3,7 @@
 """日志操作管理器 - 处理日志拉取、语音录制等功能"""
 
 import os
-from PyQt5.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QFileDialog
 
 from logger_manager import (
     get_logger, log_operation, log_exception,

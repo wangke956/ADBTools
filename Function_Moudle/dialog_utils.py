@@ -3,11 +3,11 @@
 """对话框工具类 - 提供可复用的对话框组件"""
 
 import os
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QLabel, QFileDialog, QMessageBox
 )
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
 
 
@@ -46,7 +46,7 @@ class ApkMultiSelectDialog(QDialog):
         
         for apk_file in self.apk_files:
             item = QListWidgetItem(apk_file)
-            item.setCheckState(Qt.Unchecked)
+            item.setCheckState(Qt.CheckState.Unchecked)
             self.file_list.addItem(item)
         
         layout.addWidget(self.file_list)
@@ -83,24 +83,24 @@ class ApkMultiSelectDialog(QDialog):
     def _select_all(self):
         """全选"""
         for i in range(self.file_list.count()):
-            self.file_list.item(i).setCheckState(Qt.Checked)
+            self.file_list.item(i).setCheckState(Qt.CheckState.Checked)
     
     def _invert_selection(self):
         """反选"""
         for i in range(self.file_list.count()):
             item = self.file_list.item(i)
-            item.setCheckState(Qt.Checked if item.checkState() == Qt.Unchecked else Qt.Unchecked)
+            item.setCheckState(Qt.CheckState.Checked if item.checkState() == Qt.CheckState.Unchecked else Qt.CheckState.Unchecked)
     
     def _clear_selection(self):
         """清空选择"""
         for i in range(self.file_list.count()):
-            self.file_list.item(i).setCheckState(Qt.Unchecked)
+            self.file_list.item(i).setCheckState(Qt.CheckState.Unchecked)
     
     def get_selected_files(self):
         """获取选中的文件列表"""
         selected = []
         for i in range(self.file_list.count()):
-            if self.file_list.item(i).checkState() == Qt.Checked:
+            if self.file_list.item(i).checkState() == Qt.CheckState.Checked:
                 selected.append(self.file_list.item(i).text())
         return selected
     
@@ -134,7 +134,7 @@ class ApkMultiSelectDialog(QDialog):
         
         # 显示多选对话框
         dialog = ApkMultiSelectDialog(parent, folder_path, title)
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             selected_files = dialog.get_selected_files()
             if not selected_files:
                 QMessageBox.warning(parent, "未选择文件", "请至少选择一个APK文件")

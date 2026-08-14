@@ -1,4 +1,4 @@
-from PyQt5.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from .base_thread import BaseThread, DeviceBaseThread, FileBaseThread
 from logger_manager import log_operation, log_file_operation, measure_performance
 import os
@@ -171,10 +171,10 @@ class BrowseLogSavePathThread(BaseThread):
     def _run_implementation(self):
         """执行浏览日志保存路径操作"""
         try:
-            from PyQt5.QtWidgets import QFileDialog
+            from PyQt6.QtWidgets import QFileDialog
             
             # 在主线程中执行文件对话框
-            from PyQt5.QtCore import QObject, pyqtSignal
+            from PyQt6.QtCore import QObject, pyqtSignal
             
             class PathEmitter(QObject):
                 path_selected = pyqtSignal(str)
@@ -186,7 +186,7 @@ class BrowseLogSavePathThread(BaseThread):
                 emitter.path_selected.emit(path)
                 
             # 延迟执行文件对话框
-            from PyQt5.QtCore import QTimer
+            from PyQt6.QtCore import QTimer
             QTimer.singleShot(0, select_path)
             
             # 等待路径选择

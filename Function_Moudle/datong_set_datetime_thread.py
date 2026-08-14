@@ -4,7 +4,7 @@
 import threading
 import time
 from datetime import datetime
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 
 # 导入ADB工具类
 import sys

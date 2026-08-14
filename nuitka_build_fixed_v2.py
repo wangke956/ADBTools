@@ -46,10 +46,10 @@ CONFIG = {
 
     # 需要包含的Python模块
     "include_modules": [
-        "PyQt5",
-        "PyQt5.QtCore",
-        "PyQt5.QtWidgets",
-        "PyQt5.QtGui",
+        "PyQt6",
+        "PyQt6.QtCore",
+        "PyQt6.QtWidgets",
+        "PyQt6.QtGui",
         "qdarkstyle",
         "qdarktheme",
         "qfluentwidgets",
@@ -94,7 +94,7 @@ CONFIG = {
 
     # 插件
     "plugins": [
-        "pyqt5",
+        "PyQt6",
         "tk-inter",
     ],
 
@@ -118,7 +118,7 @@ def get_nuitka_command(build_type="onefile"):
         product_version = "1.5.0"
 
     cmd = [sys.executable, "-m", "nuitka", "--standalone", "--remove-output", "--assume-yes-for-downloads",
-           "--plugin-enable=pyqt5", "--jobs=" + str(os.cpu_count()), "--lto=yes",
+           "--plugin-enable=PyQt6", "--jobs=" + str(os.cpu_count()), "--lto=yes",
            "--windows-icon-from-ico=" + str(PROJECT_ROOT / CONFIG["icon"]), "--company-name=" + CONFIG["company_name"],
            "--product-name=" + CONFIG["product_name"], "--file-version=" + file_version,
            "--product-version=" + product_version, "--file-description=" + CONFIG["description"],
@@ -627,7 +627,7 @@ def check_dependencies():
 
     required_packages = [
         "nuitka",
-        "PyQt5",
+        "PyQt6",
         "qdarkstyle",
         "uiautomator2",
         "adbutils",

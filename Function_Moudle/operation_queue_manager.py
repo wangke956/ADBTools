@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QObject, pyqtSignal, QMutex, QWaitCondition, QTimer
+from PyQt6.QtCore import QObject, pyqtSignal, QMutex, QWaitCondition, QTimer
 from enum import Enum, auto
 from typing import Dict, List, Optional, Callable, Any
 import time

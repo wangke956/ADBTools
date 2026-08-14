@@ -8,7 +8,7 @@
 3. 获取当前默认输入法
 """
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 import subprocess
 import logging
 

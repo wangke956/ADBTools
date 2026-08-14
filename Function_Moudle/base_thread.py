@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
+from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
 from logger_manager import get_logger, log_thread_start, log_thread_complete, log_exception
 import time
 from enum import Enum

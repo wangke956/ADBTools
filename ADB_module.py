@@ -1,31 +1,34 @@
-from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
+from PyQt6.QtWidgets import (QMainWindow, QFileDialog, QInputDialog, QMessageBox)
 import io
 from Function_Moudle.thread_factory import thread_factory
 from Function_Moudle.error_dialog import (
     show_error_message, show_warning_message,
     show_info_message
 )
+from PyQt6.QtCore import pyqtSignal
 
-# 确保 Nuitka 兼容性（必须在 import uiautomator2 之后调用）
-from nuitka_compat import ensure_nuitka_compatibility
-ensure_nuitka_compatibility()
-
-from PyQt5 import uic
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtWidgets import QMainWindow, QApplication, QSizePolicy, QPushButton, QWidget, QComboBox
+from PyQt6 import uic
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtWidgets import QMainWindow, QApplication, QSizePolicy, QPushButton, QWidget, QComboBox
 from adb_utils import adb_utils
 from logger_manager import (
     get_logger, log_operation,
     log_button_click, log_method_result
 )
-
 from ui_theme_manager import ThemeManager
+from PyQt6.QtGui import QAction
+
+# ========== 挪到这里，所有导入完成再执行Nuitka兼容 ==========
+from nuitka_compat import ensure_nuitka_compatibility
+ensure_nuitka_compatibility()
 
 # 创建日志记录器
 logger = get_logger("ADBTools.ADB_Module")
+from PyQt6.QtCore import QObject, pyqtSignal
 
-class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
+class TextEditOutputStream(QObject):  # 继承 io.TextIOBase 类
 
+    write_signal = pyqtSignal(str)
     def __init__(self, textbrowser):
         super().__init__()  # 调用父类构造函数
         self.textBrowser = textbrowser  # 绑定 textEdit
@@ -33,27 +36,29 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
         self.clear_before_write = False  # 添加一个标志来控制是否清空内容
         self.last_output_type = None  # 记录上一次输出的类型
         self.output_count = 0  # 输出计数器
+        self.write_signal.connect(self.textBrowser.append)
 
     def write(self, s):
         if self.clear_before_write:
             self.textBrowser.clear()  # 如果标志为 True，则清空 textEdit 的内容
             self.clear_before_write = False  # 重置标志
         self.buffer.write(s)
-        self.textBrowser.append(s)
-        
+        # 替换直接append，改用信号主线程写入UI
+        self.write_signal.emit(s)
+
         # 同时记录到日志（只记录非空内容）
         if s and s.strip():
             import threading
-            from datetime import datetime            
+            from datetime import datetime
             thread_id = threading.current_thread().ident
             thread_name = threading.current_thread().name
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             self.output_count += 1
-            
+
             # 判断输出类型
             s_lower = s.lower()
             s_stripped = s.strip()
-            
+
             # 错误信息
             if any(keyword in s_lower for keyword in ['错误', '失败', 'error', 'failed', 'not found', 'exception', 'traceback']):
                 log_level = 'ERROR'
@@ -79,7 +84,7 @@ class TextEditOutputStream(io.TextIOBase):  # 继承 io.TextIOBase 类
                 log_level = 'INFO'
                 self.last_output_type = 'info'
                 logger.info(f"[{timestamp}] [Thread-{thread_id}] UI输出[INFO]: {s_stripped}")
-        
+
         return len(s)
 
     def flush(self):
@@ -169,7 +174,7 @@ class ADB_Mainwindow(QMainWindow):
             print(f"尝试从 {ui_path} 加载...")
             uic.loadUi(ui_path, self)
         # 假设这里是初始化UI控件的部分，使用findChild方法获取控件
-        from PyQt5 import QtWidgets
+        from PyQt6 import QtWidgets
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')
         self.ComboxButton = self.findChild(QtWidgets.QComboBox, 'ComboxButton')
         self.modeSwitchCheckBox = self.findChild(QtWidgets.QCheckBox, 'modeSwitchCheckBox')
@@ -217,7 +222,8 @@ class ADB_Mainwindow(QMainWindow):
             self.refresh_devices()
         except Exception as e:
             self.textBrowser.append(str(e))
-        self.ComboxButton.activated[str].connect(self.on_combobox_changed)
+        # self.ComboxButton.activated[str].connect(self.on_combobox_changed)
+        self.ComboxButton.activated.connect(self.on_combobox_changed)
         self.modeSwitchCheckBox.stateChanged.connect(self.on_mode_switch_changed)
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb_button.clicked.connect(self.show_input_text_dialog)  # 输入文本
@@ -338,7 +344,7 @@ class ADB_Mainwindow(QMainWindow):
         self.setWindowTitle(f"ADBTools v{self.VERSION}")
         
         # 启动时自动检查更新（延迟3秒执行，避免阻塞启动）
-        from PyQt5.QtCore import QTimer
+        from PyQt6.QtCore import QTimer
         QTimer.singleShot(3000, self.check_for_updates_silent)
 
     def init_window_scaling(self):
@@ -348,20 +354,29 @@ class ADB_Mainwindow(QMainWindow):
         self.current_size = self.size()
         
         # 设置窗口缩放策略
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
+        # self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         # 获取中央部件并设置缩放策略
         central_widget = self.centralWidget()
         if central_widget:
-            central_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
+            # central_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            central_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         # 初始化大通页面布局
         self.init_datong_layout()
+
+    def open_config_dialog(self):
+        """打开基础配置弹窗"""
+        try:
+            from config_dialog_enhanced import EnhancedConfigDialog
+            dlg = EnhancedConfigDialog(self)
+            dlg.exec()
+        except Exception as e:
+            self.textBrowser.append(f"打开配置面板失败：{e}")
     
     def init_datong_layout(self):
         """初始化大通页面布局"""
         try:
-            from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+            from PyQt6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
             
             # 查找大通页面的布局容器
             layout_widget = self.findChild(QWidget, "layoutWidget")
@@ -380,7 +395,7 @@ class ADB_Mainwindow(QMainWindow):
                 layout.setSpacing(8)
                 
                 # 设置布局容器的尺寸策略
-                layout_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                layout_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
                 
                 print("大通页面布局初始化完成")
                 
@@ -389,7 +404,7 @@ class ADB_Mainwindow(QMainWindow):
 
     def _init_navigation_buttons(self):
         """初始化侧边栏导航按钮"""
-        from PyQt5 import QtWidgets
+        from PyQt6 import QtWidgets
         
         # 导航按钮名称列表（对应UI中的按钮名称）
         self.nav_buttons = []
@@ -469,19 +484,20 @@ QPushButton:hover {{
 
     def add_config_menu(self):
         """添加配置菜单"""
-        from PyQt5 import QtWidgets
+        from PyQt6 import QtWidgets
         menubar = self.menuBar()
         
         # 设置菜单
         settings_menu = menubar.addMenu('设置')
         
         # 配置管理器
-        config_action = QtWidgets.QAction('配置管理器', self)
+        # config_action = QAction('配置管理器', self)
+        config_action = QAction('配置管理器', self)
         config_action.triggered.connect(self.open_enhanced_config_dialog)
         settings_menu.addAction(config_action)
         
         # 打开日志目录
-        open_log_dir_action = QtWidgets.QAction('打开日志目录', self)
+        open_log_dir_action = QAction('打开日志目录', self)
         open_log_dir_action.triggered.connect(self.open_log_directory)
         settings_menu.addAction(open_log_dir_action)
         
@@ -489,7 +505,7 @@ QPushButton:hover {{
         settings_menu.addSeparator()
         
         # 检查更新
-        check_update_action = QtWidgets.QAction('检查更新', self)
+        check_update_action = QAction('检查更新', self)
         check_update_action.triggered.connect(self.check_for_updates)
         settings_menu.addAction(check_update_action)
         
@@ -497,7 +513,7 @@ QPushButton:hover {{
         settings_menu.addSeparator()
         
         # 关于
-        about_action = QtWidgets.QAction('关于', self)
+        about_action = QAction('关于', self)
         about_action.triggered.connect(self.show_about)
         settings_menu.addAction(about_action)
         
@@ -505,14 +521,14 @@ QPushButton:hover {{
         # edit_menu = menubar.addMenu('编辑')
         #
         # # 撤销操作
-        # self.undo_action = QtWidgets.QAction('撤销', self)
+        # self.undo_action = QAction('撤销', self)
         # self.undo_action.setShortcut('Ctrl+Z')
         # self.undo_action.triggered.connect(self.undo)
         # self.undo_action.setEnabled(False)
         # edit_menu.addAction(self.undo_action)
         #
         # # 重做操作
-        # self.redo_action = QtWidgets.QAction('重做', self)
+        # self.redo_action = QAction('重做', self)
         # self.redo_action.setShortcut('Ctrl+Y')
         # self.redo_action.triggered.connect(self.redo)
         # self.redo_action.setEnabled(False)
@@ -522,13 +538,13 @@ QPushButton:hover {{
         # edit_menu.addSeparator()
         #
         # # 快速入门
-        # quick_start_action = QtWidgets.QAction('快速入门', self)
+        # quick_start_action = QAction('快速入门', self)
         # quick_start_action.triggered.connect(self.show_quick_start_guide)
         # edit_menu.addAction(quick_start_action)
 
     def add_theme_menu(self):
         """添加皮肤切换菜单"""
-        from PyQt5 import QtWidgets
+        from PyQt6 import QtWidgets
         from ui_theme_manager import ThemeManager
         
         menubar = self.menuBar()
@@ -539,7 +555,7 @@ QPushButton:hover {{
         
         # 遍历所有主题选项
         for theme_id, theme_name in ThemeManager.THEMES.items():
-            action = QtWidgets.QAction(theme_name, self)
+            action = QAction(theme_name, self)
             action.setCheckable(True)
             # 如果是当前主题，则勾选
             if theme_id == current_theme:
@@ -587,13 +603,13 @@ QPushButton:hover {{
         try:
             from config_dialog_enhanced import EnhancedConfigDialog
             dialog = EnhancedConfigDialog(self)
-            dialog.exec_()
+            dialog.exec()
         except Exception as e:
             self.textBrowser.append(f"打开配置对话框失败: {e}")
 
     def show_about(self):
         """显示关于信息"""
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         QMessageBox.about(self, "关于 ADBTools", 
             f"ADBTools v{self.VERSION}\n\n"
             "一个功能强大的ADB调试工具\n"
@@ -625,7 +641,7 @@ QPushButton:hover {{
                 
             self.textBrowser.append(f"已打开日志目录: {log_dir}")
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "错误", f"无法打开日志目录: {e}")
             self.textBrowser.append(f"打开日志目录失败: {e}")
 
@@ -652,39 +668,26 @@ QPushButton:hover {{
             
         except ImportError as e:
             self.textBrowser.append(f"无法导入检查更新模块: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "检查更新失败", 
                 f"无法启动检查更新功能:\n\n{str(e)}\n\n请确保requests库已安装。")
         except Exception as e:
             self.textBrowser.append(f"启动检查更新失败: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "检查更新失败", 
                 f"启动检查更新时发生错误:\n\n{str(e)}")
 
     def check_for_updates_silent(self):
-        """
-        静默检查更新（启动时自动调用）
-        
-        - 有更新：弹窗提示
-        - 无更新：不做任何提示
-        - 检查失败：不做任何提示
-        """
         try:
-            # 使用线程工厂创建检查更新线程
             self.check_update_thread_silent = thread_factory.create_thread(
-                'check_update', 
+                'check_update',
                 current_version=self.VERSION
             )
-            
-            # 只连接更新可用的信号，无更新和失败时不做任何提示
             self.check_update_thread_silent.update_available_signal.connect(self.handle_update_available_silent)
-            
-            # 启动线程（静默，不显示任何进度信息）
+            self.check_update_thread_silent.finished.connect(lambda: setattr(self, "check_update_thread_silent", None))
             self.check_update_thread_silent.start()
-            
         except Exception as e:
-            # 静默失败，不提示用户
-            logger.debug(f"启动时静默检查更新失败: {e}")
+            logger.debug(f"静默更新检查失败: {e}")
 
     def handle_update_available_silent(self, update_info):
         """
@@ -692,7 +695,7 @@ QPushButton:hover {{
         
         只弹窗提示有新版本，不显示在 textBrowser 中
         """
-        from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+        from PyQt6.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
         from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
         
         current_version = update_info.get('current_version', '未知')
@@ -766,7 +769,7 @@ QPushButton:hover {{
             layout.addLayout(button_layout)
             dialog.setLayout(layout)
             
-            dialog.exec_()
+            dialog.exec()
         else:
             # 没有安装文件，只有手动下载选项
             message += f"GitHub地址: {html_url}\n\n"
@@ -776,16 +779,16 @@ QPushButton:hover {{
                 self,
                 "发现新版本",
                 message,
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
             )
             
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 self._open_browser(html_url)
 
     def handle_update_available(self, update_info):
         """处理有更新可用的信号"""
-        from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+        from PyQt6.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
         from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
         
         current_version = update_info.get('current_version', '未知')
@@ -845,11 +848,11 @@ QPushButton:hover {{
                 self,
                 title,
                 message,
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
             )
             
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 # 打开浏览器
                 import webbrowser
                 try:
@@ -904,7 +907,7 @@ QPushButton:hover {{
                 layout.addLayout(button_layout)
                 dialog.setLayout(layout)
                 
-                dialog.exec_()
+                dialog.exec()
             else:
                 # 没有安装文件，只有手动下载选项
                 message += "是否要打开浏览器访问下载页面？"
@@ -913,11 +916,11 @@ QPushButton:hover {{
                     self,
                     "发现新版本",
                     message,
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.Yes
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
                 )
                 
-                if reply == QMessageBox.Yes:
+                if reply == QMessageBox.StandardButton.Yes:
                     self._open_browser(html_url)
 
     def _open_browser(self, url, dialog=None):
@@ -929,7 +932,7 @@ QPushButton:hover {{
                 dialog.accept()
         except Exception as e:
             self.textBrowser.append(f"打开浏览器失败: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "打开浏览器失败", 
                 f"无法打开浏览器访问页面:\n\n{str(e)}\n\n请手动访问: {url}")
             if dialog:
@@ -947,18 +950,18 @@ QPushButton:hover {{
                 dialog.accept()
                 
             # 显示下载对话框
-            download_dialog.exec_()
+            download_dialog.exec()
             
         except ImportError as e:
             self.textBrowser.append(f"无法导入下载模块: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "自动下载失败", 
                 f"无法启动自动下载功能:\n\n{str(e)}\n\n请尝试手动下载。")
             if dialog:
                 dialog.reject()
         except Exception as e:
             self.textBrowser.append(f"启动自动下载失败: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "自动下载失败", 
                 f"启动自动下载时发生错误:\n\n{str(e)}")
             if dialog:
@@ -966,12 +969,12 @@ QPushButton:hover {{
 
     def handle_no_update(self, message):
         """处理无更新的信号"""
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         QMessageBox.information(self, "检查更新", message)
 
     def handle_check_failed(self, error_message):
         """处理检查更新失败的信号"""
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         QMessageBox.warning(self, "检查更新失败", 
             f"检查更新时发生错误:\n\n{error_message}\n\n"
             "请检查网络连接后重试。")
@@ -1122,6 +1125,7 @@ QPushButton:hover {{
                 self.app_version_check_thread.progress_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.error_signal.connect(self.textBrowser.append)
                 self.app_version_check_thread.release_note_signal.connect(self.handle_progress)
+                self.adb_root_thread.finished.connect(lambda: setattr(self, "adb_root_thread", None))
                 self.app_version_check_thread.start()
 
                 log_method_result("app_version_check", True, "版本检查线程已启动")
@@ -1181,9 +1185,13 @@ QPushButton:hover {{
     def on_mode_switch_changed(self, state):
         """模式切换 - 委托给 device_manager"""
         self.device_manager.on_mode_switch_changed(state)
-    
+
     def on_combobox_changed(self, text):
-        """设备选择切换 - 委托给 device_manager"""
+        # 新增
+        self.u2_connecting = False
+        self.d = None
+        self.connection_mode = "adb"
+        # 原有委托逻辑
         self.device_manager.on_combobox_changed(text)
     
     def refresh_devices(self):
@@ -1253,6 +1261,7 @@ QPushButton:hover {{
                 )
                 self.adb_root_thread.progress_signal.connect(self.textBrowser.append)
                 self.adb_root_thread.error_signal.connect(self.textBrowser.append)
+                self.adb_root_thread.finished.connect(lambda: setattr(self, "adb_root_thread", None))
                 self.adb_root_thread.start()
                 
                 logger.info("✓ Root权限线程已启动")
@@ -1414,50 +1423,30 @@ QPushButton:hover {{
     
             try:
     
-                from PyQt5.QtWidgets import QSizePolicy
+                from PyQt6.QtWidgets import QSizePolicy
     
                 
     
                 # 获取所有按钮控件
     
                 buttons = self.findChildren(QPushButton)
-    
-                
-    
+
                 for button in buttons:
-    
                     button_name = button.objectName()
-    
                     button_text = button.text()
-    
-                    
-    
+
                     # 对于刷新设备和断开设备按钮，使用更保守的缩放
-    
                     if button_name in ('RefreshButton', 'DisconnectButton'):
-    
-                        # 这两个按钮保持相对固定的大小
-    
                         button.setMinimumSize(100, 30)
-    
                         button.setMaximumSize(100, 50)
-    
                     else:
-    
-                        # 所有其他按钮都使用与ADB页面一致的Expanding缩放方式
-    
-                        # 设置Expanding尺寸策略
-    
-                        size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-    
+                        size_policy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
                         button.setSizePolicy(size_policy)
-    
-                        
-    
-                        # 不设置固定的最小/最大尺寸，让布局自动调整
-    
+                        # =========新增两行=========
+                        button.setFixedSize(0, 0)
+                        button.setMinimumWidth(60)
+                        # ==========================
                         button.setMinimumSize(0, 0)
-    
                         button.setMaximumSize(16777215, 16777215)
     
                 
@@ -1484,7 +1473,7 @@ QPushButton:hover {{
     
                         # 其他下拉框也使用Expanding策略
     
-                        size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                        size_policy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
     
                         combobox.setSizePolicy(size_policy)
     
@@ -1505,35 +1494,20 @@ QPushButton:hover {{
                 # 控件大小调整失败时不中断程序
     
                 print(f"调整控件大小时出错: {e}")
-    
+
     def adjust_datong_layout(self, scale_ratio):
-        """调整大通页面布局容器大小"""
         try:
-            from PyQt5.QtWidgets import QWidget
-            
-            # 查找大通页面的布局容器
+            from PyQt6.QtWidgets import QWidget, QVBoxLayout
             layout_widget = self.findChild(QWidget, "layoutWidget")
             if layout_widget:
-                # 获取原始布局容器尺寸（从UI文件中读取的原始尺寸）
-                original_width = 301
-                original_height = 235
-                
-                # 计算新的尺寸
-                new_width = int(original_width * scale_ratio)
-                new_height = int(original_height * scale_ratio)
-                
-                # 确保最小尺寸
-                new_width = max(new_width, 280)  # 稍微小于原始宽度，给按钮留出边距
-                new_height = max(new_height, 280)  # 增加高度以容纳所有按钮
-                
-                # 设置固定尺寸（resize方法）
-                layout_widget.resize(new_width, new_height)
-                
-                # 更新布局
+                layout_widget.setFixedSize(0, 0)
+                lay = layout_widget.layout()
+                if lay:
+                    lay.setContentsMargins(int(10 * scale_ratio), int(10 * scale_ratio), int(10 * scale_ratio),
+                                           int(10 * scale_ratio))
+                    lay.setSpacing(int(8 * scale_ratio))
                 layout_widget.updateGeometry()
-                
         except Exception as e:
-            # 布局调整失败时不中断程序
             print(f"调整大通页面布局时出错: {e}")
     
     def reinit_uiautomator2(self):
@@ -1544,12 +1518,12 @@ QPushButton:hover {{
         device_id = self.get_selected_device()
         
         if not device_id:
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "未选择设备", "请先选择一个设备！")
             return
         
         # 确认对话框
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self,
             '确认重新初始化',
@@ -1560,11 +1534,11 @@ QPushButton:hover {{
             '3. 清理相关进程\n'
             '4. 重新安装和初始化uiautomator2\n\n'
             '注意：此过程可能需要1-2分钟，请勿关闭程序。',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             self.textBrowser.append("用户取消重新初始化操作")
             return
         
@@ -1593,16 +1567,16 @@ QPushButton:hover {{
             self.u2_reinit_thread.start()
             
             # 显示对话框
-            self.u2_reinit_dialog.exec_()
+            self.u2_reinit_dialog.exec()
             
         except ImportError as e:
             self.textBrowser.append(f"无法导入重新初始化模块: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "重新初始化失败", 
                 f"无法启动重新初始化功能:\n\n{str(e)}")
         except Exception as e:
             self.textBrowser.append(f"启动重新初始化失败: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "重新初始化失败", 
                 f"启动重新初始化时发生错误:\n\n{str(e)}")
     

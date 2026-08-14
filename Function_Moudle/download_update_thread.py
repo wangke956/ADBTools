@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QThread, pyqtSignal, QMutex, QMutexLocker
+from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QMutexLocker
 import requests
 import os
 import tempfile

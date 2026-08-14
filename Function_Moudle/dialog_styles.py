@@ -4,7 +4,7 @@
 对话框样式管理器 - 提供统一的对话框样式
 """
 
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 
 # 统一的对话框样式
 DIALOG_STYLE = """
@@ -315,12 +315,12 @@ def apply_dialog_style(dialog):
 
 def create_styled_label(text, style_type="normal"):
     """创建带样式的标签"""
-    from PyQt5.QtWidgets import QLabel
+    from PyQt6.QtWidgets import QLabel
     
     label = QLabel(text)
     if style_type == "title":
         label.setStyleSheet(TITLE_LABEL_STYLE)
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     elif style_type == "success":
         label.setStyleSheet(SUCCESS_STYLE)
     elif style_type == "error":

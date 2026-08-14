@@ -34,9 +34,11 @@ click>=8.0.0
 # ========== 兼容性库 ==========
 six>=1.16.0
 
-# ========== PyQt5 相关 ==========
-PyQt5>=5.15.0
+# ========== PyQt6 相关 ==========
+# 项目已从 PyQt5 迁移到 PyQt6，注意版本号从 6.x 开始
+PyQt6>=6.5.0
 qdarkstyle>=3.2.0
 pyqtdarktheme>=2.1.0
-PyQt-Fluent-Widgets>=1.5.0
+# PyQt6 版 Fluent Widgets（导入名仍为 qfluentwidgets）
+PyQt6-Fluent-Widgets>=1.5.0
 qtmodern>=0.2.0

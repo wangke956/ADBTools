@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QTextEdit, QPushButton, QMessageBox)
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QPixmap, QIcon
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QFont, QPixmap, QIcon
 from enum import Enum
 from typing import Optional
 
@@ -91,7 +91,7 @@ class ErrorDialog(QDialog):
         self._set_icon(level)
         
         # 显示对话框
-        return self.exec_()
+        return self.exec()
     
     def _set_icon(self, level: ErrorLevel):
         """设置图标"""
@@ -107,7 +107,7 @@ class ErrorDialog(QDialog):
             icon_path = "icons/critical.png"
         
         if icon_path and os.path.exists(icon_path):
-            pixmap = QPixmap(icon_path).scaled(48, 48, Qt.KeepAspectRatio)
+            pixmap = QPixmap(icon_path).scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio)
             self.icon_label.setPixmap(pixmap)
         else:
             # 使用系统图标
@@ -123,7 +123,7 @@ class ErrorDialog(QDialog):
             qbox = QMessageBox(self)
             qbox.setIcon(icon)
             pixmap = qbox.iconPixmap()
-            self.icon_label.setPixmap(pixmap.scaled(48, 48, Qt.KeepAspectRatio))
+            self.icon_label.setPixmap(pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio))
     
     def _show_help(self):
         """显示帮助信息"""
@@ -165,7 +165,7 @@ class ErrorDialog(QDialog):
         layout.addWidget(ok_button)
         
         help_dialog.setLayout(layout)
-        help_dialog.exec_()
+        help_dialog.exec()
     
     def _copy_to_clipboard(self):
         """复制错误信息到剪贴板"""
@@ -202,4 +202,4 @@ def show_critical_message(parent, title: str, message: str):
 
 
 import os
-from PyQt5.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication

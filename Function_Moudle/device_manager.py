@@ -8,7 +8,7 @@ import uiautomator2 as u2
 from nuitka_compat import ensure_nuitka_compatibility
 ensure_nuitka_compatibility()
 
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 from .thread_factory import thread_factory
 from logger_manager import (
     get_logger, log_operation, log_exception,
@@ -42,7 +42,7 @@ class DeviceManager:
     
     def on_mode_switch_changed(self, state):
         """模式切换开关变化时的处理"""
-        if state == Qt.Checked:
+        if state == Qt.CheckState.Checked:
             # 切换到U2模式
             self.main_window.connection_mode = 'u2'
             self.main_window.textBrowser.append("切换到U2模式")
@@ -325,7 +325,7 @@ class DeviceManager:
         log_button_click("button_reboot", "重启设备")
 
         if device_id in devices_id_lst:
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             reply = QMessageBox.question(
                 self.main_window,
                 '确认重启',
@@ -362,12 +362,12 @@ class DeviceManager:
         device_id = self.get_selected_device()
         
         if not device_id:
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self.main_window, "未选择设备", "请先选择一个设备！")
             return
         
         # 确认对话框
-        from PyQt5.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self.main_window,
             '确认重新初始化',
@@ -415,16 +415,16 @@ class DeviceManager:
             self.main_window.u2_reinit_thread.start()
             
             # 显示对话框
-            self.main_window.u2_reinit_dialog.exec_()
+            self.main_window.u2_reinit_dialog.exec()
             
         except ImportError as e:
             self.main_window.textBrowser.append(f"无法导入重新初始化模块: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self.main_window, "重新初始化失败", 
                 f"无法启动重新初始化功能:\n\n{str(e)}")
         except Exception as e:
             self.main_window.textBrowser.append(f"启动重新初始化失败: {e}")
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self.main_window, "重新初始化失败", 
                 f"启动重新初始化时发生错误:\n\n{str(e)}")
     

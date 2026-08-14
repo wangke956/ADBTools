@@ -126,8 +126,8 @@ except ImportError as e:
 # ==================== 高DPI设置 ====================
 _log("[STEP] 设置高DPI支持")
 try:
-    from PyQt5.QtCore import Qt, QCoreApplication
-    from PyQt5.Qt import QT_VERSION_STR
+    from PyQt6.QtCore import Qt, QCoreApplication
+    from PyQt6.QtCore import QT_VERSION_STR
     
     _log(f"Qt 版本: {QT_VERSION_STR}")
     
@@ -135,7 +135,7 @@ try:
     
     if qt_version >= (5, 14, 0):
         try:
-            from PyQt5.QtGui import QGuiApplication
+            from PyQt6.QtGui import QGuiApplication
             QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
                 Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
             )
@@ -143,17 +143,21 @@ try:
         except Exception as e:
             _log(f"高DPI新API设置失败: {e}")
     
+    # Qt6 默认启用高DPI缩放，不再需要手动设置以下属性
+    # 保留 try-except 以兼容旧代码
     try:
-        QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-        QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+        if hasattr(Qt, 'AA_EnableHighDpiScaling'):
+            QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+        if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
+            QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
         _log("高DPI属性设置成功")
     except Exception as e:
         _log(f"高DPI属性设置失败（不影响运行）: {e}")
         
 except ImportError as e:
-    _log(f"[ERROR] 导入PyQt5失败: {e}")
+    _log(f"[ERROR] 导入PyQt6失败: {e}")
     _show_error("ADBTools 启动失败", 
-        f"无法导入PyQt5模块:\n{e}\n\n请确保已正确安装PyQt5:\npip install PyQt5")
+        f"无法导入PyQt6模块:\n{e}\n\n请确保已正确安装PyQt6:\npip install PyQt6")
     sys.exit(1)
 except Exception as e:
     _log(f"[ERROR] 高DPI设置异常: {e}")
@@ -163,7 +167,7 @@ except Exception as e:
 # ==================== 创建QApplication ====================
 _log("[STEP] 创建QApplication")
 try:
-    from PyQt5.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication
     app = QApplication(sys.argv)
     _log("QApplication创建成功")
 except Exception as e:
@@ -266,7 +270,7 @@ if logger:
 
 
 # ==================== 设置关闭事件 ====================
-from PyQt5.QtCore import QThread
+from PyQt6.QtCore import QThread
 
 def closeevent(event):
     _log("应用程序正在关闭...")
@@ -298,7 +302,8 @@ window.closeEvent = closeevent
 _log("[STEP] 进入主事件循环")
 
 try:
-    exit_code = app.exec_()
+    # exit_code = app.exec_()
+    exit_code = app.exec()
     _log(f"主循环退出，退出码: {exit_code}")
     sys.exit(exit_code)
 except Exception as e:

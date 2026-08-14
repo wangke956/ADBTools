@@ -92,7 +92,7 @@ python main.py
 2. 修改界面元素
 3. 在项目根目录运行命令：
    ```bash
-   pyuic5 -x adbtool.ui -o adbtool.ui
+   pyuic6 -x adbtool.ui -o adbtool_ui.py
    ```
 
 ### 连接模式
@@ -291,7 +291,7 @@ python nuitka_build.py --build onefile
 # 3. 或手动使用 Nuitka 命令
 python -m nuitka --standalone --onefile \
   --windows-disable-console \
-  --plugin-enable=pyqt5 \
+  --plugin-enable=PyQt6 \
   --windows-icon-from-ico=icon.ico \
   --include-data-files=adbtool.ui=. \
   --include-data-files=adbtools_config.json=. \
