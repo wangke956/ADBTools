@@ -92,9 +92,9 @@ CONFIG = {
         "xmlrpc.test",
     ],
 
-    # 插件
+    # 插件（Nuitka 4.x 插件名必须小写：pyqt6）
     "plugins": [
-        "PyQt6",
+        "pyqt6",
         "tk-inter",
     ],
 
@@ -118,7 +118,7 @@ def get_nuitka_command(build_type="onefile"):
         product_version = "1.5.0"
 
     cmd = [sys.executable, "-m", "nuitka", "--standalone", "--remove-output", "--assume-yes-for-downloads",
-           "--plugin-enable=PyQt6", "--jobs=" + str(os.cpu_count()), "--lto=yes",
+           "--plugin-enable=pyqt6", "--jobs=" + str(os.cpu_count()), "--lto=yes",
            "--windows-icon-from-ico=" + str(PROJECT_ROOT / CONFIG["icon"]), "--company-name=" + CONFIG["company_name"],
            "--product-name=" + CONFIG["product_name"], "--file-version=" + file_version,
            "--product-version=" + product_version, "--file-description=" + CONFIG["description"],
