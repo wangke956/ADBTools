@@ -426,35 +426,35 @@ jobs:
         git push gitee $tag --force
         git remote remove gitee
 
-        # 2. Release正文（⚠️@" 和 "@ 完全顶格，无前置空格，修复yaml语法报错）
-$body = @"
-## ADBTools v$version
-
-### 更新内容
-- 增加输入法切换功能
-- 增加微软语音测试功能
-
-### 下载
-- [便携版 ZIP](https://gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/download/$tag/ADBTools_${version}_Windows.zip)
-- [安装版 EXE](https://gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/download/$tag/ADBTools_Setup.exe)
-
-### 系统要求
-- Windows 10/11
-- .NET Framework 4.5+
-
-### 使用说明
-**便携版**：
-1. 下载并解压 ZIP 文件
-2. 运行 ADBTools_nuitka.exe
-3. 连接 Android 设备
-4. 开始使用
-
-**安装版**：
-1. 下载 ADBTools_Setup.exe
-2. 双击运行安装程序
-3. 按提示完成安装
-4. 从开始菜单或桌面快捷方式启动
-"@
+        # 2. Release正文（用数组拼接避免 PowerShell here-string 顶格破坏 YAML 缩进结构）
+        $body = @(
+          "## ADBTools v$version",
+          "",
+          "### 更新内容",
+          "- 增加输入法切换功能",
+          "- 增加微软语音测试功能",
+          "",
+          "### 下载",
+          "- [便携版 ZIP](https://gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/download/$tag/ADBTools_${version}_Windows.zip)",
+          "- [安装版 EXE](https://gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/download/$tag/ADBTools_Setup.exe)",
+          "",
+          "### 系统要求",
+          "- Windows 10/11",
+          "- .NET Framework 4.5+",
+          "",
+          "### 使用说明",
+          "**便携版**：",
+          "1. 下载并解压 ZIP 文件",
+          "2. 运行 ADBTools_nuitka.exe",
+          "3. 连接 Android 设备",
+          "4. 开始使用",
+          "",
+          "**安装版**：",
+          "1. 下载 ADBTools_Setup.exe",
+          "2. 双击运行安装程序",
+          "3. 按提示完成安装",
+          "4. 从开始菜单或桌面快捷方式启动"
+        ) -join "`n"
 
         # 3. 创建Gitee Release（Token放在Header，不拼接URL）
         $releasePayload = @{
