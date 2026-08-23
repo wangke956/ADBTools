@@ -101,5 +101,15 @@
     "pull_log": "Ctrl+L",
     "reboot_device": "Ctrl+R"
   },
-  "file_version": "1.8.32"
+  "file_version": "1.8.32",
+  "file_manager": {
+    "window_size": [
+      1468,
+      800
+    ],
+    "device_history": [
+      "emulator-5554"
+    ],
+    "local_show_hidden": false
+  }
 }

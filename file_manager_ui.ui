@@ -21,53 +21,51 @@
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
    <item>
-    <layout class="QHBoxLayout" name="pathLayout">
+    <layout class="QVBoxLayout" name="pathAreaLayout">
+     <property name="spacing">
+      <number>4</number>
+     </property>
      <item>
-      <widget class="QLabel" name="labelDevice">
-       <property name="text">
-        <string>设备:</string>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout" name="devicePathLayout">
+       <item>
+        <widget class="QLabel" name="labelDevice">
+         <property name="text">
+          <string>设备:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="devicePathEdit"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnDeviceGo">
+         <property name="text">
+          <string>转到</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item>
-      <widget class="QLineEdit" name="devicePathEdit"/>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnDeviceGo">
-       <property name="text">
-        <string>转到</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QLabel" name="labelLocal">
-       <property name="text">
-        <string>本地:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="localPathEdit"/>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnLocalGo">
-       <property name="text">
-        <string>转到</string>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout" name="localPathLayout">
+       <item>
+        <widget class="QLabel" name="labelLocal">
+         <property name="text">
+          <string>本地:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="localPathEdit"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnLocalGo">
+         <property name="text">
+          <string>转到</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -82,6 +80,9 @@
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
+     <property name="handleWidth">
+      <number>6</number>
+     </property>
      <widget class="QWidget" name="deviceWidget">
       <layout class="QVBoxLayout" name="deviceLayout">
        <item>
@@ -95,7 +96,7 @@
             </sizepolicy>
            </property>
            <property name="text">
-            <string>📱 设备</string>
+            <string>📱 设备 (ADB)</string>
            </property>
           </widget>
          </item>
@@ -151,6 +152,19 @@
            </property>
           </widget>
          </item>
+         <item row="0" column="5">
+          <spacer name="deviceHeaderSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
         </layout>
        </item>
        <item>
@@ -192,7 +206,7 @@
             </sizepolicy>
            </property>
            <property name="text">
-            <string>💻 本地</string>
+            <string>💻 本地电脑</string>
            </property>
           </widget>
          </item>
@@ -228,6 +242,13 @@
           <widget class="QPushButton" name="btnBrowseDir">
            <property name="text">
             <string>📁 浏览目录</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnNewLocal">
+           <property name="text">
+            <string>📁 新建</string>
            </property>
           </widget>
          </item>

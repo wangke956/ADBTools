@@ -6,6 +6,8 @@
 import os
 import stat
 import subprocess
+import time
+import shutil
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QDialog, QTreeWidget, QTreeWidgetItem, QAbstractItemView,
@@ -13,7 +15,7 @@ from PyQt6.QtWidgets import (
     QHeaderView, QMenu, QInputDialog, QWidget, QFileDialog,
     QTextEdit, QApplication, QSplitter, QStyle
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QUrl
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QUrl, QTimer
 from PyQt6.QtGui import QIcon, QCursor, QDropEvent, QDrag, QAction
 from PyQt6 import uic
 
@@ -24,12 +26,44 @@ logger = get_logger("ADBTools.FileManager")
 
 
 class LocalFileTree(QTreeWidget):
-    """本地文件树 - 支持拖拽文件到设备"""
-    
+    """本地文件树 - 支持拖拽文件到设备，接收设备文件拖入下载"""
+
+    device_files_dropped = pyqtSignal(list)  # 设备文件拖入（下载），元素为 {'name','is_dir'}
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setDragEnabled(True)
         self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        """拖拽进入：接受本地文件/文件夹与设备文件"""
+        if event.mimeData().hasUrls() or event.mimeData().hasFormat('application/x-adb-device-files'):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        """拖拽移动"""
+        if event.mimeData().hasUrls() or event.mimeData().hasFormat('application/x-adb-device-files'):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        """拖放事件：设备文件拖入 = 下载到当前本地目录"""
+        mime = event.mimeData()
+        if mime.hasFormat('application/x-adb-device-files'):
+            try:
+                import json
+                entries = json.loads(bytes(mime.data('application/x-adb-device-files')).decode('utf-8'))
+                if entries:
+                    self.device_files_dropped.emit(entries)
+                event.acceptProposedAction()
+                return
+            except Exception:
+                pass
+        super().dropEvent(event)
     
     def startDrag(self, supportedActions):
         """重写拖拽开始事件 - 设置文件URL"""
@@ -64,6 +98,29 @@ class DeviceFileTree(QTreeWidget):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
+        self.setDragEnabled(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+
+    def startDrag(self, supportedActions):
+        """重写拖拽开始事件 - 将设备文件拖到本地栏下载"""
+        selected_items = self.selectedItems()
+        if not selected_items:
+            return
+
+        entries = []
+        for item in selected_items:
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if isinstance(data, dict) and data.get('name'):
+                entries.append({'name': data['name'], 'is_dir': data.get('is_dir', False)})
+        if not entries:
+            return
+
+        import json
+        mime_data = QMimeData()
+        mime_data.setData('application/x-adb-device-files', json.dumps(entries).encode('utf-8'))
+        drag = QDrag(self)
+        drag.setMimeData(mime_data)
+        drag.exec(Qt.DropAction.CopyAction)
     
     def dragEnterEvent(self, event):
         """拖拽进入事件"""
@@ -92,6 +149,156 @@ class DeviceFileTree(QTreeWidget):
             event.acceptProposedAction()
         else:
             event.ignore()
+
+
+class BreadcrumbBar(QWidget):
+    """面包屑导航条 - 显示当前路径的可点击目录片段
+
+    支持：
+    - 点击片段快速跳转到对应目录
+    - 发出编辑请求切换到输入框模式
+    - 接收拖拽的本地文件夹（拖入即跳转）
+    """
+    path_clicked = pyqtSignal(str)   # 点击目录片段时发射目标路径
+    edit_requested = pyqtSignal()    # 请求切换到输入框编辑模式
+    folder_dropped = pyqtSignal(str)  # 拖入本地文件夹时发射路径
+
+    # 面包屑按钮样式：扁平无边框，悬停高亮
+    _BTN_STYLE = """
+        QToolButton {
+            color: #5a9bd5;
+            background: transparent;
+            border: none;
+            padding: 2px 6px;
+            font-size: 13px;
+        }
+        QToolButton:hover {
+            color: #ffffff;
+            background-color: #3d5a80;
+            border-radius: 4px;
+        }
+        QToolButton:disabled {
+            color: #d0d0d0;
+            font-weight: bold;
+        }
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        from PyQt6.QtWidgets import QHBoxLayout, QToolButton
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(2, 2, 2, 2)
+        self._layout.setSpacing(2)
+        self._layout.addStretch(1)  # 右侧弹性空白，按钮靠左排列
+        self._path = ''
+        self.setAcceptDrops(True)
+        self.setMinimumHeight(30)
+
+    def set_path(self, path):
+        """设置当前路径并重建面包屑片段"""
+        self._path = path or ''
+        # 清空旧片段（保留末尾 stretch）
+        while self._layout.count() > 1:
+            item = self._layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+        # 构建新片段
+        parts = self._split_path(self._path)
+        for i, (name, target) in enumerate(parts):
+            from PyQt6.QtWidgets import QToolButton, QLabel
+            btn = QToolButton(self)
+            btn.setText(name)
+            btn.setToolTip(target)
+            btn.setAutoRaise(True)
+            btn.setStyleSheet(self._BTN_STYLE)
+            is_last = (i == len(parts) - 1)
+            if is_last:
+                # 当前目录片段：禁用点击，加粗显示
+                btn.setEnabled(False)
+            else:
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.clicked.connect(lambda checked=False, t=target: self.path_clicked.emit(t))
+            self._layout.insertWidget(self._layout.count() - 1, btn)
+            # 片段间分隔符（除最后一片）
+            if not is_last:
+                sep = QLabel('\u203a', self)  # ›
+                sep.setStyleSheet('color: #5a6c7d; font-size: 14px; padding: 0 2px;')
+                self._layout.insertWidget(self._layout.count() - 1, sep)
+            # 最后一片后加“编辑”按钮
+            if is_last:
+                edit_btn = QToolButton(self)
+                edit_btn.setText('\u270e')  # ✎
+                edit_btn.setToolTip('手动输入路径')
+                edit_btn.setAutoRaise(True)
+                edit_btn.setStyleSheet(self._BTN_STYLE)
+                edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                edit_btn.clicked.connect(self.edit_requested.emit)
+                self._layout.insertWidget(self._layout.count() - 1, edit_btn)
+
+    def _split_path(self, path):
+        """分割路径为片段列表 [(显示名, 目标路径), ...]"""
+        if not path:
+            return []
+        result = []
+        if path.startswith('/'):
+            # POSIX 路径（设备端）：/sdcard/Download
+            result.append(('/', '/'))
+            current = ''
+            for p in path.split('/'):
+                if not p:
+                    continue
+                current = current.rstrip('/') + '/' + p
+                result.append((p, current))
+        else:
+            # Windows 路径：C:\Users\wangke
+            drive, rest = os.path.splitdrive(path)
+            if drive:
+                result.append((drive + '\\', drive + '\\'))
+            current = drive + '\\' if drive else ''
+            for p in [x for x in rest.split('\\') if x]:
+                current = current.rstrip('\\') + '\\' + p
+                result.append((p, current))
+        return result
+
+    # ===== 拖放支持：拖入本地文件夹即跳转 =====
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            p = url.toLocalFile()
+            if p and os.path.isdir(p):
+                self.folder_dropped.emit(p)
+                event.acceptProposedAction()
+                return
+        event.ignore()
+
+
+class SortableTreeWidgetItem(QTreeWidgetItem):
+    """支持按数值排序的树节点：大小列（第1列）按字节数而非字符串排序
+
+    Qt默认按列显示文本的字符串排序，会导致 100KB 排在 20KB 前面；
+    在 UserRole 中存字节数，__lt__ 中优先按数值比较。
+    """
+
+    def __lt__(self, other):
+        tree = self.treeWidget()
+        if tree is not None and tree.sortColumn() == 1:
+            a = self.data(1, Qt.ItemDataRole.UserRole)
+            b = other.data(1, Qt.ItemDataRole.UserRole)
+            if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+                return a < b
+        return super().__lt__(other)
 
 
 class DeviceListThread(QThread):
@@ -222,6 +429,87 @@ class LocalListThread(QThread):
             self.error_signal.emit(f"读取本地目录失败: {str(e)}")
 
 
+class TransferProgressDialog(QDialog):
+    """独立传输进度窗口：速度 / 已传输 / 剩余时间 / 取消"""
+    cancelled = pyqtSignal()
+
+    def __init__(self, parent=None, title="传输中"):
+        super().__init__(parent)
+        from PyQt6.QtWidgets import QVBoxLayout
+        self.setWindowTitle(title)
+        self.setMinimumWidth(430)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        layout = QVBoxLayout(self)
+
+        self.fileLabel = QLabel("准备中...")
+        self.fileLabel.setWordWrap(True)
+        self.progressBar = QProgressBar()
+        self.progressBar.setRange(0, 100)
+        self.progressBar.setValue(0)
+        self.detailLabel = QLabel("")
+        self.cancelBtn = QPushButton("取消")
+        self.cancelBtn.clicked.connect(self._on_cancel)
+
+        layout.addWidget(self.fileLabel)
+        layout.addWidget(self.progressBar)
+        layout.addWidget(self.detailLabel)
+        layout.addWidget(self.cancelBtn, alignment=Qt.AlignmentFlag.AlignRight)
+
+        self._file_size = 0
+        self._start_time = time.time()
+        self._cancelled = False
+
+    def set_file_name(self, text):
+        self.fileLabel.setText(text)
+
+    def set_file_size(self, size):
+        """设置总大小（字节），0 表示未知"""
+        self._file_size = size
+
+    def update_percent(self, percent):
+        """更新进度：计算平均速度与剩余时间"""
+        self.progressBar.setValue(percent)
+        if percent >= 100:
+            self.detailLabel.setText("传输完成")
+            return
+        now = time.time()
+        elapsed = max(now - self._start_time, 0.001)
+        if self._file_size > 0 and elapsed >= 1.0 and percent > 0:
+            transferred = int(self._file_size * percent / 100)
+            avg_speed = self._file_size * percent / 100 / elapsed
+            remaining = (self._file_size - transferred) / avg_speed if avg_speed > 0 else 0
+            self.detailLabel.setText(
+                f"已传输 {self._fmt_size(transferred)} / {self._fmt_size(self._file_size)}   "
+                f"速度 {self._fmt_size(avg_speed)}/s   剩余 {self._fmt_time(remaining)}")
+
+    def _fmt_size(self, size):
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} TB"
+
+    def _fmt_time(self, seconds):
+        seconds = int(seconds)
+        if seconds < 60:
+            return f"{seconds}s"
+        return f"{seconds // 60}m {seconds % 60}s"
+
+    def _on_cancel(self):
+        if not self._cancelled:
+            self._cancelled = True
+            self.cancelBtn.setEnabled(False)
+            self.cancelBtn.setText("正在取消...")
+            self.cancelled.emit()
+
+    def closeEvent(self, event):
+        """直接关闭窗口视为取消传输"""
+        if not self._cancelled:
+            self._cancelled = True
+            self.cancelled.emit()
+        event.accept()
+
+
 class FileTransferThread(QThread):
     """文件传输线程（上传/下载）"""
     progress_signal = pyqtSignal(str)  # 进度信息
@@ -237,6 +525,8 @@ class FileTransferThread(QThread):
         self.transfer_type = transfer_type  # 'download' or 'upload'
         self.connection_mode = connection_mode
         self.d = d
+        self._cancel_requested = False
+        self._process = None
     
     def run(self):
         try:
@@ -249,6 +539,8 @@ class FileTransferThread(QThread):
     
     def _download_file(self):
         """从设备下载文件"""
+        if self._cancel_requested:
+            raise Exception("传输已取消")
         self.progress_signal.emit(f"正在下载: {self.src_path}")
         
         if self.connection_mode == 'u2' and self.d:
@@ -263,6 +555,8 @@ class FileTransferThread(QThread):
     
     def _upload_file(self):
         """上传文件到设备"""
+        if self._cancel_requested:
+            raise Exception("传输已取消")
         self.progress_signal.emit(f"正在上传: {self.src_path}")
         
         if self.connection_mode == 'u2' and self.d:
@@ -284,10 +578,10 @@ class FileTransferThread(QThread):
         if self.transfer_type == 'upload' and os.path.exists(self.src_path):
             file_size = os.path.getsize(self.src_path)
         
-        process = subprocess.Popen(
-            cmd, 
-            shell=True, 
-            stdout=subprocess.PIPE, 
+        self._process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True
         )
@@ -297,8 +591,15 @@ class FileTransferThread(QThread):
         progress_pattern = re.compile(r'\[\s*(\d+)%\]')
         
         while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
+            if self._cancel_requested:
+                if self._process.poll() is None:
+                    try:
+                        self._process.terminate()
+                    except Exception:
+                        pass
+                raise Exception("传输已取消")
+            line = self._process.stdout.readline()
+            if not line and self._process.poll() is not None:
                 break
             
             if line:
@@ -317,8 +618,8 @@ class FileTransferThread(QThread):
                     else:
                         self.progress_signal.emit(f"传输中 {percent}%")
         
-        if process.returncode != 0:
-            raise Exception(f"传输失败 (返回码: {process.returncode})")
+        if self._process.returncode != 0:
+            raise Exception(f"传输失败 (返回码: {self._process.returncode})")
     
     def _format_size(self, size):
         """格式化文件大小"""
@@ -327,6 +628,15 @@ class FileTransferThread(QThread):
                 return f"{size:.1f} {unit}"
             size /= 1024
         return f"{size:.1f} TB"
+
+    def cancel(self):
+        """请求取消传输（终止 adb 子进程）"""
+        self._cancel_requested = True
+        if self._process is not None:
+            try:
+                self._process.terminate()
+            except Exception:
+                pass
 
 
 class BatchFileTransferThread(QThread):
@@ -345,6 +655,7 @@ class BatchFileTransferThread(QThread):
         self.transfer_type = transfer_type  # 'upload' or 'download'
         self.connection_mode = connection_mode
         self.d = d
+        self._cancel_requested = False
     
     def run(self):
         success_count = 0
@@ -352,6 +663,9 @@ class BatchFileTransferThread(QThread):
         total = len(self.file_paths)
         
         for i, src_path in enumerate(self.file_paths):
+            if self._cancel_requested:
+                self.progress_signal.emit("传输已取消")
+                break
             file_name = os.path.basename(src_path)
             
             # 发送当前文件进度
@@ -401,6 +715,10 @@ class BatchFileTransferThread(QThread):
         # 完成时发送100%
         self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count)
+
+    def cancel(self):
+        """请求取消批量传输（中止后续文件）"""
+        self._cancel_requested = True
 
 
 class FileDeleteThread(QThread):
@@ -510,6 +828,7 @@ class FolderUploadThread(QThread):
         self.device_folder = device_folder
         self.connection_mode = connection_mode
         self.d = d
+        self._cancel_requested = False
     
     def run(self):
         success_count = 0
@@ -533,6 +852,8 @@ class FolderUploadThread(QThread):
         
         # 递归遍历本地文件夹
         for root, dirs, files in os.walk(self.local_folder):
+            if self._cancel_requested:
+                break
             # 计算相对路径
             rel_path = os.path.relpath(root, self.local_folder)
             if rel_path == '.':
@@ -548,6 +869,8 @@ class FolderUploadThread(QThread):
             
             # 上传文件
             for file_name in files:
+                if self._cancel_requested:
+                    break
                 current_file += 1
                 local_file = os.path.join(root, file_name)
                 
@@ -578,6 +901,10 @@ class FolderUploadThread(QThread):
         
         self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count, skip_count)
+    
+    def cancel(self):
+        """请求取消文件夹上传（中止后续文件）"""
+        self._cancel_requested = True
     
     def _create_device_dir(self, dir_path):
         """在设备上创建目录"""
@@ -612,6 +939,7 @@ class FolderDownloadThread(QThread):
         self.local_folder = local_folder
         self.connection_mode = connection_mode
         self.d = d
+        self._cancel_requested = False
     
     def run(self):
         success_count = 0
@@ -638,6 +966,10 @@ class FolderDownloadThread(QThread):
         
         self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count, skip_count)
+    
+    def cancel(self):
+        """请求取消文件夹下载（中止后续文件）"""
+        self._cancel_requested = True
     
     def _count_files_recursive(self, device_path):
         """递归统计设备文件夹中的文件数量"""
@@ -700,10 +1032,12 @@ class FolderDownloadThread(QThread):
             lines = output.strip().split('\n')
             
             for line in lines:
+                if self._cancel_requested:
+                    break
                 line = line.strip()
                 if not line or line.startswith('total '):
                     continue
-                
+            
                 parts = line.split(None, 7)
                 if len(parts) >= 8:
                     is_dir = line.startswith('d')
@@ -967,10 +1301,20 @@ class FileManagerDialog(QDialog):
         super().showEvent(event)
         if not self._initial_refresh_done:
             self._initial_refresh_done = True
+            # 恢复上次窗口大小
+            from config_manager import config_manager
+            saved_size = config_manager.get('file_manager.window_size', None)
+            if isinstance(saved_size, list) and len(saved_size) == 2 and saved_size[0] > 0:
+                self.resize(int(saved_size[0]), int(saved_size[1]))
             # 设备列表仅在已连接设备时刷新；本地列表始终刷新
             if self.device_id:
                 self._refresh_device_files()
             self._refresh_local_files()
+            # 启动设备在线监测（每8秒检测一次）
+            if self.device_id:
+                self._device_monitor_timer = QTimer(self)
+                self._device_monitor_timer.timeout.connect(self._check_device_online)
+                self._device_monitor_timer.start(8000)
     
     def _init_device_controls(self):
         """初始化独立的设备管理控件"""
@@ -1005,15 +1349,16 @@ class FileManagerDialog(QDialog):
         
         # 刷新设备按钮
         self.fm_refresh_button = QPushButton("🔄 刷新设备")
-        self.fm_refresh_button.setToolTip("刷新设备列表")
+        self.fm_refresh_button.setToolTip("重新扫描adb设备")
         self.fm_refresh_button.setFixedWidth(110)  # 【修改此处】“刷新设备”按钮宽度(px)
         device_toolbar.addWidget(self.fm_refresh_button)
         
-        # 设备下拉框
+        # 设备下拉框（纯下拉选择，不可编辑，支持历史记录）
         self.fm_device_combo = QComboBox()
-        self.fm_device_combo.setMinimumWidth(500)  # 【修改此处】设备下拉框最小宽度(px)
-        self.fm_device_combo.setToolTip("选择设备")
-        device_toolbar.addWidget(self.fm_device_combo)
+        self.fm_device_combo.setEditable(False)
+        self.fm_device_combo.setMinimumWidth(400)  # 【修改此处】设备下拉框最小宽度(px)
+        self.fm_device_combo.setToolTip("选择设备序列号（自动记住最近连接过的设备）")
+        device_toolbar.addWidget(self.fm_device_combo, 1)  # 下拉框弹性拉伸占满剩余空间
         
         # U2模式复选框
         self.fm_u2_mode_check = QCheckBox("U2模式")
@@ -1022,13 +1367,17 @@ class FileManagerDialog(QDialog):
         self.fm_u2_mode_check.setToolTip("使用uiautomator2连接（需要设备已安装u2服务）")
         device_toolbar.addWidget(self.fm_u2_mode_check)
         
-        # 连接状态标签（增大字体）
+        # 弹性空白：将连接状态标签推到右侧，与U2复选框视觉分离
+        device_toolbar.addStretch(1)
+        
+        # 连接状态标签（独立显示，靠右）
         self.fm_status_label = QLabel("未连接")
         # 【修改此处】font-size: 14px - 设备管理工具栏状态标签字体大小(px)
         self.fm_status_label.setStyleSheet("color: #909090; font-size: 14px;")
         device_toolbar.addWidget(self.fm_status_label)
         
-        device_toolbar.addStretch()
+        # 加载设备历史记录到下拉框
+        self._load_device_history()
         
         # 将设备工具栏插入到主布局顶部
         main_layout.insertLayout(0, device_toolbar)
@@ -1065,6 +1414,46 @@ class FileManagerDialog(QDialog):
         
         logger.info("设备管理控件初始化完成")
     
+    def _load_device_history(self):
+        """加载最近连接过的设备序列号到下拉框（持久化在配置文件中）"""
+        try:
+            from config_manager import config_manager
+            history = config_manager.get('file_manager.device_history', []) or []
+            if not isinstance(history, list):
+                history = []
+            for device_id in history:
+                if device_id and isinstance(device_id, str):
+                    self.fm_device_combo.addItem(device_id)
+            if history:
+                logger.info(f"文件管理器: 加载设备历史记录 {len(history)} 条")
+        except Exception as e:
+            logger.warning(f"文件管理器: 加载设备历史记录失败: {e}")
+
+    def _save_device_history(self, device_id):
+        """保存连接成功的设备序列号到历史记录（去重，最多10条）"""
+        if not device_id:
+            return
+        try:
+            from config_manager import config_manager
+            history = config_manager.get('file_manager.device_history', []) or []
+            if not isinstance(history, list):
+                history = []
+            # 去重并置顶
+            history = [d for d in history if d != device_id]
+            history.insert(0, device_id)
+            history = history[:10]
+            config_manager.set('file_manager.device_history', history)
+            # 同步下拉框（历史置顶，保留已扫描设备）
+            if hasattr(self, 'fm_device_combo'):
+                combo = self.fm_device_combo
+                idx = combo.findText(device_id)
+                if idx > 0:
+                    combo.removeItem(idx)
+                combo.insertItem(0, device_id)
+                combo.setCurrentIndex(0)
+        except Exception as e:
+            logger.warning(f"文件管理器: 保存设备历史记录失败: {e}")
+
     def _init_from_parent_connection(self, device_id, connection_mode, d):
         """从父窗口继承设备连接状态"""
         if not device_id:
@@ -1232,30 +1621,51 @@ class FileManagerDialog(QDialog):
         # ============================================
         # 移除布局的默认边距和间距（消除标签左侧空白）
         # ============================================
-        # 获取路径栏布局并设置边距为0
-        if hasattr(self, 'pathLayout'):
-            self.pathLayout.setContentsMargins(0, 0, 0, 0)  # 【修改此处】上右下左边距(px)，当前全为0
-            self.pathLayout.setSpacing(5)  # 【修改此处】控件之间的间距(px)，当前为5px
+        # 路径栏已拆为设备行/本地行两行（devicePathLayout/localPathLayout），
+        # pathLayout 为旧版UI单行布局名，保留兼容判断
+        for layout_name in ('devicePathLayout', 'localPathLayout', 'pathLayout'):
+            if hasattr(self, layout_name):
+                layout = getattr(self, layout_name)
+                layout.setContentsMargins(0, 0, 0, 0)  # 【修改此处】上右下左边距(px)，当前全为0
+                layout.setSpacing(5)  # 【修改此处】控件之间的间距(px)，当前为5px
         
         # 设置初始路径
         self.devicePathEdit.setText(self.device_current_path)
         self.localPathEdit.setText(self.local_current_path)
+
+        # ============================================
+        # 面包屑导航初始化（路径栏：面包屑 + 可切换输入框双态）
+        # ============================================
+        self._init_breadcrumb_bars()
         
         # 设置树形控件属性
         self.deviceTree.setHeaderLabels(['名称', '大小', '权限', '修改日期'])
-        self.deviceTree.setColumnWidth(0, 200)
+        # 【布局优化】名称列自动伸展占满剩余宽度，其余列保持固定宽度
+        self.deviceTree.setColumnWidth(1, 90)   # 大小列(px)
+        self.deviceTree.setColumnWidth(2, 100)  # 权限列(px)
+        self.deviceTree.setColumnWidth(3, 140)  # 修改日期列(px)
+        self.deviceTree.header().setStretchLastSection(False)
+        self.deviceTree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.deviceTree.setSortingEnabled(True)
         self.deviceTree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.deviceTree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         
         self.localTree.setHeaderLabels(['名称', '大小', '类型', '修改日期'])
-        self.localTree.setColumnWidth(0, 200)
+        # 【布局优化】名称列自动伸展占满剩余宽度，其余列保持固定宽度
+        self.localTree.setColumnWidth(1, 90)   # 大小列(px)
+        self.localTree.setColumnWidth(2, 80)   # 类型列(px)
+        self.localTree.setColumnWidth(3, 140)  # 修改日期列(px)
+        self.localTree.header().setStretchLastSection(False)
+        self.localTree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.localTree.setSortingEnabled(True)
         self.localTree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.localTree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         
         # 设置分割器比例
         self.splitter.setSizes([500, 500])
+        # 【布局优化】分割器手柄样式，增强两侧面板视觉分隔
+        self.splitter.setHandleWidth(6)
+        self.splitter.setStyleSheet("QSplitter::handle { background-color: #3d5a80; }")
         
         # 隐藏进度条
         self.progressBar.setVisible(False)
@@ -1295,7 +1705,6 @@ class FileManagerDialog(QDialog):
                 font-size: 18px;        /* 【修改此处】路径输入框字体大小(px) */
                 padding: 3px 4px;       /* 【修改此处】内边距：上下5px 左右8px */
                 min-height: 28px;       /* 【修改此处】最小高度(px) */
-                min-width: 400px;
             }
         """
         if hasattr(self, 'devicePathEdit'):
@@ -1363,16 +1772,18 @@ class FileManagerDialog(QDialog):
         self.deviceWidget.setStyleSheet(panel_style)
         self.localWidget.setStyleSheet(panel_style)
         
-        # 设置按钮提示文本
-        self.btnDeviceUp.setToolTip("返回上级目录")
-        self.btnRefreshDevice.setToolTip("刷新文件列表")
-        self.btnDownload.setToolTip("下载选中的文件到本地")
-        self.btnNewFolderDevice.setToolTip("在设备上新建文件夹")
-        self.btnLocalUp.setToolTip("返回上级目录")
-        self.btnRefreshLocal.setToolTip("刷新文件列表")
-        self.btnUpload.setToolTip("上传选中的文件或文件夹到设备")
+        # 设置按钮提示文本（写明操作方向，避免混淆）
+        self.btnDeviceUp.setToolTip("设备目录返回上一级")
+        self.btnRefreshDevice.setToolTip("刷新设备文件列表")
+        self.btnDownload.setToolTip("下载选中项到本地（设备 → 本地电脑）")
+        self.btnNewFolderDevice.setToolTip("在设备上新建文件夹或文件")
+        self.btnLocalUp.setToolTip("本地目录返回上一级")
+        self.btnRefreshLocal.setToolTip("刷新本地文件列表")
+        self.btnUpload.setToolTip("上传选中项到设备（本地电脑 → 设备）")
         self.btnSelectFile.setToolTip("选择要上传的文件")
         self.btnBrowseDir.setToolTip("浏览选择本地目录")
+        if hasattr(self, 'btnNewLocal'):
+            self.btnNewLocal.setToolTip("在本地新建文件夹或文本文件")
         
         # ============================================
         # 工具栏主按钮样式设置（统一应用于所有功能按钮）
@@ -1394,8 +1805,8 @@ class FileManagerDialog(QDialog):
                 min-height: 16px;           /* 【修改此处】最小高度(px) */
             }
             QPushButton:hover {
-                background-color: #34495e;
-                border: 1px solid #5a6c7d;
+                background-color: #3e5c76;
+                border: 1px solid #7fa8cc;
             }
             QPushButton:pressed {
                 background-color: #1a252f;
@@ -1408,11 +1819,131 @@ class FileManagerDialog(QDialog):
             self.btnDeviceUp, self.btnRefreshDevice, self.btnDownload, self.btnNewFolderDevice,
             self.btnLocalUp, self.btnRefreshLocal, self.btnUpload, self.btnSelectFile, self.btnBrowseDir
         ]
+        if hasattr(self, 'btnNewLocal'):
+            toolbar_buttons.append(self.btnNewLocal)
         
         for btn in toolbar_buttons:
             btn.setStyleSheet(button_style)
             btn.setSizePolicy(btn.sizePolicy().horizontalPolicy(), btn.sizePolicy().verticalPolicy())
             btn.setMinimumSize(QSize(80, 32))  # 【修改此处】按钮最小尺寸：宽80px, 高32px
+
+        # 表头右键菜单：自定义显示/隐藏列（配置持久化）
+        self._setup_column_menus()
+
+        # ============================================
+        # 【视觉优化】树控件样式：选中行高亮拉高、网格线调淡
+        # ============================================
+        tree_style = """
+            QTreeWidget {
+                background-color: #1e1e1e;
+                color: #d0d0d0;
+                gridline-color: rgba(255, 255, 255, 28);
+                outline: none;
+            }
+            QTreeWidget::item {
+                height: 28px;
+            }
+            QTreeWidget::item:hover {
+                background-color: #2a3442;
+            }
+            QTreeWidget::item:selected {
+                background-color: #2f6db5;
+                color: #ffffff;
+            }
+            QHeaderView::section {
+                background-color: #252526;
+                color: #b0b0b0;
+                border: none;
+                border-right: 1px solid rgba(255, 255, 255, 22);
+                padding: 4px 8px;
+            }
+        """
+        self.deviceTree.setStyleSheet(tree_style)
+        self.localTree.setStyleSheet(tree_style)
+
+        # ============================================
+        # 显示隐藏文件复选框（面板标题栏右侧）
+        # ============================================
+        from PyQt6.QtWidgets import QCheckBox
+        from config_manager import config_manager
+        self.showHiddenDeviceCheck = QCheckBox("显示隐藏文件")
+        self.showHiddenDeviceCheck.setToolTip("显示以 . 开头的隐藏文件（如 .android）")
+        self.showHiddenDeviceCheck.setChecked(config_manager.get('file_manager.device_show_hidden', False))
+        self.showHiddenDeviceCheck.stateChanged.connect(self._on_show_hidden_device_changed)
+        if hasattr(self, 'gridLayout'):
+            self.gridLayout.addWidget(self.showHiddenDeviceCheck, 0, 6)
+
+        self.showHiddenLocalCheck = QCheckBox("显示隐藏文件")
+        self.showHiddenLocalCheck.setToolTip("显示以 . 开头的隐藏文件（如 .gitignore）")
+        self.showHiddenLocalCheck.setChecked(config_manager.get('file_manager.local_show_hidden', False))
+        self.showHiddenLocalCheck.stateChanged.connect(self._on_show_hidden_local_changed)
+        if hasattr(self, 'localHeaderLayout'):
+            self.localHeaderLayout.insertWidget(self.localHeaderLayout.count() - 1, self.showHiddenLocalCheck)
+
+    def _on_show_hidden_device_changed(self, state):
+        """设备侧隐藏文件开关"""
+        from config_manager import config_manager
+        config_manager.set('file_manager.device_show_hidden', bool(state))
+        if self.device_id:
+            self._refresh_device_files()
+
+    def _on_show_hidden_local_changed(self, state):
+        """本地侧隐藏文件开关"""
+        from config_manager import config_manager
+        config_manager.set('file_manager.local_show_hidden', bool(state))
+        self._refresh_local_files()
+
+    def _setup_column_menus(self):
+        """设置表头右键菜单：自定义显示/隐藏列"""
+        for tree, config_key, column_names in (
+            (self.deviceTree, 'device_tree_columns', ['名称', '大小', '权限', '修改日期']),
+            (self.localTree, 'local_tree_columns', ['名称', '大小', '类型', '修改日期']),
+        ):
+            header = tree.header()
+            header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            header.customContextMenuRequested.connect(
+                lambda pos, t=tree, k=config_key, c=column_names: self._show_column_menu(t, k, c, pos))
+        # 应用已保存的列显示配置
+        self._apply_column_config()
+
+    def _show_column_menu(self, tree, config_key, column_names, pos):
+        """弹出列显示/隐藏菜单，勾选状态即列可见性"""
+        menu = QMenu(self)
+        actions = []
+        for i, name in enumerate(column_names):
+            action = menu.addAction(name)
+            action.setCheckable(True)
+            action.setChecked(not tree.isColumnHidden(i))
+            actions.append(action)
+        chosen = menu.exec(tree.header().mapToGlobal(pos))
+        for i, act in enumerate(actions):
+            if act == chosen:
+                tree.setColumnHidden(i, not act.isChecked())
+                self._save_column_config(config_key, tree)
+                break
+
+    def _save_column_config(self, config_key, tree):
+        """保存列显示/隐藏配置"""
+        hidden = [i for i in range(tree.columnCount()) if tree.isColumnHidden(i)]
+        try:
+            from config_manager import config_manager
+            config_manager.set(f'file_manager.{config_key}_hidden', hidden)
+        except Exception as e:
+            logger.warning(f"文件管理器: 保存列配置失败: {e}")
+
+    def _apply_column_config(self):
+        """应用已保存的列显示配置"""
+        try:
+            from config_manager import config_manager
+            for tree, key in ((self.deviceTree, 'device_tree_columns'),
+                              (self.localTree, 'local_tree_columns')):
+                hidden = config_manager.get(f'file_manager.{key}_hidden', None)
+                if isinstance(hidden, list):
+                    for i in hidden:
+                        if 0 <= i < tree.columnCount():
+                            tree.setColumnHidden(i, True)
+        except Exception as e:
+            logger.warning(f"文件管理器: 应用列配置失败: {e}")
     
     def _connect_signals(self):
         """连接信号槽"""
@@ -1434,7 +1965,7 @@ class FileManagerDialog(QDialog):
         self.btnDeviceUp.clicked.connect(self._device_go_up)
         self.btnRefreshDevice.clicked.connect(self._refresh_device_files)
         self.btnDownload.clicked.connect(self._download_selected)
-        self.btnNewFolderDevice.clicked.connect(self._create_folder_on_device)
+        self.btnNewFolderDevice.clicked.connect(self._show_new_menu_device)
         
         # 本地文件操作
         self.btnLocalUp.clicked.connect(self._local_go_up)
@@ -1442,14 +1973,127 @@ class FileManagerDialog(QDialog):
         self.btnUpload.clicked.connect(self._upload_selected)
         self.btnSelectFile.clicked.connect(self._select_local_file)
         self.btnBrowseDir.clicked.connect(self._browse_local_directory)
+        if hasattr(self, 'btnNewLocal'):
+            self.btnNewLocal.clicked.connect(self._show_new_menu_local)
         
         # 树形控件事件
         self.deviceTree.itemDoubleClicked.connect(self._on_device_item_double_clicked)
         self.deviceTree.customContextMenuRequested.connect(self._show_device_context_menu)
         self.deviceTree.files_dropped.connect(self._on_files_dropped)
+        self.deviceTree.itemSelectionChanged.connect(self._update_status_bar)
         
         self.localTree.itemDoubleClicked.connect(self._on_local_item_double_clicked)
         self.localTree.customContextMenuRequested.connect(self._show_local_context_menu)
+        self.localTree.itemSelectionChanged.connect(self._update_status_bar)
+        self.localTree.device_files_dropped.connect(self._on_device_files_dropped)
+    
+        # 快捷键
+        self._setup_shortcuts()
+    
+    def _setup_shortcuts(self):
+        """注册快捷键：F5刷新 / Delete删除 / Ctrl+C复制路径 / Alt+←返回上级"""
+        from PyQt6.QtGui import QShortcut
+        self._shortcuts = [
+            QShortcut('F5', self, activated=self._refresh_current_panel),
+            QShortcut('Delete', self, activated=self._delete_selected_current_panel),
+            QShortcut('Alt+Left', self, activated=self._go_up_current_panel),
+        ]
+        # Ctrl+C 复制路径：绑定到两个树（WidgetShortcut），不干扰输入框复制
+        for tree, panel in ((self.deviceTree, 'device'), (self.localTree, 'local')):
+            sc = QShortcut('Ctrl+C', tree)
+            sc.setContext(Qt.ShortcutContext.WidgetShortcut)
+            sc.activated.connect(lambda p=panel: self._copy_selected_paths_for(p))
+    
+    def _focused_panel(self):
+        """返回当前焦点面板：'device' / 'local'（默认设备）"""
+        if self.localTree.hasFocus():
+            return 'local'
+        return 'device'
+    
+    def _refresh_current_panel(self):
+        """F5：刷新当前面板"""
+        if self._focused_panel() == 'device':
+            if self.device_id:
+                self._refresh_device_files()
+        else:
+            self._refresh_local_files()
+    
+    def _go_up_current_panel(self):
+        """Alt+←：返回上一级"""
+        if self._focused_panel() == 'device':
+            self._device_go_up()
+        else:
+            self._local_go_up()
+    
+    def _delete_selected_current_panel(self):
+        """Delete：删除当前面板选中项"""
+        if self._focused_panel() == 'device':
+            selected = self.deviceTree.selectedItems()
+            if len(selected) == 1:
+                data = selected[0].data(0, Qt.ItemDataRole.UserRole)
+                if isinstance(data, dict):
+                    self._delete_device_item(data)
+            elif len(selected) > 1:
+                self._delete_selected_device_items()
+        else:
+            selected = self.localTree.selectedItems()
+            if len(selected) == 1:
+                data = selected[0].data(0, Qt.ItemDataRole.UserRole)
+                if isinstance(data, dict):
+                    self._delete_local_item(data)
+            elif len(selected) > 1:
+                self._delete_selected_local_items()
+    
+    def _copy_selected_paths_for(self, panel):
+        """复制指定面板选中项的路径（Ctrl+C 快捷键）"""
+        if panel == 'device':
+            selected = self.deviceTree.selectedItems()
+            if selected:
+                self._copy_selected_device_paths(selected)
+        else:
+            selected = self.localTree.selectedItems()
+            paths = []
+            for item in selected:
+                data = item.data(0, Qt.ItemDataRole.UserRole)
+                if isinstance(data, dict) and data.get('path'):
+                    paths.append(data['path'])
+            if paths:
+                QApplication.clipboard().setText("\n".join(paths))
+                self.statusLabel.setText(f"已复制 {len(paths)} 个路径")
+    
+    def _delete_selected_local_items(self):
+        """批量删除本地选中项（一次确认）"""
+        selected = self.localTree.selectedItems()
+        infos = [it.data(0, Qt.ItemDataRole.UserRole) for it in selected]
+        infos = [i for i in infos if isinstance(i, dict) and i.get('path')]
+        if not infos:
+            return
+    
+        reply = QMessageBox.question(
+            self, '确认批量删除',
+            f"确定要删除选中的 {len(infos)} 个项目吗？\n此操作不可撤销！",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+    
+        success_count = 0
+        fail_count = 0
+        for info in infos:
+            path = info.get('path', '')
+            try:
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                success_count += 1
+            except Exception as e:
+                fail_count += 1
+                logger.error(f"删除失败: {path} - {str(e)}")
+    
+        self.statusLabel.setText(f"删除完成: 成功 {success_count} 个, 失败 {fail_count} 个")
+        self._refresh_local_files()
     
     def _refresh_devices(self):
         """刷新设备列表(复用主窗口的逻辑)"""
@@ -1554,6 +2198,7 @@ class FileManagerDialog(QDialog):
             self._log_message(f"使用ADB模式连接设备: {device_id}")
             if hasattr(self, 'fm_status_label'):
                 self.fm_status_label.setText(f"已连接 (ADB): {device_id}")
+            self._save_device_history(device_id)
             # 刷新文件列表
             self._refresh_device_files()
     
@@ -1592,6 +2237,7 @@ class FileManagerDialog(QDialog):
             self._log_message(f"U2连接成功: {device_id}")
             if hasattr(self, 'fm_status_label'):
                 self.fm_status_label.setText(f"已连接 (U2): {device_id}")
+            self._save_device_history(device_id)
             # 刷新文件列表
             self._refresh_device_files()
         else:
@@ -1626,8 +2272,12 @@ class FileManagerDialog(QDialog):
     
     def _refresh_device_files(self):
         """刷新设备文件列表"""
+        if getattr(self, '_device_loading', False):
+            return  # 加载中，防重复刷新
+        self._device_loading = True
         self.deviceTree.clear()
-        self.statusLabel.setText("正在获取设备文件列表...")
+        self._start_loading_hint("正在获取设备文件列表")
+        self.btnRefreshDevice.setEnabled(False)
         
         self.list_thread = DeviceListThread(
             self.device_id, 
@@ -1643,6 +2293,9 @@ class FileManagerDialog(QDialog):
     def _on_device_list_ready(self, files):
         """设备文件列表准备好"""
         logger.info(f"_on_device_list_ready 被调用，文件数量: {len(files)}")
+        # 默认隐藏点文件（.android 等）
+        if not getattr(self, 'showHiddenDeviceCheck', None) or not self.showHiddenDeviceCheck.isChecked():
+            files = [f for f in files if not f.get('name', '').startswith('.')]
         self.deviceTree.clear()
         
         # 【性能优化】缓存图标和批量插入，避免逐项创建图标/逐项插入导致的卡顿
@@ -1660,19 +2313,24 @@ class FileManagerDialog(QDialog):
             # 显示名称：符号链接显示为 name -> target
             display_name = f"{name} -> {link_target}" if is_link and link_target else name
             
-            # 符号链接的大小通常很小，如果是链接到目录，显示 <LINK>
-            if is_link:
-                size_str = '<LINK>' if not file_info['size'].isdigit() or int(file_info['size']) < 100 else self._format_size(int(file_info['size']))
+            # 大小列：数值排序键存 UserRole；文件夹显示空（名称列已有图标标识）
+            size_bytes = int(file_info['size']) if file_info['size'].isdigit() else 0
+            if is_dir:
+                size_bytes = 0
+                size_str = ''
+            elif is_link:
+                size_str = '<LINK>' if size_bytes < 100 else self._format_size(size_bytes)
             else:
-                size_str = '<DIR>' if is_dir else self._format_size(int(file_info['size']) if file_info['size'].isdigit() else 0)
+                size_str = self._format_size(size_bytes)
             
-            item = QTreeWidgetItem([
+            item = SortableTreeWidgetItem([
                 display_name,
                 size_str,
                 file_info['permissions'],
                 file_info['date']
             ])
             item.setData(0, Qt.ItemDataRole.UserRole, file_info)
+            item.setData(1, Qt.ItemDataRole.UserRole, size_bytes)
             
             # 设置图标（PyQt6必须使用带作用域的枚举 QStyle.StandardPixmap）
             if is_link:
@@ -1688,17 +2346,144 @@ class FileManagerDialog(QDialog):
         self.deviceTree.addTopLevelItems(items)
         
         self.devicePathEdit.setText(self.device_current_path)
-        self.statusLabel.setText(f"已加载 {len(files)} 个项目")
+        if hasattr(self, 'device_breadcrumb'):
+            self.device_breadcrumb.set_path(self.device_current_path)
+        self._device_item_count = len(files)
+        self._device_loading = False
+        self.btnRefreshDevice.setEnabled(True)
+        self._stop_loading_hint()
+        self._update_status_bar()
     
     def _on_list_error(self, error_msg):
-        """列表获取错误（仅在状态栏提示，不弹模态框阻塞界面）"""
+        """列表获取错误（状态栏提示 + 防抖弹窗）"""
+        self._device_loading = False
+        if hasattr(self, 'btnRefreshDevice'):
+            self.btnRefreshDevice.setEnabled(True)
+        self._stop_loading_hint()
         self.statusLabel.setText(error_msg)
         logger.warning(f"文件管理器: {error_msg}")
+        self._show_error_once("设备目录访问失败", error_msg)
+    
+    def _update_status_bar(self):
+        """状态栏：优先显示选中项统计（X 项 / 总大小），否则显示加载计数"""
+        device_selected = self.deviceTree.selectedItems()
+        local_selected = self.localTree.selectedItems()
+        if device_selected:
+            total_bytes = sum(int(it.data(1, Qt.ItemDataRole.UserRole) or 0) for it in device_selected)
+            size_text = f"，总大小 {self._format_size(total_bytes)}" if total_bytes else ""
+            self.statusLabel.setText(
+                f"已加载 {getattr(self, '_device_item_count', 0)} 个项目 | 选中 {len(device_selected)} 项{size_text}")
+        elif local_selected:
+            total_bytes = sum(int(it.data(1, Qt.ItemDataRole.UserRole) or 0) for it in local_selected)
+            size_text = f"，总大小 {self._format_size(total_bytes)}" if total_bytes else ""
+            self.statusLabel.setText(
+                f"已加载 {getattr(self, '_local_item_count', 0)} 个项目 | 选中 {len(local_selected)} 项{size_text}")
+        else:
+            device_count = getattr(self, '_device_item_count', 0)
+            local_count = getattr(self, '_local_item_count', 0)
+            self.statusLabel.setText(f"已加载 {device_count} 个项目 / 本地 {local_count} 个项目")
+
+    # ==================== 加载提示动画 ====================
+
+    def _start_loading_hint(self, base_text):
+        """启动状态栏加载提示动画（任一面板加载中即运行）"""
+        self._loading_hint = {'base': base_text, 'dots': 0}
+        if getattr(self, '_loading_timer', None) is None:
+            self._loading_timer = QTimer(self)
+            self._loading_timer.timeout.connect(self._tick_loading_hint)
+        if not self._loading_timer.isActive():
+            self._loading_timer.start(400)
+
+    def _tick_loading_hint(self):
+        """加载动画定时器回调：状态栏省略号滚动"""
+        hint = getattr(self, '_loading_hint', None)
+        if not hint:
+            self._loading_timer.stop()
+            return
+        hint['dots'] = (hint['dots'] + 1) % 4
+        self.statusLabel.setText(hint['base'] + '.' * hint['dots'])
+
+    def _stop_loading_hint(self):
+        """两个面板都完成加载后停止动画"""
+        if getattr(self, '_device_loading', False) or getattr(self, '_local_loading', False):
+            return
+        self._loading_hint = None
+        if getattr(self, '_loading_timer', None) is not None:
+            self._loading_timer.stop()
+
+    def _show_error_once(self, title, message):
+        """错误弹窗防抖：相同错误 5 秒内只弹一次"""
+        now = time.time()
+        key = f"{title}:{message}"
+        if key == getattr(self, '_last_error_key', None) and \
+                now - getattr(self, '_last_error_time', 0) < 5:
+            return
+        self._last_error_key = key
+        self._last_error_time = now
+        QMessageBox.warning(self, title, message)
+
+    # ==================== 设备断开检测 ====================
+
+    def _check_device_online(self):
+        """定时检测设备是否在线"""
+        if not self.device_id:
+            return
+        online = False
+        try:
+            if self.connection_mode == 'u2' and self.d:
+                self.d.shell('echo ok')
+                online = True
+            else:
+                cmd = f'adb -s {self.device_id} get-state'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
+                online = (result.returncode == 0 and 'device' in result.stdout)
+        except Exception:
+            online = False
+        if online:
+            self._set_device_online()
+        else:
+            self._set_device_offline()
+
+    def _set_device_offline(self):
+        """设备断开：状态标签变红 + 禁用上传/下载等设备操作按钮"""
+        if getattr(self, '_device_offline', False):
+            return
+        self._device_offline = True
+        if hasattr(self, 'fm_status_label'):
+            self.fm_status_label.setText(f"⚠ 设备已断开: {self.device_id}")
+            self.fm_status_label.setStyleSheet("color: #ff5555; font-weight: bold;")
+        self.statusLabel.setText(f"⚠ 设备已断开: {self.device_id}")
+        for btn_name in ('btnDownload', 'btnUpload', 'btnRefreshDevice',
+                         'btnNewFolderDevice', 'btnDeviceUp'):
+            btn = getattr(self, btn_name, None)
+            if btn is not None:
+                btn.setEnabled(False)
+
+    def _set_device_online(self):
+        """设备恢复在线：恢复状态标签与按钮，并自动刷新列表"""
+        if not getattr(self, '_device_offline', False):
+            return
+        self._device_offline = False
+        if hasattr(self, 'fm_status_label'):
+            mode = 'U2' if self.connection_mode == 'u2' else 'ADB'
+            self.fm_status_label.setText(f"已连接 ({mode}): {self.device_id}")
+            self.fm_status_label.setStyleSheet("")
+        self.statusLabel.setText(f"设备已重新连接: {self.device_id}")
+        for btn_name in ('btnDownload', 'btnUpload', 'btnRefreshDevice',
+                         'btnNewFolderDevice', 'btnDeviceUp'):
+            btn = getattr(self, btn_name, None)
+            if btn is not None:
+                btn.setEnabled(True)
+        self._refresh_device_files()
     
     def _refresh_local_files(self):
         """刷新本地文件列表（后台线程枚举，避免阻塞界面）"""
+        if getattr(self, '_local_loading', False):
+            return  # 加载中，防重复刷新
+        self._local_loading = True
         self.localTree.clear()
-        self.statusLabel.setText("正在读取本地目录...")
+        self._start_loading_hint("正在读取本地目录")
+        self.btnRefreshLocal.setEnabled(False)
         
         self.local_list_thread = LocalListThread(self.local_current_path)
         self._keep_thread_alive(self.local_list_thread)
@@ -1708,36 +2493,76 @@ class FileManagerDialog(QDialog):
     
     def _on_local_list_ready(self, files):
         """本地文件列表准备好（主线程构建树节点）"""
+        # 默认隐藏点文件（.gitignore 等）
+        if not getattr(self, 'showHiddenLocalCheck', None) or not self.showHiddenLocalCheck.isChecked():
+            files = [f for f in files if not f.get('name', '').startswith('.')]
         self.localTree.clear()
-        
+    
         # 【性能优化】缓存图标和批量插入，避免逐项创建图标/逐项插入导致的卡顿
         dir_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon)
         file_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
-        
+    
         items = []
         for info in files:
             name = info['name']
             is_dir = info['is_dir']
-            
-            size_str = '<DIR>' if is_dir else self._format_size(info['size'])
+    
+            # 大小列：数值排序键存 UserRole；文件夹显示空（名称列已有图标标识）
+            size_bytes = 0 if is_dir else info['size']
+            size_str = '' if is_dir else self._format_size(info['size'])
             file_type = '文件夹' if is_dir else os.path.splitext(name)[1] or '文件'
             mod_time = datetime.fromtimestamp(info['mtime']).strftime('%Y-%m-%d %H:%M')
-            
-            item = QTreeWidgetItem([name, size_str, file_type, mod_time])
+    
+            item = SortableTreeWidgetItem([name, size_str, file_type, mod_time])
             item.setData(0, Qt.ItemDataRole.UserRole, {'path': info['path'], 'is_dir': is_dir, 'name': name})
-            item.setIcon(0, dir_icon if is_dir else file_icon)
+            item.setData(1, Qt.ItemDataRole.UserRole, size_bytes)
+            # 本地文件优先使用系统图标（按扩展名缓存，辨识度更高）
+            item.setIcon(0, self._local_file_icon(info['path'], is_dir, dir_icon, file_icon))
             items.append(item)
         
         # 一次性批量插入，避免逐个 addTopLevelItem 触发大量重绘
         self.localTree.addTopLevelItems(items)
         
         self.localPathEdit.setText(self.local_current_path)
-        self.statusLabel.setText(f"本地: {len(files)} 个项目")
+        if hasattr(self, 'local_breadcrumb'):
+            self.local_breadcrumb.set_path(self.local_current_path)
+        self._local_item_count = len(files)
+        self._local_loading = False
+        self.btnRefreshLocal.setEnabled(True)
+        self._stop_loading_hint()
+        self._update_status_bar()
     
     def _on_local_list_error(self, error_msg):
         """本地列表获取错误"""
+        self._local_loading = False
+        if hasattr(self, 'btnRefreshLocal'):
+            self.btnRefreshLocal.setEnabled(True)
+        self._stop_loading_hint()
         self.statusLabel.setText(error_msg)
         logger.warning(f"文件管理器: {error_msg}")
+        self._show_error_once("本地目录访问失败", error_msg)
+
+    def _local_file_icon(self, path, is_dir, dir_icon, file_icon):
+        """获取本地文件图标：优先系统图标（按扩展名缓存），避免重复查询"""
+        if is_dir:
+            return dir_icon
+        if not hasattr(self, '_icon_cache'):
+            self._icon_cache = {}
+        ext = os.path.splitext(path)[1].lower()
+        cache_key = ext or '<noext>'
+        if cache_key in self._icon_cache:
+            return self._icon_cache[cache_key]
+        try:
+            from PyQt6.QtCore import QFileInfo
+            from PyQt6.QtWidgets import QFileIconProvider
+            icon = QFileIconProvider().icon(QFileInfo(path))
+            if not icon.isNull():
+                self._icon_cache[cache_key] = icon
+                return icon
+        except Exception:
+            pass
+        self._icon_cache[cache_key] = file_icon
+        return file_icon
     
     def _format_size(self, size):
         """格式化文件大小"""
@@ -1753,16 +2578,95 @@ class FileManagerDialog(QDialog):
         return '/' + '/'.join(parts) if parts else '/'
     
     def _navigate_device_path(self):
-        """导航到设备指定路径"""
+        """导航到设备指定路径（输入框回车）"""
         path = self.devicePathEdit.text().strip()
         if path:
             self.device_current_path = path
             self._refresh_device_files()
+        self._restore_device_breadcrumb()
     
     def _navigate_local_path(self):
-        """导航到本地指定路径"""
+        """导航到本地指定路径（输入框回车）"""
         path = self.localPathEdit.text().strip()
         if path and os.path.isdir(path):
+            self.local_current_path = path
+            self._refresh_local_files()
+        self._restore_local_breadcrumb()
+    
+    # ============================================
+    # 面包屑导航相关方法
+    # ============================================
+    def _init_breadcrumb_bars(self):
+        """初始化设备/本地路径栏的面包屑导航（面包屑与输入框双态切换）"""
+        # 设备侧面包屑
+        self.device_breadcrumb = BreadcrumbBar(self)
+        self.device_breadcrumb.path_clicked.connect(self._on_breadcrumb_navigate_device)
+        self.device_breadcrumb.edit_requested.connect(self._switch_device_path_edit)
+        self.device_breadcrumb.set_path(self.device_current_path)
+    
+        # 本地侧面包屑（额外支持拖入文件夹跳转）
+        self.local_breadcrumb = BreadcrumbBar(self)
+        self.local_breadcrumb.path_clicked.connect(self._on_breadcrumb_navigate_local)
+        self.local_breadcrumb.edit_requested.connect(self._switch_local_path_edit)
+        self.local_breadcrumb.folder_dropped.connect(self._on_local_folder_dropped)
+        self.local_breadcrumb.set_path(self.local_current_path)
+    
+        # 插入到路径布局（标签之后，占满整行）
+        for layout_name, crumb in (('devicePathLayout', self.device_breadcrumb),
+                                   ('localPathLayout', self.local_breadcrumb)):
+            if hasattr(self, layout_name):
+                getattr(self, layout_name).insertWidget(1, crumb, 1)
+    
+        # 默认面包屑模式：隐藏输入框和“转到”按钮
+        self.devicePathEdit.hide()
+        self.btnDeviceGo.hide()
+        self.localPathEdit.hide()
+        self.btnLocalGo.hide()
+    
+    def _switch_device_path_edit(self):
+        """切换到设备路径输入框编辑模式"""
+        self.device_breadcrumb.hide()
+        self.devicePathEdit.setText(self.device_current_path)
+        self.devicePathEdit.show()
+        self.btnDeviceGo.show()
+        self.devicePathEdit.setFocus()
+        self.devicePathEdit.selectAll()
+    
+    def _switch_local_path_edit(self):
+        """切换到本地路径输入框编辑模式"""
+        self.local_breadcrumb.hide()
+        self.localPathEdit.setText(self.local_current_path)
+        self.localPathEdit.show()
+        self.btnLocalGo.show()
+        self.localPathEdit.setFocus()
+        self.localPathEdit.selectAll()
+    
+    def _restore_device_breadcrumb(self):
+        """恢复设备路径栏面包屑显示"""
+        self.devicePathEdit.hide()
+        self.btnDeviceGo.hide()
+        self.device_breadcrumb.show()
+    
+    def _restore_local_breadcrumb(self):
+        """恢复本地路径栏面包屑显示"""
+        self.localPathEdit.hide()
+        self.btnLocalGo.hide()
+        self.local_breadcrumb.show()
+    
+    def _on_breadcrumb_navigate_device(self, path):
+        """面包屑片段点击：跳转到设备目录"""
+        self.device_current_path = path
+        self._refresh_device_files()
+    
+    def _on_breadcrumb_navigate_local(self, path):
+        """面包屑片段点击：跳转到本地目录"""
+        if os.path.isdir(path):
+            self.local_current_path = path
+            self._refresh_local_files()
+    
+    def _on_local_folder_dropped(self, path):
+        """拖拽文件夹到本地路径栏：直接跳转"""
+        if os.path.isdir(path):
             self.local_current_path = path
             self._refresh_local_files()
     
@@ -1849,6 +2753,24 @@ class FileManagerDialog(QDialog):
             
             menu.addSeparator()
             
+            # 复制路径
+            copy_path_action = QAction("📋 复制路径", self)
+            copy_path_action.triggered.connect(lambda: self._copy_device_path(data))
+            menu.addAction(copy_path_action)
+            
+            # 复制权限字符串（设备端特有）
+            perms = data.get('permissions', '')
+            copy_perm_action = QAction(f"🔐 复制权限 ({perms})", self)
+            copy_perm_action.triggered.connect(lambda: self._copy_device_permissions(data))
+            menu.addAction(copy_perm_action)
+            
+            # 属性
+            properties_action = QAction("ℹ️ 属性", self)
+            properties_action.triggered.connect(lambda: self._show_device_properties(data))
+            menu.addAction(properties_action)
+            
+            menu.addSeparator()
+            
             # 重命名
             rename_action = QAction("✏ 重命名", self)
             rename_action.triggered.connect(lambda: self._rename_item(data))
@@ -1883,6 +2805,11 @@ class FileManagerDialog(QDialog):
             batch_download_action = QAction(f"⬇ 批量下载 ({len(selected_items)}项)", self)
             batch_download_action.triggered.connect(self._download_selected)
             menu.addAction(batch_download_action)
+
+            # 批量复制路径
+            batch_copy_action = QAction(f"📋 复制路径 ({len(selected_items)}项)", self)
+            batch_copy_action.triggered.connect(lambda: self._copy_selected_device_paths(selected_items))
+            menu.addAction(batch_copy_action)
             
             menu.addSeparator()
             
@@ -1946,6 +2873,21 @@ class FileManagerDialog(QDialog):
             open_action = QAction("📂 打开", self)
             open_action.triggered.connect(lambda: self._open_local_item(data))
             menu.addAction(open_action)
+
+            # 复制路径
+            copy_path_action = QAction("📋 复制路径", self)
+            copy_path_action.triggered.connect(lambda: self._copy_local_path(data))
+            menu.addAction(copy_path_action)
+
+            # 在资源管理器中显示
+            show_in_explorer_action = QAction("📁 在资源管理器中显示", self)
+            show_in_explorer_action.triggered.connect(lambda: self._show_local_in_explorer(data))
+            menu.addAction(show_in_explorer_action)
+
+            # 属性
+            local_properties_action = QAction("ℹ️ 属性", self)
+            local_properties_action.triggered.connect(lambda: self._show_local_properties(data))
+            menu.addAction(local_properties_action)
             
             # 复制
             copy_action = QAction("📋 复制", self)
@@ -2035,12 +2977,19 @@ class FileManagerDialog(QDialog):
         self.progressBar.setValue(0)
         self.statusLabel.setText(f"准备下载 {len(file_paths)} 个文件...")
         
+        # 独立进度窗口
+        self._transfer_dialog = TransferProgressDialog(self, f"批量下载 - {len(file_paths)} 个文件")
+        self._transfer_dialog.cancelled.connect(self._cancel_current_transfer)
+        self._transfer_dialog.show()
+        
         self.batch_transfer_thread = BatchFileTransferThread(
             self.device_id, file_paths, self.local_current_path,
             'download', self.connection_mode, self.d
         )
         self.batch_transfer_thread.progress_signal.connect(self.statusLabel.setText)
         self.batch_transfer_thread.progress_percent.connect(self.progressBar.setValue)
+        self.batch_transfer_thread.progress_percent.connect(self._transfer_dialog.update_percent)
+        self.batch_transfer_thread.file_progress_signal.connect(self._on_batch_file_progress)
         self.batch_transfer_thread.finished_signal.connect(self._on_batch_transfer_finished)
         self.batch_transfer_thread.start()
     
@@ -2048,18 +2997,30 @@ class FileManagerDialog(QDialog):
         """下载单个文件"""
         src_path = self._join_device_path(self.device_current_path, file_info['name'])
         dst_path = os.path.join(self.local_current_path, file_info['name'])
-        
+        try:
+            total_size = int(file_info.get('size', 0) or 0)
+        except (TypeError, ValueError):
+            total_size = 0
+    
         self.progressBar.setVisible(True)
         self.progressBar.setRange(0, 100)
         self.progressBar.setValue(0)
         self.statusLabel.setText(f"正在下载: {file_info['name']}")
-        
+    
+        # 独立进度窗口：速度/剩余时间/取消
+        self._transfer_dialog = TransferProgressDialog(self, f"下载 - {file_info['name']}")
+        self._transfer_dialog.set_file_name(f"{src_path}\n→ {dst_path}")
+        self._transfer_dialog.set_file_size(total_size)
+        self._transfer_dialog.cancelled.connect(self._cancel_current_transfer)
+        self._transfer_dialog.show()
+    
         self.transfer_thread = FileTransferThread(
             self.device_id, src_path, dst_path,
             'download', self.connection_mode, self.d
         )
         self.transfer_thread.progress_signal.connect(self.statusLabel.setText)
         self.transfer_thread.progress_percent.connect(self.progressBar.setValue)
+        self.transfer_thread.progress_percent.connect(self._transfer_dialog.update_percent)
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
@@ -2110,21 +3071,62 @@ class FileManagerDialog(QDialog):
         """上传单个文件"""
         src_path = file_info['path']
         dst_path = self._join_device_path(self.device_current_path, file_info['name'])
-        
+        total_size = os.path.getsize(src_path) if os.path.isfile(src_path) else 0
+    
         self.progressBar.setVisible(True)
         self.progressBar.setRange(0, 100)
         self.progressBar.setValue(0)
         self.statusLabel.setText(f"正在上传: {file_info['name']}")
-        
+    
+        # 独立进度窗口：速度/剩余时间/取消
+        self._transfer_dialog = TransferProgressDialog(self, f"上传 - {file_info['name']}")
+        self._transfer_dialog.set_file_name(f"{src_path}\n→ {dst_path}")
+        self._transfer_dialog.set_file_size(total_size)
+        self._transfer_dialog.cancelled.connect(self._cancel_current_transfer)
+        self._transfer_dialog.show()
+    
         self.transfer_thread = FileTransferThread(
             self.device_id, src_path, dst_path,
             'upload', self.connection_mode, self.d
         )
         self.transfer_thread.progress_signal.connect(self.statusLabel.setText)
         self.transfer_thread.progress_percent.connect(self.progressBar.setValue)
+        self.transfer_thread.progress_percent.connect(self._transfer_dialog.update_percent)
         self.transfer_thread.finished_signal.connect(self._on_transfer_finished)
         self.transfer_thread.start()
     
+    def _on_device_files_dropped(self, entries):
+        """设备文件拖入本地栏 = 下载到本地当前目录"""
+        if not entries or not self.device_id:
+            return
+
+        file_names = [e['name'] for e in entries if not e.get('is_dir')]
+        folder_names = [e['name'] for e in entries if e.get('is_dir')]
+
+        msg_parts = []
+        if file_names:
+            msg_parts.append(f"{len(file_names)} 个文件")
+        if folder_names:
+            msg_parts.append(f"{len(folder_names)} 个文件夹")
+
+        reply = QMessageBox.question(
+            self, '确认下载',
+            f"确定要下载 {' 和 '.join(msg_parts)} 到本地吗？\n目标路径: {self.local_current_path}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        # 下载文件
+        if file_names:
+            file_paths = [self._join_device_path(self.device_current_path, n) for n in file_names]
+            self._download_files_batch(file_paths)
+        # 下载文件夹
+        for folder_name in folder_names:
+            device_folder = self._join_device_path(self.device_current_path, folder_name)
+            self._do_download_folder(device_folder, self.local_current_path)
+
     def _on_files_dropped(self, file_paths):
         """处理拖放文件上传"""
         if not file_paths:
@@ -2174,12 +3176,19 @@ class FileManagerDialog(QDialog):
         self.progressBar.setValue(0)
         self.statusLabel.setText(f"准备上传 {len(file_paths)} 个文件...")
         
+        # 独立进度窗口
+        self._transfer_dialog = TransferProgressDialog(self, f"批量上传 - {len(file_paths)} 个文件")
+        self._transfer_dialog.cancelled.connect(self._cancel_current_transfer)
+        self._transfer_dialog.show()
+        
         self.batch_transfer_thread = BatchFileTransferThread(
             self.device_id, file_paths, self.device_current_path,
             'upload', self.connection_mode, self.d
         )
         self.batch_transfer_thread.progress_signal.connect(self.statusLabel.setText)
         self.batch_transfer_thread.progress_percent.connect(self.progressBar.setValue)
+        self.batch_transfer_thread.progress_percent.connect(self._transfer_dialog.update_percent)
+        self.batch_transfer_thread.file_progress_signal.connect(self._on_batch_file_progress)
         self.batch_transfer_thread.finished_signal.connect(self._on_batch_upload_finished)
         self.batch_transfer_thread.start()
     
@@ -2190,18 +3199,27 @@ class FileManagerDialog(QDialog):
         self.progressBar.setValue(0)
         self.statusLabel.setText(f"正在上传文件夹...")
         
+        # 独立进度窗口
+        self._transfer_dialog = TransferProgressDialog(self, "上传文件夹")
+        self._transfer_dialog.set_file_name(os.path.basename(folder_path))
+        self._transfer_dialog.cancelled.connect(self._cancel_current_transfer)
+        self._transfer_dialog.show()
+        
         self.folder_upload_thread = FolderUploadThread(
             self.device_id, folder_path, self.device_current_path,
             self.connection_mode, self.d
         )
         self.folder_upload_thread.progress_signal.connect(self.statusLabel.setText)
+        self.folder_upload_thread.progress_signal.connect(self._transfer_dialog.set_file_name)
         self.folder_upload_thread.progress_percent.connect(self.progressBar.setValue)
+        self.folder_upload_thread.progress_percent.connect(self._transfer_dialog.update_percent)
         self.folder_upload_thread.finished_signal.connect(self._on_folder_upload_finished)
         self.folder_upload_thread.start()
     
     def _on_folder_upload_finished(self, success_count, fail_count, skip_count):
         """文件夹上传完成"""
         self.progressBar.setVisible(False)
+        self._close_transfer_dialog()
         self.statusLabel.setText(f"文件夹上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
     
@@ -2212,30 +3230,41 @@ class FileManagerDialog(QDialog):
         self.progressBar.setValue(0)
         self.statusLabel.setText(f"正在下载文件夹...")
         
+        # 独立进度窗口
+        self._transfer_dialog = TransferProgressDialog(self, "下载文件夹")
+        self._transfer_dialog.set_file_name(device_folder)
+        self._transfer_dialog.cancelled.connect(self._cancel_current_transfer)
+        self._transfer_dialog.show()
+        
         self.folder_download_thread = FolderDownloadThread(
             self.device_id, device_folder, local_folder,
             self.connection_mode, self.d
         )
         self.folder_download_thread.progress_signal.connect(self.statusLabel.setText)
+        self.folder_download_thread.progress_signal.connect(self._transfer_dialog.set_file_name)
         self.folder_download_thread.progress_percent.connect(self.progressBar.setValue)
+        self.folder_download_thread.progress_percent.connect(self._transfer_dialog.update_percent)
         self.folder_download_thread.finished_signal.connect(self._on_folder_download_finished)
         self.folder_download_thread.start()
     
     def _on_folder_download_finished(self, success_count, fail_count, skip_count):
         """文件夹下载完成"""
         self.progressBar.setVisible(False)
+        self._close_transfer_dialog()
         self.statusLabel.setText(f"文件夹下载完成: 成功 {success_count} 个, 失败 {fail_count} 个, 跳过 {skip_count} 个")
         self._refresh_local_files()
     
     def _on_batch_upload_finished(self, success_count, fail_count):
         """批量上传完成"""
         self.progressBar.setVisible(False)
+        self._close_transfer_dialog()
         self.statusLabel.setText(f"上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
     
     def _on_batch_transfer_finished(self, success_count, fail_count):
         """批量下载完成"""
         self.progressBar.setVisible(False)
+        self._close_transfer_dialog()
         self.statusLabel.setText(f"下载完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_local_files()
     
@@ -2286,12 +3315,41 @@ class FileManagerDialog(QDialog):
     def _on_transfer_finished(self, success, message):
         """传输完成"""
         self.progressBar.setVisible(False)
+        self._close_transfer_dialog()
         self.statusLabel.setText(message)
-        
+    
         if success:
             self._refresh_local_files()
+        elif '取消' in message:
+            pass  # 用户主动取消，不弹错误框
         else:
             QMessageBox.warning(self, "传输失败", message)
+    
+    def _close_transfer_dialog(self):
+        """关闭传输进度窗口"""
+        dialog = getattr(self, '_transfer_dialog', None)
+        if dialog is not None:
+            try:
+                dialog.close()
+            except RuntimeError:
+                pass
+            self._transfer_dialog = None
+    
+    def _cancel_current_transfer(self):
+        """取消当前传输（进度窗口取消按钮/直接关闭）"""
+        for name in ('transfer_thread', 'batch_transfer_thread',
+                     'folder_upload_thread', 'folder_download_thread'):
+            thread = getattr(self, name, None)
+            if thread is not None and thread.isRunning():
+                thread.cancel()
+                self.statusLabel.setText("正在取消传输...")
+                return
+    
+    def _on_batch_file_progress(self, index, total, name):
+        """批量传输当前文件更新到进度窗口"""
+        dialog = getattr(self, '_transfer_dialog', None)
+        if dialog is not None:
+            dialog.set_file_name(f"{name}  ({index}/{total})")
     
     # ==================== 本地文件管理功能 ====================
     
@@ -2311,6 +3369,43 @@ class FileManagerDialog(QDialog):
                 os.startfile(path)
         except Exception as e:
             QMessageBox.warning(self, "打开失败", f"无法打开: {str(e)}")
+    
+    def _copy_local_path(self, file_info):
+        """复制本地文件完整路径到剪贴板"""
+        path = file_info.get('path', '')
+        QApplication.clipboard().setText(path)
+        self.statusLabel.setText(f"已复制路径: {path}")
+    
+    def _show_local_in_explorer(self, file_info):
+        """在 Windows 资源管理器中定位显示该文件/文件夹"""
+        path = file_info.get('path', '')
+        if not path or not os.path.exists(path):
+            QMessageBox.warning(self, "错误", "路径不存在")
+            return
+        try:
+            subprocess.Popen(['explorer', '/select,', os.path.normpath(path)])
+        except Exception as e:
+            QMessageBox.warning(self, "打开失败", f"无法在资源管理器中显示: {str(e)}")
+    
+    def _show_local_properties(self, file_info):
+        """显示本地文件属性"""
+        path = file_info.get('path', '')
+        if not path or not os.path.exists(path):
+            QMessageBox.warning(self, "错误", "路径不存在")
+            return
+        stat = os.stat(path)
+        is_dir = os.path.isdir(path)
+        size_str = '' if is_dir else self._format_size(stat.st_size)
+        mod_time = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+        lines = [
+            f"名称: {file_info.get('name', '')}",
+            f"类型: {'文件夹' if is_dir else '文件'}",
+            f"路径: {path}",
+        ]
+        if not is_dir:
+            lines.append(f"大小: {size_str}")
+        lines.append(f"修改时间: {mod_time}")
+        QMessageBox.information(self, "属性", "\n".join(lines))
     
     def _copy_local_files(self, file_infos):
         """复制本地文件到剪贴板"""
@@ -2708,6 +3803,100 @@ class FileManagerDialog(QDialog):
         self.statusLabel.setText(f"删除完成: 成功 {success_count} 个, 失败 {fail_count} 个")
         self._refresh_device_files()
     
+    def _copy_device_path(self, file_info):
+        """复制设备文件完整路径到剪贴板"""
+        path = self._join_device_path(self.device_current_path, file_info.get('name', ''))
+        QApplication.clipboard().setText(path)
+        self.statusLabel.setText(f"已复制路径: {path}")
+    
+    def _copy_device_permissions(self, file_info):
+        """复制设备文件权限字符串"""
+        perms = file_info.get('permissions', '')
+        QApplication.clipboard().setText(perms)
+        self.statusLabel.setText(f"已复制权限: {perms}")
+    
+    def _show_device_properties(self, file_info):
+        """显示设备文件属性"""
+        name = file_info.get('name', '')
+        is_dir = file_info.get('is_dir', False)
+        size_raw = file_info.get('size', '')
+        size_str = self._format_size(int(size_raw)) if str(size_raw).isdigit() else ''
+        lines = [
+            f"名称: {name}",
+            f"类型: {'文件夹' if is_dir else '文件'}",
+            f"路径: {self._join_device_path(self.device_current_path, name)}",
+        ]
+        if not is_dir and size_str:
+            lines.append(f"大小: {size_str}")
+        if file_info.get('permissions'):
+            lines.append(f"权限: {file_info['permissions']}")
+        if file_info.get('date'):
+            lines.append(f"修改时间: {file_info['date']}")
+        QMessageBox.information(self, "属性", "\n".join(lines))
+    
+    def _copy_selected_device_paths(self, selected_items):
+        """批量复制选中设备文件的路径"""
+        paths = []
+        for item in selected_items:
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if isinstance(data, dict):
+                paths.append(self._join_device_path(self.device_current_path, data.get('name', '')))
+        if paths:
+            QApplication.clipboard().setText("\n".join(paths))
+            self.statusLabel.setText(f"已复制 {len(paths)} 个路径")
+    
+    def _show_new_menu_device(self):
+        """设备侧“新建”按钮下拉菜单：新建文件夹 / 新建文件"""
+        menu = QMenu(self)
+        new_folder_action = menu.addAction("📁 新建文件夹")
+        new_file_action = menu.addAction("📄 新建文件")
+        action = menu.exec(self.btnNewFolderDevice.mapToGlobal(
+            self.btnNewFolderDevice.rect().bottomLeft()))
+        if action == new_folder_action:
+            self._create_folder_on_device()
+        elif action == new_file_action:
+            self._create_file_on_device()
+
+    def _show_new_menu_local(self):
+        """本地侧“新建”按钮下拉菜单：新建文件夹 / 新建文本文件"""
+        menu = QMenu(self)
+        new_folder_action = menu.addAction("📁 新建文件夹")
+        new_file_action = menu.addAction("📄 新建文本文件")
+        action = menu.exec(self.btnNewLocal.mapToGlobal(
+            self.btnNewLocal.rect().bottomLeft()))
+        if action == new_folder_action:
+            self._create_local_folder()
+        elif action == new_file_action:
+            self._create_local_text_file()
+
+    def _create_file_on_device(self):
+        """在设备当前目录新建空文件（后台线程执行，等效 touch）"""
+        if not self.device_id:
+            QMessageBox.warning(self, "未连接", "请先连接设备")
+            return
+
+        file_name, ok = QInputDialog.getText(self, "新建文件", "请输入文件名:", text="new_file.txt")
+        if not ok or not file_name:
+            return
+
+        file_path = self._join_device_path(self.device_current_path, file_name)
+        # 复用文本写入线程写入空内容，等效创建空文件
+        self.text_write_thread = TextWriteThread(
+            self.device_id, file_path, '', self.connection_mode, self.d)
+        self._keep_thread_alive(self.text_write_thread)
+        self.text_write_thread.finished_signal.connect(self._on_device_new_file_finished)
+        self.statusLabel.setText(f"正在创建文件: {file_name}...")
+        self.text_write_thread.start()
+
+    def _on_device_new_file_finished(self, success, message):
+        """设备端新建文件完成回调"""
+        if success:
+            self.statusLabel.setText("文件创建成功")
+            self._refresh_device_files()
+        else:
+            self.statusLabel.setText(f"创建失败: {message}")
+            QMessageBox.warning(self, "创建失败", message)
+
     def _preview_text_file(self, file_info):
         """预览/编辑文本文件"""
         file_name = file_info.get('name', '')
@@ -2744,6 +3933,18 @@ class FileManagerDialog(QDialog):
     def closeEvent(self, event):
         """关闭事件 - 清理所有线程和资源"""
         logger.info("文件管理器: 正在关闭窗口")
+        
+        # 保存窗口大小（下次打开恢复）
+        from config_manager import config_manager
+        config_manager.set('file_manager.window_size', [self.width(), self.height()])
+        
+        # 停止设备在线监测
+        if getattr(self, '_device_monitor_timer', None) is not None:
+            self._device_monitor_timer.stop()
+        self._close_transfer_dialog()
+        # 取消进行中的传输（终止 adb 子进程，避免孤儿进程）
+        if self.transfer_thread and self.transfer_thread.isRunning():
+            self.transfer_thread.cancel()
         
         # 停止所有运行中的线程
         threads_to_stop = [
