@@ -161,6 +161,10 @@ class ThreadFactory:
             from Function_Moudle.device_threads import AdbRootThread
             return AdbRootThread
             
+        elif thread_type == 'restart_adb_service':
+            from Function_Moudle.device_threads import RestartAdbServiceThread
+            return RestartAdbServiceThread
+            
         elif thread_type == 'install_file':
             from Function_Moudle.app_threads import InstallFileThread
             return InstallFileThread

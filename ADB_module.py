@@ -138,6 +138,7 @@ class ADB_Mainwindow(QMainWindow):
         self.Force_app_thread = None
         self.uninstall_thread = None
         self.reboot_thread = None
+        self.restart_adb_service_thread = None  # 重启ADB服务线程
         self.view_apk_thread = None
         self.skip_power_limit_thread = None
         self.upgrade_page_thread = None
@@ -231,7 +232,7 @@ class ADB_Mainwindow(QMainWindow):
         self.force_stop_app.clicked.connect(self.show_force_stop_app_dialog)  # 强制停止应用
         self.adb_uninstall_button.clicked.connect(self.show_uninstall_dialog)  # 卸载应用
         self.file_manager_button.clicked.connect(self.file_operations.show_file_manager_dialog)  # 文件管理
-        self.reboot_adb_service_button.clicked.connect(self.show_simulate_long_press_dialog)  # 模拟长按
+        self.reboot_adb_service_button.clicked.connect(self.device_manager.restart_adb_service)  # 重启ADB服务
         self.adb_install_button.clicked.connect(self.show_install_file_dialog)  # 安装应用
         self.clear_app_cache_button.clicked.connect(self.show_clear_app_cache_dialog)  # 清除应用缓存
         self.app_package_and_activity.clicked.connect(self.get_foreground_package)

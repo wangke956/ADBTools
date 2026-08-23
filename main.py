@@ -92,6 +92,22 @@ def _show_error(title, message):
             pass
 
 
+# ==================== 启用 faulthandler 捕获C++层崩溃 ====================
+_log("[STEP] 启用 faulthandler（捕获底层崩溃堆栈）")
+try:
+    import faulthandler
+    # 将段错误等C++层崩溃的堆栈写入崩溃日志文件，便于定位硬崩溃
+    if _CRASH_LOG_FILE is None:
+        _write_crash_log("初始化崩溃日志文件")
+    if _CRASH_LOG_FILE:
+        faulthandler.enable(file=_CRASH_LOG_FILE, all_threads=True)
+    else:
+        faulthandler.enable()
+    _log("faulthandler 已启用")
+except Exception as e:
+    _log(f"faulthandler 启用失败（不影响运行）: {e}")
+
+
 # ==================== 第一时间开始记录 ====================
 _log("=" * 80)
 _log("ADBTools 程序启动")

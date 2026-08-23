@@ -5,6 +5,7 @@
 """
 
 import os
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QInputDialog
 
 from logger_manager import log_button_click, log_method_result, get_logger
@@ -193,18 +194,35 @@ class FileOperationsManager:
     def show_file_manager_dialog(self):
         """打开文件管理器对话框（独立窗口，非模态）"""
         # 获取当前设备信息作为初始值（可选）
+        # 注意：不在此处同步执行 adb devices（get_new_device_lst），
+        # 避免 adb daemon 繁忙时阻塞主线程导致窗口迟迟无法打开；
+        # 设备连接状态由对话框内部后台线程异步刷新处理
         device_id = self.main_window.get_selected_device()
-        devices_id_lst = self.main_window.get_new_device_lst()
+        if not device_id or device_id == "请点击刷新设备":
+            device_id = None
         
         log_button_click("file_manager_button", "打开文件管理器")
         
         # 记录当前主窗口的连接状态
-        logger.info(f"文件管理器: 主窗口设备ID={device_id}, 在列表中={device_id in devices_id_lst}")
+        logger.info(f"文件管理器: 主窗口设备ID={device_id}")
         logger.info(f"文件管理器: 主窗口连接模式={getattr(self.main_window, 'connection_mode', None)}")
         logger.info(f"文件管理器: 主窗口d对象={'存在' if getattr(self.main_window, 'd', None) else 'None'}")
 
         try:
             from Function_Moudle.file_manager_dialog import FileManagerDialog
+            
+            # 复用已打开的文件管理器窗口（避免重复创建）
+            existing = getattr(self.main_window, '_file_manager_dialog', None)
+            if existing is not None:
+                try:
+                    if existing.isVisible():
+                        existing.raise_()
+                        existing.activateWindow()
+                        log_method_result("show_file_manager_dialog", True, "文件管理器已在前台")
+                        return
+                except RuntimeError:
+                    # 底层C++对象已销毁，重新创建
+                    self.main_window._file_manager_dialog = None
             
             # 获取连接模式和设备对象，默认使用adb模式
             connection_mode = getattr(self.main_window, 'connection_mode', None)
@@ -215,10 +233,16 @@ class FileOperationsManager:
             # 创建文件管理器窗口（传入父窗口以便管理生命周期）
             dialog = FileManagerDialog(
                 self.main_window, 
-                device_id if device_id in devices_id_lst else None,  # 如果设备未连接则传None
+                device_id,  # 若未选择设备则为None，设备有效性由对话框异步刷新处理
                 connection_mode, 
                 d
             )
+            
+            # 【关键】保持强引用，防止对话框被GC回收导致程序崩溃
+            # 非模态QDialog若无Python引用，函数返回后底层C++对象会被销毁，
+            # 事件循环访问已销毁窗口时会发生硬崩溃
+            self.main_window._file_manager_dialog = dialog
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
             
             # 设置为非模态窗口，不阻塞主窗口
             dialog.setModal(False)

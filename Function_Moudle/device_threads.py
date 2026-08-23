@@ -73,6 +73,52 @@ class RefreshDevicesThread(BaseThread):
             self.devices_signal.emit([])
 
 
+class RestartAdbServiceThread(BaseThread):
+    """重启ADB服务线程"""
+    
+    def __init__(self):
+        super().__init__("RestartAdbServiceThread")
+        
+    def _run_implementation(self):
+        """执行重启ADB服务操作（带超时，避免阻塞界面）"""
+        from adb_utils import ADBUtils
+        
+        try:
+            # 停止ADB服务
+            self.progress_signal.emit("正在停止ADB服务...")
+            result = ADBUtils.run_adb_command(
+                command="kill-server",
+                timeout=15
+            )
+            
+            if result.returncode == 0:
+                self.progress_signal.emit("ADB服务已停止")
+            else:
+                self.progress_signal.emit(f"停止ADB服务失败: {result.stderr.strip()}")
+            
+            # 启动ADB服务
+            self.progress_signal.emit("正在启动ADB服务...")
+            result = ADBUtils.run_adb_command(
+                command="start-server",
+                timeout=15
+            )
+            
+            if result.returncode == 0:
+                self.progress_signal.emit("ADB服务启动成功")
+            else:
+                self.error_signal.emit(f"ADB服务启动失败: {result.stderr.strip()}")
+                return
+            
+            # 等待服务完全就绪后通知成功（用于刷新设备列表）
+            time.sleep(1)
+            self.success_signal.emit("重启ADB服务成功")
+            
+        except subprocess.TimeoutExpired:
+            self.error_signal.emit("重启ADB服务超时，请检查ADB环境")
+        except Exception as e:
+            self.error_signal.emit(f"重启ADB服务时发生错误: {str(e)}")
+
+
 class U2ConnectThread(DeviceBaseThread):
     """U2连接线程"""
     

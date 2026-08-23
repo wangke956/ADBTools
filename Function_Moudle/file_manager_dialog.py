@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QDialog, QTreeWidget, QTreeWidgetItem, QAbstractItemView,
     QPushButton, QLabel, QLineEdit, QComboBox, QMessageBox, QProgressBar,
     QHeaderView, QMenu, QInputDialog, QWidget, QFileDialog,
-    QTextEdit, QApplication, QSplitter
+    QTextEdit, QApplication, QSplitter, QStyle
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QUrl
 from PyQt6.QtGui import QIcon, QCursor, QDropEvent, QDrag, QAction
@@ -41,7 +41,7 @@ class LocalFileTree(QTreeWidget):
         urls = []
         
         for item in selected_items:
-            data = item.data(0, Qt.UserRole)
+            data = item.data(0, Qt.ItemDataRole.UserRole)
             if isinstance(data, dict) and 'path' in data:
                 file_path = data['path']
                 if os.path.exists(file_path):
@@ -144,7 +144,7 @@ class DeviceListThread(QThread):
                 # 符号链接格式: lrwxrwxrwx   1 root root   21 2009-01-01 00:00 sdcard -> /storage/self/primary
                 # 共8列: 权限 链接数 所有者 组 大小 日期 时间 文件名
                 parts = line.split(None, 7)  # 最多分割成8部分，文件名可能含空格
-                logger.info(f"解析行: '{line}' -> parts={len(parts)}: {parts}")
+                logger.debug(f"解析行: '{line}' -> parts={len(parts)}: {parts}")
                 if len(parts) >= 8:
                     is_link = line.startswith('l')
                     is_dir = line.startswith('d')
@@ -167,7 +167,7 @@ class DeviceListThread(QThread):
                     
                     # 去重：跳过已存在的文件名
                     if name in seen_names:
-                        logger.info(f"跳过重复文件: {name}")
+                        logger.debug(f"跳过重复文件: {name}")
                         continue
                     seen_names.add(name)
                     
@@ -183,12 +183,43 @@ class DeviceListThread(QThread):
                         'link_target': link_target,  # 符号链接目标
                     }
                     files.append(file_info)
-                    logger.info(f"添加文件: {file_info['name']}")
+                    logger.debug(f"添加文件: {file_info['name']}")
             
             logger.info(f"最终文件列表数量: {len(files)}")
             self.finished_signal.emit(files)
         except Exception as e:
             self.error_signal.emit(f"获取文件列表失败: {str(e)}")
+
+
+class LocalListThread(QThread):
+    """获取本地目录文件列表的线程（后台枚举，避免阻塞界面）"""
+    finished_signal = pyqtSignal(list)  # 返回文件信息列表
+    error_signal = pyqtSignal(str)  # 返回错误信息
+    
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+    
+    def run(self):
+        try:
+            files = []
+            for item_name in os.listdir(self.path):
+                item_path = os.path.join(self.path, item_name)
+                try:
+                    stat_info = os.stat(item_path)
+                    is_dir = stat.S_ISDIR(stat_info.st_mode)
+                    files.append({
+                        'name': item_name,
+                        'path': item_path,
+                        'is_dir': is_dir,
+                        'size': stat_info.st_size if not is_dir else 0,
+                        'mtime': stat_info.st_mtime,
+                    })
+                except (PermissionError, OSError):
+                    continue
+            self.finished_signal.emit(files)
+        except Exception as e:
+            self.error_signal.emit(f"读取本地目录失败: {str(e)}")
 
 
 class FileTransferThread(QThread):
@@ -853,6 +884,10 @@ class FileManagerDialog(QDialog):
         self.folder_download_thread = None
         self.refresh_devices_thread = None
         self.u2_connect_thread = None
+        self.local_list_thread = None  # 本地目录列表线程
+        # 【关键】保存所有运行中线程的强引用列表，防止运行中的QThread
+        # Python包装对象被GC回收后，线程结束时发射信号导致段错误崩溃
+        self._alive_threads = []
         
         # 动态加载UI文件
         import sys
@@ -907,7 +942,7 @@ class FileManagerDialog(QDialog):
         
         # 设置窗口标题和属性
         self.setWindowTitle("文件管理器")
-        self.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)
+        self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowMinMaxButtonsHint | Qt.WindowType.WindowCloseButtonHint)
         self.setMinimumSize(1200, 800)
         
         # 初始化独立的设备管理控件
@@ -919,11 +954,22 @@ class FileManagerDialog(QDialog):
         # 连接信号槽
         self._connect_signals()
         
-        # 如果有传入设备ID，刷新文件列表
+        # 初始文件列表刷新延迟到窗口显示后执行（showEvent），
+        # 避免同步枚举目录/ADB命令阻塞主线程，导致窗口迟迟不显示
+        self._initial_refresh_done = False
+
+        # 如果有传入设备ID，初始化设备下拉框和状态
         if device_id:
-            # 初始化设备下拉框和状态
             self._init_from_parent_connection(device_id, connection_mode, d)
-            self._refresh_device_files()
+    
+    def showEvent(self, event):
+        """窗口显示事件 - 首次显示后才开始异步刷新文件列表"""
+        super().showEvent(event)
+        if not self._initial_refresh_done:
+            self._initial_refresh_done = True
+            # 设备列表仅在已连接设备时刷新；本地列表始终刷新
+            if self.device_id:
+                self._refresh_device_files()
             self._refresh_local_files()
     
     def _init_device_controls(self):
@@ -1031,15 +1077,25 @@ class FileManagerDialog(QDialog):
         self.connection_mode = connection_mode
         self.d = d
         # 更新UI显示
+        # 【关键】阻塞信号，避免设置控件值时触发 currentTextChanged/stateChanged
+        # 级联调用 _connect_selected_device，导致重复启动线程并引发崩溃
         if hasattr(self, 'fm_device_combo'):
             # 清空并添加当前设备
-            self.fm_device_combo.clear()
-            self.fm_device_combo.addItem(device_id)
-            self.fm_device_combo.setCurrentText(device_id)
+            self.fm_device_combo.blockSignals(True)
+            try:
+                self.fm_device_combo.clear()
+                self.fm_device_combo.addItem(device_id)
+                self.fm_device_combo.setCurrentText(device_id)
+            finally:
+                self.fm_device_combo.blockSignals(False)
         
         if hasattr(self, 'fm_u2_mode_check'):
             # 设置U2模式复选框状态
-            self.fm_u2_mode_check.setChecked(connection_mode == 'u2')
+            self.fm_u2_mode_check.blockSignals(True)
+            try:
+                self.fm_u2_mode_check.setChecked(connection_mode == 'u2')
+            finally:
+                self.fm_u2_mode_check.blockSignals(False)
         
         if hasattr(self, 'fm_status_label'):
             # 更新连接状态标签（增大字体）
@@ -1057,8 +1113,9 @@ class FileManagerDialog(QDialog):
             from PyQt6.QtGui import QGuiApplication
             import sys
             
-            # 检查Qt版本
-            qt_version = tuple(int(x) for x in Qt.qVersion().split('.'))
+            # 检查Qt版本（PyQt6使用QT_VERSION_STR，Qt.qVersion已不存在）
+            from PyQt6.QtCore import QT_VERSION_STR
+            qt_version = tuple(int(x) for x in QT_VERSION_STR.split('.'))
             
             # Qt >= 5.14 使用新API
             if qt_version >= (5, 14, 0):
@@ -1071,8 +1128,9 @@ class FileManagerDialog(QDialog):
                     logger.warning(f"文件管理器: 高DPI新API设置失败: {e}")
             
             # Qt6 默认启用高DPI缩放，不再需要手动设置
+            # 注意：此处复用模块顶部导入的Qt，不能在函数内重复import，
+            # 否则会导致 UnboundLocalError: cannot access local variable 'Qt'
             try:
-                from PyQt6.QtCore import Qt
                 if hasattr(Qt, 'AA_EnableHighDpiScaling'):
                     QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
                 if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
@@ -1408,6 +1466,7 @@ class FileManagerDialog(QDialog):
                 self.fm_status_label.setText("正在刷新设备...")
                 
             self.refresh_devices_thread = RefreshDevicesThread()
+            self._keep_thread_alive(self.refresh_devices_thread)
             self.refresh_devices_thread.progress_signal.connect(self._log_message)
             self.refresh_devices_thread.devices_signal.connect(self._handle_refreshed_devices)
             self.refresh_devices_thread.error_signal.connect(self._log_message)
@@ -1508,6 +1567,7 @@ class FileManagerDialog(QDialog):
                 self.fm_status_label.setText(f"正在连接U2: {device_id}...")
             
             self.u2_connect_thread = U2ConnectThread(device_id)
+            self._keep_thread_alive(self.u2_connect_thread)
             self.u2_connect_thread.progress_signal.connect(self._log_message)
             self.u2_connect_thread.connected_signal.connect(self._on_u2_connected)
             self.u2_connect_thread.error_signal.connect(self._log_message)
@@ -1553,6 +1613,17 @@ class FileManagerDialog(QDialog):
             else:
                 self.fm_status_label.setText(message)
     
+    def _keep_thread_alive(self, thread):
+        """
+        保持线程强引用，防止运行中的QThread被GC回收
+        
+        PyQt中若运行中的QThread失去Python引用，其包装对象会被销毁，
+        线程结束时发射信号会访问已销毁对象，导致程序段错误崩溃。
+        """
+        # 清理已结束的线程引用
+        self._alive_threads = [t for t in self._alive_threads if t.isRunning()]
+        self._alive_threads.append(thread)
+    
     def _refresh_device_files(self):
         """刷新设备文件列表"""
         self.deviceTree.clear()
@@ -1564,6 +1635,7 @@ class FileManagerDialog(QDialog):
             self.connection_mode,
             self.d
         )
+        self._keep_thread_alive(self.list_thread)
         self.list_thread.finished_signal.connect(self._on_device_list_ready)
         self.list_thread.error_signal.connect(self._on_list_error)
         self.list_thread.start()
@@ -1573,6 +1645,12 @@ class FileManagerDialog(QDialog):
         logger.info(f"_on_device_list_ready 被调用，文件数量: {len(files)}")
         self.deviceTree.clear()
         
+        # 【性能优化】缓存图标和批量插入，避免逐项创建图标/逐项插入导致的卡顿
+        dir_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon)
+        file_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+        link_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileLinkIcon)
+        
+        items = []
         for file_info in files:
             name = file_info['name']
             is_dir = file_info['is_dir']
@@ -1594,72 +1672,72 @@ class FileManagerDialog(QDialog):
                 file_info['permissions'],
                 file_info['date']
             ])
-            item.setData(0, Qt.UserRole, file_info)
+            item.setData(0, Qt.ItemDataRole.UserRole, file_info)
             
-            # 设置图标
+            # 设置图标（PyQt6必须使用带作用域的枚举 QStyle.StandardPixmap）
             if is_link:
-                # 符号链接使用链接图标
-                item.setIcon(0, self.style().standardIcon(self.style().SP_FileLinkIcon))
+                item.setIcon(0, link_icon)
             elif is_dir:
-                item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
+                item.setIcon(0, dir_icon)
             else:
-                item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
+                item.setIcon(0, file_icon)
             
-            self.deviceTree.addTopLevelItem(item)
+            items.append(item)
+        
+        # 一次性批量插入，避免逐个 addTopLevelItem 触发大量重绘
+        self.deviceTree.addTopLevelItems(items)
         
         self.devicePathEdit.setText(self.device_current_path)
         self.statusLabel.setText(f"已加载 {len(files)} 个项目")
     
     def _on_list_error(self, error_msg):
-        """列表获取错误"""
+        """列表获取错误（仅在状态栏提示，不弹模态框阻塞界面）"""
         self.statusLabel.setText(error_msg)
-        QMessageBox.warning(self, "错误", error_msg)
+        logger.warning(f"文件管理器: {error_msg}")
     
     def _refresh_local_files(self):
-        """刷新本地文件列表"""
+        """刷新本地文件列表（后台线程枚举，避免阻塞界面）"""
+        self.localTree.clear()
+        self.statusLabel.setText("正在读取本地目录...")
+        
+        self.local_list_thread = LocalListThread(self.local_current_path)
+        self._keep_thread_alive(self.local_list_thread)
+        self.local_list_thread.finished_signal.connect(self._on_local_list_ready)
+        self.local_list_thread.error_signal.connect(self._on_local_list_error)
+        self.local_list_thread.start()
+    
+    def _on_local_list_ready(self, files):
+        """本地文件列表准备好（主线程构建树节点）"""
         self.localTree.clear()
         
-        try:
-            # 添加返回上级目录
-            # if self.local_current_path != os.path.dirname(self.local_current_path):
-            #     parent_item = QTreeWidgetItem(['.. (上级目录)', '', '', ''])
-            #     parent_item.setData(0, Qt.UserRole, 'parent')
-            #     parent_item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
-            #     self.localTree.addTopLevelItem(parent_item)
+        # 【性能优化】缓存图标和批量插入，避免逐项创建图标/逐项插入导致的卡顿
+        dir_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon)
+        file_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+        
+        items = []
+        for info in files:
+            name = info['name']
+            is_dir = info['is_dir']
             
-            items = os.listdir(self.local_current_path)
-            for item_name in items:
-                item_path = os.path.join(self.local_current_path, item_name)
-                try:
-                    stat_info = os.stat(item_path)
-                    is_dir = stat.S_ISDIR(stat_info.st_mode)
-                    size = stat_info.st_size if not is_dir else 0
-                    mod_time = datetime.fromtimestamp(stat_info.st_mtime).strftime('%Y-%m-%d %H:%M')
-                    
-                    size_str = '<DIR>' if is_dir else self._format_size(size)
-                    file_type = '文件夹' if is_dir else os.path.splitext(item_name)[1] or '文件'
-                    
-                    item = QTreeWidgetItem([
-                        item_name,
-                        size_str,
-                        file_type,
-                        mod_time
-                    ])
-                    item.setData(0, Qt.UserRole, {'path': item_path, 'is_dir': is_dir, 'name': item_name})
-                    
-                    if is_dir:
-                        item.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
-                    else:
-                        item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
-                    
-                    self.localTree.addTopLevelItem(item)
-                except PermissionError:
-                    continue
+            size_str = '<DIR>' if is_dir else self._format_size(info['size'])
+            file_type = '文件夹' if is_dir else os.path.splitext(name)[1] or '文件'
+            mod_time = datetime.fromtimestamp(info['mtime']).strftime('%Y-%m-%d %H:%M')
             
-            self.localPathEdit.setText(self.local_current_path)
-            self.statusLabel.setText(f"本地: {len(items)} 个项目")
-        except Exception as e:
-            self.statusLabel.setText(f"读取本地目录失败: {str(e)}")
+            item = QTreeWidgetItem([name, size_str, file_type, mod_time])
+            item.setData(0, Qt.ItemDataRole.UserRole, {'path': info['path'], 'is_dir': is_dir, 'name': name})
+            item.setIcon(0, dir_icon if is_dir else file_icon)
+            items.append(item)
+        
+        # 一次性批量插入，避免逐个 addTopLevelItem 触发大量重绘
+        self.localTree.addTopLevelItems(items)
+        
+        self.localPathEdit.setText(self.local_current_path)
+        self.statusLabel.setText(f"本地: {len(files)} 个项目")
+    
+    def _on_local_list_error(self, error_msg):
+        """本地列表获取错误"""
+        self.statusLabel.setText(error_msg)
+        logger.warning(f"文件管理器: {error_msg}")
     
     def _format_size(self, size):
         """格式化文件大小"""
@@ -1714,7 +1792,7 @@ class FileManagerDialog(QDialog):
     
     def _on_device_item_double_clicked(self, item, column):
         """设备文件双击事件"""
-        data = item.data(0, Qt.UserRole)
+        data = item.data(0, Qt.ItemDataRole.UserRole)
         
         if isinstance(data, dict):
             is_dir = data.get('is_dir')
@@ -1731,7 +1809,7 @@ class FileManagerDialog(QDialog):
     
     def _on_local_item_double_clicked(self, item, column):
         """本地文件双击事件"""
-        data = item.data(0, Qt.UserRole)
+        data = item.data(0, Qt.ItemDataRole.UserRole)
         
         if isinstance(data, dict) and data.get('is_dir'):
             # 进入目录
@@ -1758,7 +1836,7 @@ class FileManagerDialog(QDialog):
         # 单选模式
         if len(selected_items) == 1:
             item = selected_items[0]
-            data = item.data(0, Qt.UserRole)
+            data = item.data(0, Qt.ItemDataRole.UserRole)
             if not isinstance(data, dict):
                 return
             
@@ -1849,7 +1927,7 @@ class FileManagerDialog(QDialog):
             menu.exec(self.localTree.viewport().mapToGlobal(pos))
             return
         
-        data = item.data(0, Qt.UserRole)
+        data = item.data(0, Qt.ItemDataRole.UserRole)
         if data == 'parent':
             return
         
@@ -1911,7 +1989,7 @@ class FileManagerDialog(QDialog):
         file_paths = []
         folder_items = []
         for item in selected_items:
-            data = item.data(0, Qt.UserRole)
+            data = item.data(0, Qt.ItemDataRole.UserRole)
             if isinstance(data, dict):
                 if data.get('is_dir'):
                     folder_items.append(data)
@@ -1941,7 +2019,7 @@ class FileManagerDialog(QDialog):
             if file_paths:
                 if len(file_paths) == 1:
                     # 单文件使用单文件下载
-                    self._download_item(selected_items[0].data(0, Qt.UserRole))
+                    self._download_item(selected_items[0].data(0, Qt.ItemDataRole.UserRole))
                 else:
                     # 多文件批量下载
                     self._download_files_batch(file_paths)
@@ -1996,7 +2074,7 @@ class FileManagerDialog(QDialog):
         file_paths = []
         folder_paths = []
         for item in selected_items:
-            data = item.data(0, Qt.UserRole)
+            data = item.data(0, Qt.ItemDataRole.UserRole)
             if isinstance(data, dict):
                 if data.get('is_dir'):
                     folder_paths.append(data['path'])
@@ -2598,7 +2676,7 @@ class FileManagerDialog(QDialog):
         fail_count = 0
         
         for item in selected_items:
-            data = item.data(0, Qt.UserRole)
+            data = item.data(0, Qt.ItemDataRole.UserRole)
             if not isinstance(data, dict):
                 continue
             

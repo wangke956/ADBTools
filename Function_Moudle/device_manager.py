@@ -354,6 +354,39 @@ class DeviceManager:
             log_method_result("reboot_device", False, "设备未连接")
             self.main_window.textBrowser.append("设备未连接！")
     
+    def restart_adb_service(self):
+        """重启ADB服务（后台线程执行，避免阻塞主界面）"""
+        log_button_click("reboot_adb_service_button", "重启ADB服务")
+        
+        # 检查是否已有重启线程在运行，保持线程引用避免被GC
+        existing_thread = getattr(self.main_window, 'restart_adb_service_thread', None)
+        if existing_thread is not None and existing_thread.isRunning():
+            self.main_window.textBrowser.append("正在重启ADB服务，请稍候...")
+            return
+        
+        try:
+            # 使用线程工厂创建重启ADB服务线程
+            self.main_window.restart_adb_service_thread = thread_factory.create_thread('restart_adb_service')
+            thread = self.main_window.restart_adb_service_thread
+            thread.progress_signal.connect(self.main_window.textBrowser.append)
+            thread.error_signal.connect(self.main_window.textBrowser.append)
+            thread.success_signal.connect(self._on_restart_adb_service_success)
+            thread.start()
+            log_method_result("restart_adb_service", True, "重启ADB服务线程已启动")
+        except Exception as e:
+            log_method_result("restart_adb_service", False, str(e))
+            self.main_window.textBrowser.append(f"启动重启ADB服务线程失败: {e}")
+    
+    def _on_restart_adb_service_success(self, message):
+        """ADB服务重启成功后：清理旧连接状态并刷新设备列表"""
+        self.main_window.textBrowser.append(message)
+        
+        # ADB服务重启后原有连接状态已失效，需要清理后重新刷新
+        self.main_window.d = None
+        self.main_window.device_id = None
+        self.main_window.connection_mode = None
+        self.refresh_devices()
+    
     def reinit_uiautomator2(self):
         """重新初始化uiautomator2服务"""
         log_button_click("reinit_u2_button", "重新初始化uiautomator2")
