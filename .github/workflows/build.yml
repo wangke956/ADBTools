@@ -379,8 +379,8 @@ jobs:
           ## ADBTools v${{ steps.get_version.outputs.version }}
           
           ### 更新内容
-          - 增加输入法切换功能
-          - 增加微软语音测试功能
+          - 更新UI框架版本为PyQt6
+          - 优化文件管理器性能和界面
           
           ### 下载
           - [便携版 ZIP](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.version }}/ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip)
