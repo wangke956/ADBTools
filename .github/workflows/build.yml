@@ -2,7 +2,6 @@ name: Build and Package ADBTools
 
 permissions:
   contents: write
-  workflows: write  # 推送包含工作流文件修改的提交/tag 时需要（GitHub App token 限制）
 
 on:
   workflow_dispatch:
@@ -226,23 +225,25 @@ jobs:
 
     - name: Force-update tag to point to latest commit
       if: always()
+      continue-on-error: true  # tag 创建失败不阻塞构建，Release 步骤会兜底
       shell: bash
       env:
         VERSION: ${{ steps.get_version.outputs.version }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         set -e
         TAG_NAME="v${VERSION}"
-        # Delete remote tag if exists
-        if git ls-remote --tags origin "$TAG_NAME" | grep -q "refs/tags/$TAG_NAME"; then
-          git push origin --delete "$TAG_NAME" || true
+        # 用 GitHub API 创建/更新 tag（只需 contents 权限）。
+        # 不用 git push：GITHUB_TOKEN 推送指向含工作流文件修改的提交时会被拒绝
+        # （permissions 块无 workflows 键，该限制无法通过声明权限绕过）。
+        if gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG_NAME}" \
+             -X PATCH -f sha="${GITHUB_SHA}" >/dev/null 2>&1; then
+          echo "✅ tag ${TAG_NAME} 已更新指向 ${GITHUB_SHA}"
+        else
+          gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
+             -f ref="refs/tags/${TAG_NAME}" -f sha="${GITHUB_SHA}" >/dev/null
+          echo "✅ tag ${TAG_NAME} 已创建指向 ${GITHUB_SHA}"
         fi
-        # Delete local tag if exists
-        git tag -d "$TAG_NAME" 2>/dev/null || true
-        # Create new tag at current HEAD
-        git tag "$TAG_NAME"
-        # 若 GITHUB_TOKEN 权限受限导致 tag 推送失败，不要中止整个构建：
-        # 后续 Create GitHub Release 步骤会通过 API 自动创建同名 tag
-        git push origin "$TAG_NAME" || echo "::warning::tag 推送失败（权限受限），将由 Release 步骤通过 API 创建"
 
     - name: Download platform-tools
       run: |
