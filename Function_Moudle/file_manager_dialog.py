@@ -25,6 +25,124 @@ from logger_manager import get_logger
 logger = get_logger("ADBTools.FileManager")
 
 
+# ============================================================
+# 文件名/路径兼容性辅助函数
+# ============================================================
+
+# Windows 文件名非法字符 → 全角字符映射（保留可读性）
+_INVALID_WIN_CHARS = str.maketrans({
+    '\\': '＼', '/': '／', ':': '：', '*': '＊', '?': '？',
+    '"': '＂', '<': '＜', '>': '＞', '|': '｜',
+})
+
+# Windows 保留设备名（不允许作为文件名）
+_WIN_RESERVED_NAMES = (
+    {'CON', 'PRN', 'AUX', 'NUL'}
+    | {f'COM{i}' for i in range(1, 10)}
+    | {f'LPT{i}' for i in range(1, 10)}
+)
+
+
+def _sanitize_local_name(name):
+    """将设备端文件名转换为 Windows 合法文件名。
+
+    设备端（Linux）文件名几乎可包含任意字符，下载到 Windows 时需清理：
+    - 非法字符（\\/:*?\"<>|）映射为全角字符，保留可读性
+    - 删除控制字符（Windows 不允许）
+    - 去除结尾空格/点（Windows 自动去除，会导致路径不一致）
+    - 保留设备名（CON/PRN/AUX/NUL/COM1-9/LPT1-9）加下划线前缀
+    - 超长名称截断（保留扩展名）
+    """
+    name = str(name)
+    # 删除控制字符（含换行/回车，会破坏目录解析）
+    name = ''.join(ch for ch in name if ord(ch) >= 32)
+    # 非法字符映射为全角
+    name = name.translate(_INVALID_WIN_CHARS)
+    # 去除结尾空格/点
+    name = name.rstrip(' .')
+    # 保留设备名加前缀
+    stem = name.split('.')[0].upper()
+    if stem in _WIN_RESERVED_NAMES:
+        name = '_' + name
+    # 超长截断（Windows 单段名最长 255，留余量）
+    if len(name) > 200:
+        root, ext = os.path.splitext(name)
+        name = root[:200 - len(ext)] + ext
+    return name or '_'
+
+
+def _unique_local_path(path):
+    """本地目标路径已存在时自动添加序号，避免覆盖已有文件/文件夹"""
+    if not os.path.exists(path):
+        return path
+    dir_path = os.path.dirname(path)
+    root, ext = os.path.splitext(os.path.basename(path))
+    counter = 1
+    while True:
+        candidate = os.path.join(dir_path, f"{root} ({counter}){ext}")
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
+
+def _safe_device_arg(path):
+    """设备端路径安全化：以 - 开头时加 ./ 前缀，避免被 adb 解析为选项"""
+    path = str(path)
+    if path.startswith('-'):
+        return './' + path
+    return path
+
+
+def _adb_bin():
+    """获取 adb 可执行文件路径"""
+    try:
+        from adb_utils import ADBUtils
+        return ADBUtils.get_adb_path()
+    except Exception:
+        return 'adb'
+
+
+def _run_adb(device_id, *args, timeout=None):
+    """以列表参数方式执行 adb 命令（不经 shell，任意字符的文件名/路径均安全）"""
+    cmd = [_adb_bin(), '-s', device_id] + [str(a) for a in args]
+    return subprocess.run(
+        cmd, capture_output=True, text=True,
+        encoding='utf-8', errors='replace', timeout=timeout
+    )
+
+
+def _run_adb_checked(device_id, args, is_cancelled=None):
+    """执行 adb 命令（列表参数）并检查返回码，支持取消。
+
+    - is_cancelled: 可选的取消检查回调，返回 True 时终止子进程并抛异常
+    - 返回码非 0 时抛出包含输出信息的异常
+    - 适用于长时间运行的 push/pull，轮询子进程状态以便及时响应取消
+    """
+    cmd = [_adb_bin(), '-s', device_id] + [str(a) for a in args]
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding='utf-8',
+        errors='replace'
+    )
+    while True:
+        if is_cancelled is not None and is_cancelled():
+            try:
+                process.terminate()
+            except Exception:
+                pass
+            raise Exception("传输已取消")
+        if process.poll() is not None:
+            break
+        time.sleep(0.2)
+    output = process.stdout.read() if process.stdout else ''
+    if process.returncode != 0:
+        raise Exception(output.strip() or f"命令执行失败 (返回码: {process.returncode})")
+    return output
+
+
 class LocalFileTree(QTreeWidget):
     """本地文件树 - 支持拖拽文件到设备，接收设备文件拖入下载"""
 
@@ -330,9 +448,10 @@ class DeviceListThread(QThread):
                 output = result.output if hasattr(result, 'output') else str(result)
             else:
                 # 使用ADB命令，不使用-L避免跟随符号链接导致重复
-                cmd = f'adb -s {self.device_id} shell ls -la "{path}"'
-                logger.info(f"执行命令: {cmd}")
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                # 列表参数调用（不经 shell）+ -- 分隔符，兼容空格/特殊字符路径
+                result = _run_adb(self.device_id, 'shell', 'ls', '-la', '--',
+                                  _safe_device_arg(path), timeout=30)
+                logger.info(f"执行命令: ls -la -- {path}")
                 output = result.stdout
                 logger.info(f"命令输出长度: {len(output)}, stderr: {result.stderr[:100] if result.stderr else 'None'}")
             
@@ -547,11 +666,15 @@ class FileTransferThread(QThread):
             self.d.pull(self.src_path, self.dst_path)
             self.progress_percent.emit(100)
         else:
-            # 使用 subprocess 实时读取进度
-            cmd = f'adb -s {self.device_id} pull "{self.src_path}" "{self.dst_path}"'
-            self._run_with_progress(cmd)
+            # 列表参数方式调用 adb（不经 shell），实时读取进度
+            self._run_with_progress(['pull', _safe_device_arg(self.src_path), self.dst_path])
         
-        self.finished_signal.emit(True, f"下载成功: {os.path.basename(self.src_path)}")
+        src_name = os.path.basename(str(self.src_path))
+        dst_name = os.path.basename(str(self.dst_path))
+        msg = f"下载成功: {src_name}"
+        if dst_name != src_name:
+            msg += f" → 已保存为: {dst_name}"
+        self.finished_signal.emit(True, msg)
     
     def _upload_file(self):
         """上传文件到设备"""
@@ -563,14 +686,17 @@ class FileTransferThread(QThread):
             self.d.push(self.src_path, self.dst_path)
             self.progress_percent.emit(100)
         else:
-            # 使用 subprocess 实时读取进度
-            cmd = f'adb -s {self.device_id} push "{self.src_path}" "{self.dst_path}"'
-            self._run_with_progress(cmd)
+            # 列表参数方式调用 adb（不经 shell），实时读取进度
+            self._run_with_progress(['push', self.src_path, _safe_device_arg(self.dst_path)])
         
-        self.finished_signal.emit(True, f"上传成功: {os.path.basename(self.src_path)}")
+        self.finished_signal.emit(True, f"上传成功: {os.path.basename(str(self.src_path))}")
     
-    def _run_with_progress(self, cmd):
-        """运行命令并解析进度"""
+    def _run_with_progress(self, adb_args):
+        """运行 adb push/pull 并解析进度输出
+
+        使用列表参数直接启动 adb 进程（不经 shell），
+        兼容含空格、中文、emoji 及 & % ^ ! 等特殊字符的路径。
+        """
         import re
         
         # 获取文件大小（用于计算进度）
@@ -578,12 +704,14 @@ class FileTransferThread(QThread):
         if self.transfer_type == 'upload' and os.path.exists(self.src_path):
             file_size = os.path.getsize(self.src_path)
         
+        cmd = [_adb_bin(), '-s', self.device_id] + [str(a) for a in adb_args]
         self._process = subprocess.Popen(
             cmd,
-            shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         
         # ADB push/pull 进度格式: [  0%] /path/to/file
@@ -684,10 +812,8 @@ class BatchFileTransferThread(QThread):
                     if self.connection_mode == 'u2' and self.d:
                         self.d.push(src_path, dst_path)
                     else:
-                        cmd = f'adb -s {self.device_id} push "{src_path}" "{dst_path}"'
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-                        if result.returncode != 0:
-                            raise Exception(result.stderr)
+                        # 列表参数调用 adb（不经 shell），兼容任意字符路径，支持取消
+                        self._run_adb_cancellable('push', src_path, _safe_device_arg(dst_path))
                     success_count += 1
                     logger.info(f"上传成功: {file_name}")
                 except Exception as e:
@@ -695,19 +821,22 @@ class BatchFileTransferThread(QThread):
                     logger.error(f"上传失败: {file_name} - {str(e)}")
             else:
                 # 下载：src_path 是设备文件，dst 是本地路径
-                dst_path = os.path.join(self.dst_dir, file_name)
-                self.progress_signal.emit(f"下载中 ({i+1}/{total}): {file_name}")
+                # 设备文件名可能含 Windows 非法字符，先清理再处理重名冲突
+                local_name = _sanitize_local_name(file_name)
+                dst_path = _unique_local_path(os.path.join(self.dst_dir, local_name))
+                if local_name != file_name:
+                    self.progress_signal.emit(f"下载中 ({i+1}/{total}): {file_name} → {local_name}")
+                else:
+                    self.progress_signal.emit(f"下载中 ({i+1}/{total}): {file_name}")
                 
                 try:
                     if self.connection_mode == 'u2' and self.d:
                         self.d.pull(src_path, dst_path)
                     else:
-                        cmd = f'adb -s {self.device_id} pull "{src_path}" "{dst_path}"'
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-                        if result.returncode != 0:
-                            raise Exception(result.stderr)
+                        # 列表参数调用 adb（不经 shell），兼容任意字符路径，支持取消
+                        self._run_adb_cancellable('pull', _safe_device_arg(src_path), dst_path)
                     success_count += 1
-                    logger.info(f"下载成功: {file_name}")
+                    logger.info(f"下载成功: {file_name} → {local_name}")
                 except Exception as e:
                     fail_count += 1
                     logger.error(f"下载失败: {file_name} - {str(e)}")
@@ -716,8 +845,15 @@ class BatchFileTransferThread(QThread):
         self.progress_percent.emit(100)
         self.finished_signal.emit(success_count, fail_count)
 
+    def _run_adb_cancellable(self, *args):
+        """执行 adb 传输命令（列表参数），支持取消（轮询子进程状态）
+
+        返回码非 0 时抛出包含输出信息的异常。
+        """
+        return _run_adb_checked(self.device_id, args, lambda: self._cancel_requested)
+
     def cancel(self):
-        """请求取消批量传输（中止后续文件）"""
+        """请求取消批量传输（中止当前及后续文件）"""
         self._cancel_requested = True
 
 
@@ -889,10 +1025,12 @@ class FolderUploadThread(QThread):
                     if self.connection_mode == 'u2' and self.d:
                         self.d.push(local_file, device_file)
                     else:
-                        cmd = f'adb -s {self.device_id} push "{local_file}" "{device_file}"'
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-                        if result.returncode != 0:
-                            raise Exception(result.stderr)
+                        # 列表参数调用 adb（不经 shell），兼容任意字符路径，支持取消
+                        _run_adb_checked(
+                            self.device_id,
+                            ['push', local_file, _safe_device_arg(device_file)],
+                            lambda: self._cancel_requested
+                        )
                     success_count += 1
                     logger.info(f"上传成功: {file_name}")
                 except Exception as e:
@@ -909,15 +1047,16 @@ class FolderUploadThread(QThread):
     def _create_device_dir(self, dir_path):
         """在设备上创建目录"""
         try:
-            mkdir_cmd = f'mkdir -p "{dir_path}"'
-            
             if self.connection_mode == 'u2' and self.d:
-                self.d.shell(mkdir_cmd)
+                self.d.shell(f'mkdir -p "{dir_path}"')
             else:
-                cmd = f'adb -s {self.device_id} shell {mkdir_cmd}'
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                # 列表参数（不经 shell）+ -- 分隔符，兼容空格/特殊字符目录名
+                result = _run_adb(
+                    self.device_id, 'shell', 'mkdir', '-p', '--',
+                    _safe_device_arg(dir_path), timeout=30
+                )
                 if result.returncode != 0:
-                    logger.error(f"创建目录失败: {dir_path}")
+                    logger.error(f"创建目录失败: {dir_path} - {result.stderr.strip()}")
                     return False
             return True
         except Exception as e:
@@ -946,15 +1085,17 @@ class FolderDownloadThread(QThread):
         fail_count = 0
         skip_count = 0
         
-        # 获取文件夹名称
+        # 获取文件夹名称（设备名可能含 Windows 非法字符，先清理再处理重名冲突）
         folder_name = self.device_folder.rstrip('/').split('/')[-1]
-        target_folder = os.path.join(self.local_folder, folder_name)
+        safe_name = _sanitize_local_name(folder_name)
+        target_folder = _unique_local_path(os.path.join(self.local_folder, safe_name))
         
         # 统计总文件数
         total_files = self._count_files_recursive(self.device_folder)
         current_file = 0
         
-        self.progress_signal.emit(f"准备下载文件夹: {folder_name} ({total_files} 个文件)")
+        display_name = safe_name if safe_name == folder_name else f"{folder_name} → {safe_name}"
+        self.progress_signal.emit(f"准备下载文件夹: {display_name} ({total_files} 个文件)")
         
         # 在本地创建根目录
         os.makedirs(target_folder, exist_ok=True)
@@ -979,8 +1120,9 @@ class FolderDownloadThread(QThread):
                 result = self.d.shell(f'ls -la "{device_path}"')
                 output = result.output if hasattr(result, 'output') else str(result)
             else:
-                cmd = f'adb -s {self.device_id} shell ls -la "{device_path}"'
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                # 列表参数（不经 shell）+ -- 分隔符，兼容空格/特殊字符路径
+                result = _run_adb(self.device_id, 'shell', 'ls', '-la', '--',
+                                  _safe_device_arg(device_path), timeout=30)
                 output = result.stdout
             
             lines = output.strip().split('\n')
@@ -1025,8 +1167,9 @@ class FolderDownloadThread(QThread):
                 result = self.d.shell(f'ls -la "{device_path}"')
                 output = result.output if hasattr(result, 'output') else str(result)
             else:
-                cmd = f'adb -s {self.device_id} shell ls -la "{device_path}"'
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                # 列表参数（不经 shell）+ -- 分隔符，兼容空格/特殊字符路径
+                result = _run_adb(self.device_id, 'shell', 'ls', '-la', '--',
+                                  _safe_device_arg(device_path), timeout=30)
                 output = result.stdout
             
             lines = output.strip().split('\n')
@@ -1054,7 +1197,9 @@ class FolderDownloadThread(QThread):
                         continue
                     
                     device_full_path = f"{device_path.rstrip('/')}/{name}"
-                    local_full_path = os.path.join(local_path, name)
+                    # 设备名可能含 Windows 非法字符，清理后再处理重名冲突
+                    safe_name = _sanitize_local_name(name)
+                    local_full_path = _unique_local_path(os.path.join(local_path, safe_name))
                     
                     if is_dir:
                         # 创建本地目录并递归下载
@@ -1072,18 +1217,21 @@ class FolderDownloadThread(QThread):
                         # 计算进度百分比
                         percent = int((current_file / total_files) * 100) if total_files > 0 else 0
                         self.progress_percent.emit(percent)
-                        self.progress_signal.emit(f"下载中 ({current_file}/{total_files}): {name}")
+                        display_name = safe_name if safe_name == name else f"{name} → {safe_name}"
+                        self.progress_signal.emit(f"下载中 ({current_file}/{total_files}): {display_name}")
                         
                         try:
                             if self.connection_mode == 'u2' and self.d:
                                 self.d.pull(device_full_path, local_full_path)
                             else:
-                                cmd = f'adb -s {self.device_id} pull "{device_full_path}" "{local_full_path}"'
-                                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-                                if result.returncode != 0:
-                                    raise Exception(result.stderr)
+                                # 列表参数调用 adb（不经 shell），兼容任意字符路径，支持取消
+                                _run_adb_checked(
+                                    self.device_id,
+                                    ['pull', _safe_device_arg(device_full_path), local_full_path],
+                                    lambda: self._cancel_requested
+                                )
                             success_count += 1
-                            logger.info(f"下载成功: {name}")
+                            logger.info(f"下载成功: {name} → {safe_name}")
                         except Exception as e:
                             fail_count += 1
                             logger.error(f"下载失败: {name} - {str(e)}")
@@ -1219,6 +1367,10 @@ class FileManagerDialog(QDialog):
         self.refresh_devices_thread = None
         self.u2_connect_thread = None
         self.local_list_thread = None  # 本地目录列表线程
+        # 传输任务队列：文件与文件夹混合选择时顺序执行，
+        # 避免多个传输线程并发导致进度窗口/线程引用互相覆盖
+        self._transfer_queue = []  # 待执行任务 [(func, args), ...]
+        self._transfer_busy = False
         # 【关键】保存所有运行中线程的强引用列表，防止运行中的QThread
         # Python包装对象被GC回收后，线程结束时发射信号导致段错误崩溃
         self._alive_threads = []
@@ -2864,7 +3016,7 @@ class FileManagerDialog(QDialog):
             
             # 上传到设备（文件和文件夹都可以）
             upload_action = QAction("⬆ 上传", self)
-            upload_action.triggered.connect(lambda: self._upload_item(data))
+            upload_action.triggered.connect(lambda: self._enqueue_transfer(self._upload_item, data))
             menu.addAction(upload_action)
             
             menu.addSeparator()
@@ -2928,6 +3080,7 @@ class FileManagerDialog(QDialog):
             return
         
         # 分离文件和文件夹
+        file_infos = []
         file_paths = []
         folder_items = []
         for item in selected_items:
@@ -2936,6 +3089,7 @@ class FileManagerDialog(QDialog):
                 if data.get('is_dir'):
                     folder_items.append(data)
                 else:
+                    file_infos.append(data)
                     src_path = self._join_device_path(self.device_current_path, data['name'])
                     file_paths.append(src_path)
         
@@ -2957,18 +3111,37 @@ class FileManagerDialog(QDialog):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            # 下载文件
+            # 加入传输队列顺序执行（避免并发覆盖进度窗口/线程引用）
             if file_paths:
                 if len(file_paths) == 1:
-                    # 单文件使用单文件下载
-                    self._download_item(selected_items[0].data(0, Qt.ItemDataRole.UserRole))
+                    self._enqueue_transfer(self._download_item, file_infos[0])
                 else:
-                    # 多文件批量下载
-                    self._download_files_batch(file_paths)
-            # 下载文件夹
+                    self._enqueue_transfer(self._download_files_batch, file_paths)
             for folder_info in folder_items:
                 device_folder = self._join_device_path(self.device_current_path, folder_info['name'])
-                self._do_download_folder(device_folder, self.local_current_path)
+                self._enqueue_transfer(self._do_download_folder, device_folder, self.local_current_path)
+    
+    # ==================== 传输任务队列 ====================
+    
+    def _enqueue_transfer(self, func, *args):
+        """将传输任务加入队列并尝试启动（同一时间只运行一个传输任务）"""
+        self._transfer_queue.append((func, args))
+        self._start_next_transfer()
+    
+    def _start_next_transfer(self):
+        """启动队列中的下一个传输任务"""
+        if self._transfer_busy:
+            return
+        if not self._transfer_queue:
+            return
+        self._transfer_busy = True
+        func, args = self._transfer_queue.pop(0)
+        func(*args)
+    
+    def _finish_current_transfer(self):
+        """当前传输任务完成，启动队列中下一个任务"""
+        self._transfer_busy = False
+        self._start_next_transfer()
     
     def _download_files_batch(self, file_paths):
         """批量下载文件（使用线程，不阻塞界面）"""
@@ -2996,7 +3169,9 @@ class FileManagerDialog(QDialog):
     def _download_item(self, file_info):
         """下载单个文件"""
         src_path = self._join_device_path(self.device_current_path, file_info['name'])
-        dst_path = os.path.join(self.local_current_path, file_info['name'])
+        # 设备文件名可能含 Windows 非法字符，先清理再处理重名冲突
+        safe_name = _sanitize_local_name(file_info['name'])
+        dst_path = _unique_local_path(os.path.join(self.local_current_path, safe_name))
         try:
             total_size = int(file_info.get('size', 0) or 0)
         except (TypeError, ValueError):
@@ -3005,7 +3180,8 @@ class FileManagerDialog(QDialog):
         self.progressBar.setVisible(True)
         self.progressBar.setRange(0, 100)
         self.progressBar.setValue(0)
-        self.statusLabel.setText(f"正在下载: {file_info['name']}")
+        display_name = safe_name if safe_name == file_info['name'] else f"{file_info['name']} → {safe_name}"
+        self.statusLabel.setText(f"正在下载: {display_name}")
     
         # 独立进度窗口：速度/剩余时间/取消
         self._transfer_dialog = TransferProgressDialog(self, f"下载 - {file_info['name']}")
@@ -3060,12 +3236,11 @@ class FileManagerDialog(QDialog):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            # 上传文件
+            # 加入传输队列顺序执行（避免并发覆盖进度窗口/线程引用）
             if file_paths:
-                self._upload_files_batch(file_paths)
-            # 上传文件夹
+                self._enqueue_transfer(self._upload_files_batch, file_paths)
             for folder_path in folder_paths:
-                self._do_upload_folder(folder_path)
+                self._enqueue_transfer(self._do_upload_folder, folder_path)
     
     def _upload_item(self, file_info):
         """上传单个文件"""
@@ -3118,14 +3293,13 @@ class FileManagerDialog(QDialog):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        # 下载文件
+        # 加入传输队列顺序执行（避免并发覆盖进度窗口/线程引用）
         if file_names:
             file_paths = [self._join_device_path(self.device_current_path, n) for n in file_names]
-            self._download_files_batch(file_paths)
-        # 下载文件夹
+            self._enqueue_transfer(self._download_files_batch, file_paths)
         for folder_name in folder_names:
             device_folder = self._join_device_path(self.device_current_path, folder_name)
-            self._do_download_folder(device_folder, self.local_current_path)
+            self._enqueue_transfer(self._do_download_folder, device_folder, self.local_current_path)
 
     def _on_files_dropped(self, file_paths):
         """处理拖放文件上传"""
@@ -3158,16 +3332,12 @@ class FileManagerDialog(QDialog):
         if reply != QMessageBox.StandardButton.Yes:
             return
         
-        # 上传文件
+        # 加入传输队列顺序执行（避免并发覆盖进度窗口/线程引用）
         if files:
-            self._upload_files_batch(files)
+            self._enqueue_transfer(self._upload_files_batch, files)
         
-        # 上传文件夹（需要在文件上传完成后处理）
-        if folders:
-            # 如果有文件正在上传，等待完成后再上传文件夹
-            # 简单起见，我们依次上传文件夹
-            for folder_path in folders:
-                self._do_upload_folder(folder_path)
+        for folder_path in folders:
+            self._enqueue_transfer(self._do_upload_folder, folder_path)
     
     def _upload_files_batch(self, file_paths):
         """批量上传文件（使用线程，不阻塞界面）"""
@@ -3218,6 +3388,7 @@ class FileManagerDialog(QDialog):
     
     def _on_folder_upload_finished(self, success_count, fail_count, skip_count):
         """文件夹上传完成"""
+        self._finish_current_transfer()
         self.progressBar.setVisible(False)
         self._close_transfer_dialog()
         self.statusLabel.setText(f"文件夹上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
@@ -3249,6 +3420,7 @@ class FileManagerDialog(QDialog):
     
     def _on_folder_download_finished(self, success_count, fail_count, skip_count):
         """文件夹下载完成"""
+        self._finish_current_transfer()
         self.progressBar.setVisible(False)
         self._close_transfer_dialog()
         self.statusLabel.setText(f"文件夹下载完成: 成功 {success_count} 个, 失败 {fail_count} 个, 跳过 {skip_count} 个")
@@ -3256,6 +3428,7 @@ class FileManagerDialog(QDialog):
     
     def _on_batch_upload_finished(self, success_count, fail_count):
         """批量上传完成"""
+        self._finish_current_transfer()
         self.progressBar.setVisible(False)
         self._close_transfer_dialog()
         self.statusLabel.setText(f"上传完成: 成功 {success_count} 个, 失败 {fail_count} 个")
@@ -3263,6 +3436,7 @@ class FileManagerDialog(QDialog):
     
     def _on_batch_transfer_finished(self, success_count, fail_count):
         """批量下载完成"""
+        self._finish_current_transfer()
         self.progressBar.setVisible(False)
         self._close_transfer_dialog()
         self.statusLabel.setText(f"下载完成: 成功 {success_count} 个, 失败 {fail_count} 个")
@@ -3310,16 +3484,22 @@ class FileManagerDialog(QDialog):
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes
                 )
                 if reply == QMessageBox.StandardButton.Yes:
-                    self._do_upload_folder(folder_path)
+                    self._enqueue_transfer(self._do_upload_folder, folder_path)
     
     def _on_transfer_finished(self, success, message):
         """传输完成"""
+        self._finish_current_transfer()
         self.progressBar.setVisible(False)
         self._close_transfer_dialog()
         self.statusLabel.setText(message)
     
         if success:
-            self._refresh_local_files()
+            # 根据传输方向刷新对应侧文件列表
+            thread = getattr(self, 'transfer_thread', None)
+            if thread is not None and getattr(thread, 'transfer_type', '') == 'upload':
+                self._refresh_device_files()
+            else:
+                self._refresh_local_files()
         elif '取消' in message:
             pass  # 用户主动取消，不弹错误框
         else:
@@ -3336,7 +3516,10 @@ class FileManagerDialog(QDialog):
             self._transfer_dialog = None
     
     def _cancel_current_transfer(self):
-        """取消当前传输（进度窗口取消按钮/直接关闭）"""
+        """取消当前传输（进度窗口取消按钮/直接关闭），并清空等待队列"""
+        # 清空队列中尚未开始的传输任务
+        self._transfer_queue.clear()
+        self._transfer_busy = False
         for name in ('transfer_thread', 'batch_transfer_thread',
                      'folder_upload_thread', 'folder_download_thread'):
             thread = getattr(self, name, None)

@@ -2,6 +2,7 @@ name: Build and Package ADBTools
 
 permissions:
   contents: write
+  workflows: write  # 推送包含工作流文件修改的提交/tag 时需要（GitHub App token 限制）
 
 on:
   workflow_dispatch:
@@ -239,7 +240,9 @@ jobs:
         git tag -d "$TAG_NAME" 2>/dev/null || true
         # Create new tag at current HEAD
         git tag "$TAG_NAME"
-        git push origin "$TAG_NAME"
+        # 若 GITHUB_TOKEN 权限受限导致 tag 推送失败，不要中止整个构建：
+        # 后续 Create GitHub Release 步骤会通过 API 自动创建同名 tag
+        git push origin "$TAG_NAME" || echo "::warning::tag 推送失败（权限受限），将由 Release 步骤通过 API 创建"
 
     - name: Download platform-tools
       run: |
