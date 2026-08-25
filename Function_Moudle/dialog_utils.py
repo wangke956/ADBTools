@@ -5,7 +5,7 @@
 import os
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
-    QPushButton, QLabel, QFileDialog, QMessageBox
+    QPushButton, QLabel, QFileDialog, QMessageBox, QAbstractItemView
 )
 from PyQt6.QtCore import Qt
 from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE
@@ -42,7 +42,7 @@ class ApkMultiSelectDialog(QDialog):
         
         # 文件列表
         self.file_list = QListWidget(self)
-        self.file_list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.file_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         
         for apk_file in self.apk_files:
             item = QListWidgetItem(apk_file)
@@ -161,15 +161,15 @@ class ConfirmDialog:
         Returns:
             bool: 用户是否确认
         """
-        default_button = QMessageBox.No if default_no else QMessageBox.Yes
+        default_button = QMessageBox.StandardButton.No if default_no else QMessageBox.StandardButton.Yes
         reply = QMessageBox.question(
             parent,
             title,
             message,
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             default_button
         )
-        return reply == QMessageBox.Yes
+        return reply == QMessageBox.StandardButton.Yes
     
     @staticmethod
     def info(parent, title, message):

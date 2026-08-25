@@ -29,7 +29,7 @@ class OperationGuide(QDialog):
         self.setWindowTitle("操作引导")
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
         
         # 主布局
         main_layout = QVBoxLayout()
@@ -49,13 +49,13 @@ class OperationGuide(QDialog):
         # 描述
         self.description_text = QTextEdit()
         self.description_text.setReadOnly(True)
-        self.description_text.setLineWrapMode(QTextEdit.WidgetWidth)
+        self.description_text.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         main_layout.addWidget(self.description_text)
         
         # 提示信息
         self.tips_text = QTextEdit()
         self.tips_text.setReadOnly(True)
-        self.tips_text.setLineWrapMode(QTextEdit.WidgetWidth)
+        self.tips_text.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.tips_text.setVisible(False)
         main_layout.addWidget(self.tips_text)
         
@@ -154,7 +154,7 @@ class QuickGuide(QDialog):
         """初始化UI"""
         self.setWindowTitle("快速入门")
         self.setMinimumWidth(500)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.WindowCloseButtonHint)
         
         # 主布局
         layout = QVBoxLayout()

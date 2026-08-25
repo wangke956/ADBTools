@@ -6,7 +6,7 @@ u2重新初始化进度对话框 - 显示uiautomator2重新初始化的进度
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, 
                              QPushButton, QLabel, QProgressBar)
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QTextCursor
 from logger_manager import get_logger
 from Function_Moudle.dialog_styles import apply_dialog_style, TITLE_LABEL_STYLE, SUCCESS_STYLE, ERROR_STYLE
 
@@ -27,7 +27,7 @@ class U2ReinitDialog(QDialog):
         self.setWindowTitle("重新初始化 uiautomator2")
         self.setMinimumSize(500, 400)
         self.setModal(True)
-        self.setWindowFlags(Qt.Window | Qt.WindowTitleHint | Qt.CustomizeWindowHint)
+        self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowTitleHint | Qt.WindowType.CustomizeWindowHint)
         
         # 应用统一样式
         apply_dialog_style(self)
@@ -89,7 +89,7 @@ class U2ReinitDialog(QDialog):
         self.progress_text.append(message)
         # 自动滚动到底部
         cursor = self.progress_text.textCursor()
-        cursor.movePosition(cursor.End)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
         self.progress_text.setTextCursor(cursor)
         
         # 更新状态标签

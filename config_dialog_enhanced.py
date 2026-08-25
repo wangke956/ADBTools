@@ -65,7 +65,7 @@ class EnhancedConfigDialog(QDialog):
         main_layout.setContentsMargins(15, 15, 15, 15)
         
         # 创建主分割器
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # 左侧：配置树
         self.config_tree = QTreeWidget()
@@ -136,8 +136,8 @@ class EnhancedConfigDialog(QDialog):
         
         # 对话框按钮
         self.button_box = QDialogButtonBox()
-        self.save_button = self.button_box.addButton("保存", QDialogButtonBox.AcceptRole)
-        self.cancel_button = self.button_box.addButton("取消", QDialogButtonBox.RejectRole)
+        self.save_button = self.button_box.addButton("保存", QDialogButtonBox.ButtonRole.AcceptRole)
+        self.cancel_button = self.button_box.addButton("取消", QDialogButtonBox.ButtonRole.RejectRole)
         self.save_button.clicked.connect(self.save_config)
         self.cancel_button.clicked.connect(self.reject)
         
@@ -156,7 +156,7 @@ class EnhancedConfigDialog(QDialog):
         
         # 添加根节点
         root_item = QTreeWidgetItem(self.config_tree, ["配置"])
-        root_item.setData(0, Qt.UserRole, "root")
+        root_item.setData(0, Qt.ItemDataRole.UserRole, "root")
         
         # 添加配置分类
         categories = [
@@ -171,7 +171,7 @@ class EnhancedConfigDialog(QDialog):
         
         for name, key in categories:
             item = QTreeWidgetItem(root_item, [name])
-            item.setData(0, Qt.UserRole, key)
+            item.setData(0, Qt.ItemDataRole.UserRole, key)
         
         # 展开所有项
         self.config_tree.expandAll()
@@ -337,7 +337,7 @@ class EnhancedConfigDialog(QDialog):
             return
         
         item = selected_items[0]
-        key = item.data(0, Qt.UserRole)
+        key = item.data(0, Qt.ItemDataRole.UserRole)
         
         if key == "json_edit":
             self.config_stack.setCurrentWidget(self.json_edit_page)
@@ -594,9 +594,9 @@ class EnhancedConfigDialog(QDialog):
         backup_path = os.path.join(self.backup_manager.backup_path, filename)
         
         reply = QMessageBox.question(self, "确认", f"确定要删除备份 '{filename}' 吗？",
-                                   QMessageBox.Yes | QMessageBox.No)
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             try:
                 os.remove(backup_path)
                 QMessageBox.information(self, "成功", "备份已删除")
@@ -608,9 +608,9 @@ class EnhancedConfigDialog(QDialog):
     def restore_backup(self, backup_path):
         """从备份恢复"""
         reply = QMessageBox.question(self, "确认", "确定要从备份恢复配置吗？当前配置将被覆盖。",
-                                   QMessageBox.Yes | QMessageBox.No)
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             if self.backup_manager.restore_backup(backup_path):
                 QMessageBox.information(self, "成功", "配置已从备份恢复")
                 self.load_config()
@@ -700,9 +700,9 @@ class EnhancedConfigDialog(QDialog):
     def reload_config(self):
         """重新加载配置"""
         reply = QMessageBox.question(self, "确认", "确定要重新加载配置吗？未保存的修改将丢失。",
-                                   QMessageBox.Yes | QMessageBox.No)
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             if config_manager.reload_config():
                 self.load_config()
                 self.status_label.setText("配置已重新加载")
@@ -788,14 +788,14 @@ class EnhancedConfigDialog(QDialog):
         """重置到默认值"""
         reply = QMessageBox.question(self, "确认", 
             "确定要重置配置到默认值吗？当前配置将丢失。",
-            QMessageBox.Yes | QMessageBox.No)
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             # 获取当前选中的配置项
             selected_items = self.config_tree.selectedItems()
             if selected_items:
                 item = selected_items[0]
-                key = item.data(0, Qt.UserRole)
+                key = item.data(0, Qt.ItemDataRole.UserRole)
                 
                 if key and key != "root":
                     # 重置特定配置项
@@ -859,12 +859,12 @@ class EnhancedConfigDialog(QDialog):
         if self.modified:
             reply = QMessageBox.question(self, "确认", 
                 "配置已修改，是否保存？",
-                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+                QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel)
             
-            if reply == QMessageBox.Save:
+            if reply == QMessageBox.StandardButton.Save:
                 self.save_config()
                 event.accept()
-            elif reply == QMessageBox.Discard:
+            elif reply == QMessageBox.StandardButton.Discard:
                 event.accept()
             else:
                 event.ignore()

@@ -326,15 +326,20 @@ class DeviceManager:
 
         if device_id in devices_id_lst:
             from PyQt6.QtWidgets import QMessageBox
-            reply = QMessageBox.question(
-                self.main_window,
-                '确认重启',
-                '确定要重启设备吗？此操作不可逆！',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
+            try:
+                reply = QMessageBox.question(
+                    self.main_window,
+                    '确认重启',
+                    '确定要重启设备吗？此操作不可逆！',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+            except Exception as e:
+                log_method_result("reboot_device", False, str(e))
+                self.main_window.textBrowser.append(f"弹出确认框失败: {e}")
+                return
 
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 try:
                     # 使用线程工厂创建重启设备线程
                     self.main_window.reboot_thread = thread_factory.create_thread(
@@ -401,21 +406,25 @@ class DeviceManager:
         
         # 确认对话框
         from PyQt6.QtWidgets import QMessageBox
-        reply = QMessageBox.question(
-            self.main_window,
-            '确认重新初始化',
-            f'是否要重新初始化设备 {device_id} 的 uiautomator2 服务？\n\n'
-            '此操作将会：\n'
-            '1. 断开现有的u2连接\n'
-            '2. 停止uiautomator2服务\n'
-            '3. 清理相关进程\n'
-            '4. 重新安装和初始化uiautomator2\n\n'
-            '注意：此过程可能需要1-2分钟，请勿关闭程序。',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply != QMessageBox.Yes:
+        try:
+            reply = QMessageBox.question(
+                self.main_window,
+                '确认重新初始化',
+                f'是否要重新初始化设备 {device_id} 的 uiautomator2 服务？\n\n'
+                '此操作将会：\n'
+                '1. 断开现有的u2连接\n'
+                '2. 停止uiautomator2服务\n'
+                '3. 清理相关进程\n'
+                '4. 重新安装和初始化uiautomator2\n\n'
+                '注意：此过程可能需要1-2分钟，请勿关闭程序。',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+        except Exception as e:
+            self.main_window.textBrowser.append(f"弹出确认框失败: {e}")
+            return
+
+        if reply != QMessageBox.StandardButton.Yes:
             self.main_window.textBrowser.append("用户取消重新初始化操作")
             return
         

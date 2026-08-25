@@ -207,10 +207,10 @@ class DownloadDialog(QDialog):
             # 询问是否立即安装
             reply = QMessageBox.question(self, "下载完成", 
                 f"更新文件下载完成！\n\n文件: {os.path.basename(file_path)}\n大小: {self._get_file_size(file_path)}\n\n是否要立即安装？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes)
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes)
                 
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 self.install_update()
                 
         except Exception as e:
@@ -261,10 +261,10 @@ class DownloadDialog(QDialog):
         if self.download_thread and self.download_thread.isRunning():
             reply = QMessageBox.question(self, "确认取消", 
                 "确定要取消下载吗？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No)
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No)
                 
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 # 先断开信号连接，避免线程结束后仍然触发信号
                 self._disconnect_signals()
                 
@@ -295,10 +295,10 @@ class DownloadDialog(QDialog):
         # 确认安装
         reply = QMessageBox.question(self, "确认安装",
             "即将启动安装程序。当前程序将会关闭。\n\n是否继续？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes)
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes)
             
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
             
         try:
@@ -355,10 +355,10 @@ class DownloadDialog(QDialog):
             if self.download_thread and self.download_thread.isRunning():
                 reply = QMessageBox.question(self, "确认关闭",
                     "下载正在进行中，确定要关闭吗？",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No)
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
                     
-                if reply == QMessageBox.Yes:
+                if reply == QMessageBox.StandardButton.Yes:
                     # 先断开信号连接
                     self._disconnect_signals()
                     

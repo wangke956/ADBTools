@@ -26,7 +26,7 @@ class ErrorDialog(QDialog):
         self.setWindowTitle("操作提示")
         self.setMinimumWidth(500)
         self.setMinimumHeight(300)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
         
         # 主布局
         main_layout = QVBoxLayout()
@@ -53,7 +53,7 @@ class ErrorDialog(QDialog):
         # 详细信息
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
-        self.details_text.setLineWrapMode(QTextEdit.WidgetWidth)
+        self.details_text.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         main_layout.addWidget(self.details_text)
         
         # 按钮布局
@@ -112,13 +112,13 @@ class ErrorDialog(QDialog):
         else:
             # 使用系统图标
             if level == ErrorLevel.INFO:
-                icon = QMessageBox.Information
+                icon = QMessageBox.Icon.Information
             elif level == ErrorLevel.WARNING:
-                icon = QMessageBox.Warning
+                icon = QMessageBox.Icon.Warning
             elif level == ErrorLevel.ERROR:
-                icon = QMessageBox.Critical
+                icon = QMessageBox.Icon.Critical
             else:
-                icon = QMessageBox.Critical
+                icon = QMessageBox.Icon.Critical
             
             qbox = QMessageBox(self)
             qbox.setIcon(icon)

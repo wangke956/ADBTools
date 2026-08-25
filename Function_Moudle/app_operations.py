@@ -122,9 +122,14 @@ class AppOperationsManager:
         log_button_click("force_stop_app_button", "强制停止应用")
 
         if device_id in devices_id_lst:
-            package_name, ok = QInputDialog.getText(
-                self.main_window, "输入包名", "请输入要停止的应用包名："
-            )
+            try:
+                package_name, ok = QInputDialog.getText(
+                    self.main_window, "输入包名", "请输入要停止的应用包名："
+                )
+            except Exception as e:
+                log_method_result("show_force_stop_app_dialog", False, str(e))
+                self.textBrowser.append(f"弹出输入框失败: {e}")
+                return
             if ok and package_name:
                 logger.info(f"强制停止应用: {package_name}")
                 
@@ -171,21 +176,31 @@ class AppOperationsManager:
         log_button_click("clear_app_cache_button", "清除应用缓存")
 
         if device_id in devices_id_lst:
-            package_name, ok = QInputDialog.getText(
-                self.main_window, "输入包名", "请输入要清除缓存的应用包名："
-            )
+            try:
+                package_name, ok = QInputDialog.getText(
+                    self.main_window, "输入包名", "请输入要清除缓存的应用包名："
+                )
+            except Exception as e:
+                log_method_result("show_clear_app_cache_dialog", False, str(e))
+                self.textBrowser.append(f"弹出输入框失败: {e}")
+                return
             if ok and package_name:
                 logger.info(f"清除应用缓存: {package_name}")
-                
-                reply = QMessageBox.question(
-                    self.main_window,
-                    '确认清除',
-                    f'确定要清除 {package_name} 的缓存吗？\n此操作不可逆！',
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
 
-                if reply == QMessageBox.Yes:
+                try:
+                    reply = QMessageBox.question(
+                        self.main_window,
+                        '确认清除',
+                        f'确定要清除 {package_name} 的缓存吗？\n此操作不可逆！',
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No
+                    )
+                except Exception as e:
+                    log_method_result("show_clear_app_cache_dialog", False, str(e))
+                    self.textBrowser.append(f"弹出确认框失败: {e}")
+                    return
+
+                if reply == QMessageBox.StandardButton.Yes:
                     try:
                         # 检查连接状态
                         if self.main_window.connection_mode == 'u2':
