@@ -424,10 +424,19 @@ jobs:
         $version = $env:VERSION
         $releaseName = "ADBTools $tag"
 
+        # 0. 本地创建tag（"Force-update tag"步骤通过GitHub API在远程创建tag，
+        #    本地checkout不会同步该tag，需手动指向当前提交）
+        git tag -f $tag $env:GITHUB_SHA
+
         # 1. 推送Tag到Gitee仓库
         $giteeUrl = "https://$($env:GITEE_USER):$($env:GITEE_TOKEN)@gitee.com/$($env:GITEE_USER)/$($env:GITEE_REPO).git"
+        git remote remove gitee 2>$null
         git remote add gitee $giteeUrl
         git push gitee $tag --force
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "推送Tag到Gitee失败，中止后续步骤"
+            exit 1
+        }
         git remote remove gitee
 
         # 2. Release正文（用数组拼接避免 PowerShell here-string 顶格破坏 YAML 缩进结构）
@@ -465,6 +474,7 @@ jobs:
           tag_name   = $tag
           name       = $releaseName
           body       = $body
+          target_commitish = $env:GITHUB_SHA
           draft      = $false
           prerelease = $false
         }
