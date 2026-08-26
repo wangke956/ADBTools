@@ -469,7 +469,25 @@ jobs:
           "4. 从开始菜单或桌面快捷方式启动"
         ) -join "`n"
 
-        # 3. 创建Gitee Release（Token放在Header，不拼接URL）
+        # 3. 创建Gitee Release（幂等处理：同一tag的Release已存在时先删除再重建，
+        #    避免重跑同一版本时因重复创建而失败）
+        $header = @{
+          "Content-Type"  = "application/json"
+          "Authorization" = "token $($env:GITEE_TOKEN)"
+        }
+        $existingUrl = "https://gitee.com/api/v5/repos/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/tags/$tag"
+        try {
+          $existing = Invoke-RestMethod -Uri $existingUrl -Method Get -Headers $header
+        } catch {
+          $existing = $null
+        }
+        if ($existing -and $existing.id) {
+          Write-Host "⚠️ Gitee 已存在同名 Release (ID: $($existing.id))，先删除再重建"
+          $deleteUrl = "https://gitee.com/api/v5/repos/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases/$($existing.id)"
+          Invoke-RestMethod -Uri $deleteUrl -Method Delete -Headers $header | Out-Null
+          Write-Host "✅ 旧 Release 已删除"
+        }
+
         $releasePayload = @{
           tag_name   = $tag
           name       = $releaseName
@@ -478,12 +496,15 @@ jobs:
           draft      = $false
           prerelease = $false
         }
-        $header = @{
-          "Content-Type"  = "application/json"
-          "Authorization" = "token $($env:GITEE_TOKEN)"
-        }
         $createUrl = "https://gitee.com/api/v5/repos/$($env:GITEE_USER)/$($env:GITEE_REPO)/releases"
-        $resp = Invoke-RestMethod -Uri $createUrl -Method Post -Body ($releasePayload | ConvertTo-Json) -Headers $header
+        try {
+          $resp = Invoke-RestMethod -Uri $createUrl -Method Post -Body ($releasePayload | ConvertTo-Json) -Headers $header
+        } catch {
+          $detail = ""
+          try { $detail = $_.ErrorDetails.Message } catch {}
+          Write-Error "创建 Gitee Release 失败：$($_.Exception.Message) $detail"
+          throw
+        }
         $releaseId = $resp.id
         Write-Host "✅ Gitee Release 创建成功，ReleaseID: $releaseId"
 
