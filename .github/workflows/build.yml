@@ -503,9 +503,15 @@ jobs:
           $uploadHeader = @{
             "Authorization" = "token $token"
           }
-          $uploadUrl = "https://gitee.com/api/v5/repos/$owner/$repo/releases/$releaseId/assets"
-          Invoke-RestMethod -Uri $uploadUrl -Method Post -Form @{ file = Get-Item -Path $filePath } -Headers $uploadHeader
-          Write-Host "✅ 已上传：$filePath"
+          # Gitee 上传附件端点是 attach_files（不是 GitHub 的 assets）
+          $uploadUrl = "https://gitee.com/api/v5/repos/$owner/$repo/releases/$releaseId/attach_files"
+          try {
+            Invoke-RestMethod -Uri $uploadUrl -Method Post -Form @{ file = Get-Item -Path $filePath } -Headers $uploadHeader
+            Write-Host "✅ 已上传：$filePath"
+          } catch {
+            Write-Error "上传附件失败：$filePath - $($_.Exception.Message)"
+            throw
+          }
         }
 
         # 上传两个打包产物
