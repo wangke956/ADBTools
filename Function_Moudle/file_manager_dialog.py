@@ -1573,8 +1573,10 @@ class FileManagerDialog(QDialog):
             history = config_manager.get('file_manager.device_history', []) or []
             if not isinstance(history, list):
                 history = []
+            seen = set()
             for device_id in history:
-                if device_id and isinstance(device_id, str):
+                if device_id and isinstance(device_id, str) and device_id not in seen:
+                    seen.add(device_id)
                     self.fm_device_combo.addItem(device_id)
             if history:
                 logger.info(f"文件管理器: 加载设备历史记录 {len(history)} 条")
@@ -1598,11 +1600,18 @@ class FileManagerDialog(QDialog):
             # 同步下拉框（历史置顶，保留已扫描设备）
             if hasattr(self, 'fm_device_combo'):
                 combo = self.fm_device_combo
-                idx = combo.findText(device_id)
-                if idx > 0:
-                    combo.removeItem(idx)
-                combo.insertItem(0, device_id)
-                combo.setCurrentIndex(0)
+                # 阻塞信号，避免 insertItem/setCurrentIndex 触发 currentTextChanged
+                # 级联调用 _connect_selected_device 造成重复连接
+                combo.blockSignals(True)
+                try:
+                    # 先移除已存在的同名项（含索引0），再插入置顶，避免重复
+                    idx = combo.findText(device_id)
+                    if idx >= 0:
+                        combo.removeItem(idx)
+                    combo.insertItem(0, device_id)
+                    combo.setCurrentIndex(0)
+                finally:
+                    combo.blockSignals(False)
         except Exception as e:
             logger.warning(f"文件管理器: 保存设备历史记录失败: {e}")
 
@@ -2284,23 +2293,31 @@ class FileManagerDialog(QDialog):
             # 保存当前选择的设备
             current_device = self.fm_device_combo.currentText()
             
-            # 清空并重新填充设备列表
-            self.fm_device_combo.clear()
-            for device_id in device_ids:
-                self.fm_device_combo.addItem(device_id)
+            # 清空并重新填充设备列表（阻塞信号，避免 addItem/setCurrentIndex
+            # 触发 currentTextChanged 级联调用 _connect_selected_device）
+            self.fm_device_combo.blockSignals(True)
+            try:
+                self.fm_device_combo.clear()
+                for device_id in device_ids:
+                    self.fm_device_combo.addItem(device_id)
+                
+                if device_ids:
+                    # 如果之前有选择设备，尝试恢复选择
+                    if current_device and current_device in device_ids:
+                        index = self.fm_device_combo.findText(current_device)
+                        if index >= 0:
+                            self.fm_device_combo.setCurrentIndex(index)
+                    else:
+                        # 否则选择第一个设备
+                        self.fm_device_combo.setCurrentIndex(0)
+                        current_device = device_ids[0]
+                else:
+                    current_device = None
+            finally:
+                self.fm_device_combo.blockSignals(False)
             
             if device_ids:
-                # 如果之前有选择设备，尝试恢复选择
-                if current_device and current_device in device_ids:
-                    index = self.fm_device_combo.findText(current_device)
-                    if index >= 0:
-                        self.fm_device_combo.setCurrentIndex(index)
-                else:
-                    # 否则选择第一个设备
-                    self.fm_device_combo.setCurrentIndex(0)
-                    current_device = device_ids[0]
-                
-                # 自动连接第一个设备
+                # 自动连接设备（仅此处显式连接一次，避免信号重复触发）
                 if current_device:
                     self._connect_selected_device(current_device)
             else:

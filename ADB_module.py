@@ -223,8 +223,9 @@ class ADB_Mainwindow(QMainWindow):
             self.refresh_devices()
         except Exception as e:
             self.textBrowser.append(str(e))
-        # self.ComboxButton.activated[str].connect(self.on_combobox_changed)
-        self.ComboxButton.activated.connect(self.on_combobox_changed)
+        # PyQt6 中 activated 信号传索引(int)，必须用 textActivated 传文本(str)，
+        # 否则 u2.connect 收到 int 会报 expected string or bytes-like object
+        self.ComboxButton.textActivated.connect(self.on_combobox_changed)
         self.modeSwitchCheckBox.stateChanged.connect(self.on_mode_switch_changed)
         self.view_apk_path.clicked.connect(self.view_apk_path_wrapper)  # 显示应用安装路径
         self.input_text_via_adb_button.clicked.connect(self.show_input_text_dialog)  # 输入文本

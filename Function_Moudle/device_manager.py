@@ -80,6 +80,10 @@ class DeviceManager:
     
     def on_combobox_changed(self, text):
         """设备选择下拉框变化时立即更新连接"""
+        # 防御：若误连 activated(int索引) 信号会收到 int，忽略非字符串参数
+        if not isinstance(text, str):
+            logger.warning(f"on_combobox_changed 收到非字符串参数 {type(text).__name__}: {text!r}，已忽略")
+            return
         log_button_click("ComboxButton", "切换设备连接", f"目标设备: {text}")
         
         try:

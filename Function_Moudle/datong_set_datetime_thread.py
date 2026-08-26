@@ -64,17 +64,14 @@ class DatongSetDatetimeThread(QThread):
             
             # 获取当前时间并格式化为adb shell date命令需要的格式
             if self.timezone:
-                import pytz
                 try:
-                    tz = pytz.timezone(self.timezone)
-                    current_time = datetime.now(tz)
+                    current_time = self._time_in_timezone(self.timezone)
                     self.progress_signal.emit(f"时区: {self.timezone}")
-                    self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
                 except Exception as e:
                     logger.warning(f"时区设置失败，使用本地时间: {e}")
                     current_time = datetime.now()
                     self.progress_signal.emit(f"时区: 本地时间")
-                    self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
             else:
                 current_time = datetime.now()
                 self.progress_signal.emit(f"当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -119,6 +116,20 @@ class DatongSetDatetimeThread(QThread):
             log_exception(logger, "DatongSetDatetimeThread.run", e)
             log_method_result("DatongSetDatetimeThread.run", False, str(e))
     
+    @staticmethod
+    def _time_in_timezone(timezone_name):
+        """获取指定时区的当前时间
+
+        优先使用标准库 zoneinfo（Python 3.9+，无需第三方依赖），
+        不可用时回退到 pytz；两者都失败则抛出异常，由调用方降级为本地时间。
+        """
+        try:
+            from zoneinfo import ZoneInfo
+            return datetime.now(ZoneInfo(timezone_name))
+        except Exception:
+            import pytz
+            return datetime.now(pytz.timezone(timezone_name))
+
     def _set_datetime_adb(self, date_command):
         """使用ADB模式设置日期时间"""
         try:
