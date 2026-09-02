@@ -259,14 +259,44 @@ jobs:
         
         Remove-Item $output
         Write-Host "platform-tools downloaded successfully"
+
+    - name: Download Android SDK Build Tools (for aapt.exe)
+      run: |
+        # aapt.exe 不在 platform-tools 中，需要单独下载 Build Tools
+        $buildToolsVersion = "34"
+        $url = "https://dl.google.com/android/repository/build-tools_r${buildToolsVersion}-windows.zip"
+        $output = "build-tools.zip"
+        
+        Write-Host "Downloading Android SDK Build Tools r${buildToolsVersion}..."
+        Invoke-WebRequest -Uri $url -OutFile $output
+        
+        Write-Host "Extracting build-tools..."
+        Expand-Archive -Path $output -DestinationPath "build-tools-temp" -Force
+        
+        Remove-Item $output
+        
+        # 查找 aapt.exe（build-tools zip 内部目录名可能为 android-14 等）
+        $aaptFile = Get-ChildItem -Path "build-tools-temp" -Recurse -Filter "aapt.exe" | Select-Object -First 1
+        if ($aaptFile) {
+            Copy-Item $aaptFile.FullName ".\aapt.exe" -Force
+            Write-Host "✅ aapt.exe found and copied to project root: $($aaptFile.FullName)"
+        } else {
+            Write-Host "❌ aapt.exe not found in build-tools package"
+            exit 1
+        }
+        
+        # 清理临时目录
+        Remove-Item -Recurse -Force "build-tools-temp"
+        Write-Host "Build Tools downloaded and aapt.exe extracted successfully"
         
     - name: Copy platform-tools to build directory
       run: |
         # 复制 platform-tools 到项目根目录（Nuitka 构建时会使用）
+        # 注意: aapt.exe 已在上一步从 Build Tools 中单独下载到项目根目录
         $platformToolsSrc = "platform-tools"
         $projectRoot = "."
         
-        $adbFiles = @("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "aapt.exe", "fastboot.exe")
+        $adbFiles = @("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "fastboot.exe")
         
         foreach ($file in $adbFiles) {
             $src = Join-Path $platformToolsSrc $file
@@ -278,6 +308,14 @@ jobs:
             } else {
                 Write-Host "Warning: $file not found in platform-tools"
             }
+        }
+        
+        # 验证 aapt.exe 是否已存在
+        if (Test-Path ".\aapt.exe") {
+            Write-Host "✅ aapt.exe is present in project root"
+        } else {
+            Write-Host "❌ aapt.exe is missing!"
+            exit 1
         }
         
     - name: Build with Nuitka (OneFile)
