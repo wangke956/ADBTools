@@ -529,14 +529,26 @@ class ADBUtils:
         if not aapt_path:
             return "获取包名失败: 未找到aapt工具"
         
+        temp_dir = None
         try:
-            # 使用列表形式传递参数，避免路径解析问题
+            # 路径含非 ASCII 字符时（如中文、ƽ 等），aapt.exe 用 ANSI fopen
+            # 打开会报 "Illegal byte sequence"，先复制到 ASCII 临时文件再解析
+            work_path = apk_path
+            try:
+                apk_path.encode('ascii')
+            except (UnicodeEncodeError, AttributeError):
+                import tempfile
+                temp_dir = tempfile.mkdtemp(prefix='aapt_pkg_')
+                work_path = os.path.join(temp_dir, 'temp.apk')
+                shutil.copy2(apk_path, work_path)
+
+            # 使用列表形式传递参数，避免 shell 解析特殊字符
             result = subprocess.run(
-                [aapt_path, 'dump', 'badging', apk_path],
+                [aapt_path, 'dump', 'badging', work_path],
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
-                errors='ignore'
+                errors='replace'
             )
             if result.returncode == 0:
                 # 解析包名
@@ -551,6 +563,9 @@ class ADBUtils:
                 return f"获取包名失败: {result.stderr}"
         except Exception as e:
             return f"获取包名失败: {e}"
+        finally:
+            if temp_dir:
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 # 全局实例
