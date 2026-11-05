@@ -32,10 +32,10 @@ WizardStyle=modern
 ; 输出设置
 OutputDir=Output
 OutputBaseFilename=ADBTools_Setup
-; 权限设置 - 改为需要管理员权限以确保写入权限
-PrivilegesRequired=admin
+; 权限设置 - 普通用户权限即可安装，不强制要求管理员（受限电脑可正常安装）
+; 如需安装到 Program Files 等受保护目录，可在安装向导中手动提权
+PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-; 安装后自动创建用户数据目录
 ChangesAssociations=yes
 
 [Languages]
@@ -46,6 +46,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面图标(&D)"; GroupDescription: "附加图标:"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "创建快速启动图标(&Q)"; GroupDescription: "附加图标:"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
+
+[Dirs]
+; 预创建日志目录，运行时日志统一写入安装目录下的 logs，不再依赖C盘用户目录
+Name: "{app}\logs"; Flags: uninsalwaysuninstall
 
 [Files]
 ; 主程序文件（Nuitka OneFile 模式已将所有 DLL 打包到 exe 中）
@@ -92,25 +96,6 @@ begin
   // end;
 end;
 
-// 安装完成后显示提示信息
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-  begin
-    // 创建用户数据目录
-    if not DirExists(ExpandConstant('{userappdata}\ADBTools')) then
-    begin
-      if not CreateDir(ExpandConstant('{userappdata}\ADBTools')) then
-      begin
-        MsgBox('警告：无法创建用户数据目录 ' + ExpandConstant('{userappdata}\ADBTools') + '，日志可能无法正常保存。', mbError, MB_OK);
-      end
-      else
-      begin
-        MsgBox('已创建用户数据目录: ' + ExpandConstant('{userappdata}\ADBTools'), mbInformation, MB_OK);
-      end;
-    end;
-    
-    // 可以在这里添加其他初始化操作
-    // 例如：创建配置文件、注册表设置等
-  end;
-end;
+// 安装完成后无需额外初始化：
+// 日志目录已在 [Dirs] 中预创建，运行时日志统一写入安装目录下的 logs，
+// 不再往 %APPDATA% 创建用户数据目录，避免C盘权限受限导致的问题

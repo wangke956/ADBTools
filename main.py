@@ -13,35 +13,37 @@ from datetime import datetime
 # ==================== 全局变量 ====================
 _CRASH_LOG_FILE = None
 
+# 确定程序所在目录（安装目录），并将工作目录切换到该目录
+# 确保所有相对路径（日志、配置等）都落在安装目录，避免写入C盘受限目录
+if getattr(sys, 'frozen', False):
+    _APP_DIR = os.path.dirname(sys.executable)
+else:
+    _APP_DIR = os.path.dirname(os.path.abspath(__file__))
+try:
+    os.chdir(_APP_DIR)
+except Exception:
+    pass
+
 
 def _write_crash_log(message):
     """最原始的日志写入方式 - 不依赖任何模块"""
     global _CRASH_LOG_FILE
     try:
         if _CRASH_LOG_FILE is None:
-            # 确定日志目录 - 尝试多个位置
+            # 确定日志目录 - 优先安装目录，不依赖C盘用户目录权限
             log_dirs = []
             
-            # 1. 用户APPDATA目录（最可靠）
-            appdata = os.environ.get('APPDATA', '')
-            if appdata:
-                log_dirs.append(os.path.join(appdata, 'ADBTools', 'logs'))
+            # 1. 安装目录（exe所在目录，最可靠）
+            log_dirs.append(os.path.join(_APP_DIR, 'logs'))
             
-            # 2. 临时目录
+            # 2. 当前工作目录（已切换到安装目录）
+            log_dirs.append('logs')
+            log_dirs.append('.')
+            
+            # 3. 临时目录（仅作为最后兜底）
             temp = os.environ.get('TEMP', '') or os.environ.get('TMP', '')
             if temp:
                 log_dirs.append(os.path.join(temp, 'ADBTools', 'logs'))
-            
-            # 3. 程序所在目录
-            if getattr(sys, 'frozen', False):
-                exe_dir = os.path.dirname(sys.executable)
-            else:
-                exe_dir = os.path.dirname(os.path.abspath(__file__))
-            log_dirs.append(os.path.join(exe_dir, 'logs'))
-            
-            # 4. 当前工作目录
-            log_dirs.append('logs')
-            log_dirs.append('.')
             
             # 尝试创建日志文件
             for log_dir in log_dirs:

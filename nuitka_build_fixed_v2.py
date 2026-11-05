@@ -3,7 +3,7 @@
 """
 Nuitka打包配置文件 - 修复版本
 用于将ADBTools打包为独立的可执行文件
-已新增 admin.manifest Windows权限清单嵌入支持
+已新增 admin.manifest Windows权限清单嵌入支持（asInvoker，不请求管理员权限）
 
 使用方法:
 python nuitka_build_fixed_v2.py --build  # 构建可执行文件
@@ -26,7 +26,7 @@ CONFIG = {
     "main_script": "main.py",
     "output_name": "ADBTools_nuitka",
     "icon": "icon.ico",
-    "manifest_file": "admin.manifest",  # 新增清单文件配置
+    "manifest_file": "admin.manifest",  # 权限清单文件配置（asInvoker，不请求管理员权限）
     "company_name": "ADBTools",
     "product_name": "ADBTools",
     # 版本号将从config_manager动态获取
@@ -123,12 +123,13 @@ def get_nuitka_command(build_type="onefile"):
            "--product-name=" + CONFIG["product_name"], "--file-version=" + file_version,
            "--product-version=" + product_version, "--file-description=" + CONFIG["description"],
            "--copyright=" + CONFIG["copyright"], "--output-dir=" + str(CONFIG["build_dir"]),
-           "--output-filename=" + CONFIG["output_name"], "--windows-uac-admin"]
+           "--output-filename=" + CONFIG["output_name"]]
 
-    # 申请Windows管理员权限（UAC）
+    # 不传 --windows-uac-admin，Nuitka 默认内嵌 asInvoker 清单（普通用户权限）
+    # 避免受限电脑上 UAC 提权弹窗导致程序无法启动
     manifest_path = PROJECT_ROOT / CONFIG["manifest_file"]
     if manifest_path.exists():
-        print(f"✅ Windows权限清单文件存在: {manifest_path}（通过 --windows-uac-admin 申请管理员权限）")
+        print(f"✅ Windows权限清单文件存在: {manifest_path}（asInvoker，以普通权限运行，不请求UAC提权）")
     else:
         print(f"⚠️ 警告: 清单文件 {CONFIG['manifest_file']} 不存在")
 

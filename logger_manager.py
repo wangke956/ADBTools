@@ -275,18 +275,9 @@ class LoggerManager:
             is_frozen = getattr(sys, 'frozen', False)
             
             if is_frozen:
-                # 打包后的路径 - 优先使用用户目录，避免C盘权限问题
-                app_data_dir = os.environ.get('APPDATA')
-                if app_data_dir:
-                    # 创建用户数据目录
-                    base_dir = os.path.join(app_data_dir, 'ADBTools')
-                    os.makedirs(base_dir, exist_ok=True)
-                    print(f"使用用户数据目录: {base_dir}")
-                else:
-                    # 如果APPDATA环境变量不存在，回退到程序目录
-                    exe_dir = os.path.dirname(sys.executable or os.path.dirname(os.path.abspath(__file__)))
-                    base_dir = exe_dir
-                    print(f"使用程序目录（无APPDATA）: {base_dir}")
+                # 打包后优先使用安装目录（exe所在目录），不依赖C盘用户目录权限
+                base_dir = os.path.dirname(sys.executable)
+                print(f"使用安装目录: {base_dir}")
             else:
                 # 开发环境路径
                 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -299,12 +290,12 @@ class LoggerManager:
                 os.makedirs(self.log_dir, exist_ok=True)
                 print(f"日志目录: {self.log_dir}")
             except PermissionError:
-                # 如果权限不足，尝试使用临时目录
+                # 安装目录不可写时的最后兜底：使用临时目录（正常情况下不会走到这里）
                 import tempfile
                 temp_dir = tempfile.gettempdir()
                 self.log_dir = os.path.join(temp_dir, 'ADBTools', 'logs')
                 os.makedirs(self.log_dir, exist_ok=True)
-                print(f"日志目录（使用临时目录）: {self.log_dir}")
+                print(f"日志目录（使用临时目录兜底）: {self.log_dir}")
             except Exception as e:
                 # 如果其他错误，使用当前目录
                 self.log_dir = "."

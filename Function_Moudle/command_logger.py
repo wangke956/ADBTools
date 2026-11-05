@@ -23,7 +23,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from logger_manager import get_logger, log_operation
+from logger_manager import get_logger, log_operation, logger_manager
 
 # 创建日志记录器
 logger = get_logger("ADBTools.CommandLogger")
@@ -32,7 +32,12 @@ logger = get_logger("ADBTools.CommandLogger")
 class CommandLogger:
     """命令执行日志记录器"""
     
-    def __init__(self, log_file: str = "command_history.log"):
+    def __init__(self, log_file: Optional[str] = None):
+        # 日志统一存到日志目录（打包后为安装目录下的logs），不依赖当前工作目录
+        if log_file is None:
+            log_file = "command_history.log"
+        if not os.path.isabs(log_file):
+            log_file = os.path.join(logger_manager.log_dir, log_file)
         self.log_file = log_file
         self._ensure_log_dir()
     
