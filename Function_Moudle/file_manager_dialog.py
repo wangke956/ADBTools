@@ -1378,28 +1378,9 @@ class FileManagerDialog(QDialog):
         # 动态加载UI文件
         import sys
         
-        ui_file = None
-        
-        # 方法1：从程序所在目录加载（onedir模式下，程序在安装目录）
-        try:
-            executable_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-            ui_file = os.path.join(executable_dir, 'file_manager_ui.ui')
-        except:
-            pass
-        
-        # 方法2：从项目根目录加载（开发环境）
-        if not ui_file or not os.path.exists(ui_file):
-            try:
-                ui_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'file_manager_ui.ui')
-            except:
-                pass
-        
-        # 方法3：从当前模块目录加载（兼容旧版本）
-        if not ui_file or not os.path.exists(ui_file):
-            try:
-                ui_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'file_manager_ui.ui')
-            except:
-                pass
+        # 查找UI文件（兼容开发环境、standalone、Nuitka onefile 临时解压目录）
+        from app_paths import find_resource, get_app_dir
+        ui_file = find_resource('file_manager_ui.ui')
         
         # 最终检查
         if not ui_file or not os.path.exists(ui_file):
@@ -1408,7 +1389,7 @@ class FileManagerDialog(QDialog):
             error_msg += f"尝试的路径:\n"
             try:
                 error_msg += f"  1. {os.path.dirname(os.path.abspath(sys.argv[0]))}/file_manager_ui.ui\n"
-                error_msg += f"  2. {os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/file_manager_ui.ui\n"
+                error_msg += f"  2. {get_app_dir()}/file_manager_ui.ui\n"
                 error_msg += f"  3. {os.path.dirname(os.path.abspath(__file__))}/file_manager_ui.ui\n"
             except:
                 pass

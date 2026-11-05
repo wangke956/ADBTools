@@ -23,6 +23,8 @@ import os
 import contextlib
 from pathlib import Path
 
+from app_paths import get_app_dir
+
 # 检查是否在 Nuitka 环境中运行
 def _is_nuitka_environment():
     """检测是否在 Nuitka 编译环境中运行"""
@@ -126,6 +128,8 @@ def _find_resource_dirs():
     """
     logger = _get_logger()
     exe_dir = Path(sys.executable).parent
+    # onefile 模式下 exe_dir 是临时解压目录，真实安装目录也要纳入搜索
+    app_dir = Path(get_app_dir())
     
     # 查找 uiautomator2 assets 目录
     # 尝试多种可能的目录结构
@@ -135,6 +139,8 @@ def _find_resource_dirs():
         exe_dir / "uiautomator2_assets",
         exe_dir / "assets",
         exe_dir.parent / "uiautomator2" / "assets",
+        app_dir / "uiautomator2" / "assets",
+        app_dir / "assets",
     ]
     
     for d in possible_u2_dirs:
@@ -160,6 +166,7 @@ def _find_resource_dirs():
         exe_dir / "adbutils" / "binaries",
         exe_dir / "adbutils_binaries",
         exe_dir.parent / "adbutils" / "binaries",
+        app_dir / "adbutils" / "binaries",
     ]
     
     for d in possible_adb_dirs:
@@ -381,8 +388,9 @@ def _patch_uiautomator2_utils():
             except Exception as e:
                 logger.warning(f"原始 with_package_resource 失败: {e}")
             
-            # 最后的备选方案：检查常见位置
+            # 最后的备选方案：检查常见位置（临时解压目录 + 真实安装目录）
             exe_dir = Path(sys.executable).parent
+            app_dir = Path(get_app_dir())
             filename_name = Path(filename).name
             fallback_paths = [
                 exe_dir / "uiautomator2" / filename,
@@ -390,6 +398,9 @@ def _patch_uiautomator2_utils():
                 exe_dir / "assets" / filename_name,
                 exe_dir / filename,
                 exe_dir.parent / "uiautomator2" / filename,
+                app_dir / "uiautomator2" / filename,
+                app_dir / "assets" / filename_name,
+                app_dir / filename,
             ]
             
             for fp in fallback_paths:

@@ -161,19 +161,14 @@ class ADB_Mainwindow(QMainWindow):
         self.keyboard_thread = None  # 输入法操作线程
         self.voice_asr_test_thread = None  # 语音识别测试线程
 
-        # 动态加载ui文件
+        # 动态加载ui文件（兼容开发环境、standalone、Nuitka onefile 临时解压目录）
+        from app_paths import find_resource
+        ui_path = find_resource('adbtool.ui')
         try:
-            # 尝试从当前目录加载
-            uic.loadUi('adbtool.ui', self)
-            # uic.loadUi('adbtool_modern.ui', self)
+            uic.loadUi(ui_path, self)
         except Exception as e:
             print(f"加载 adbtool.ui 失败: {e}")
-            # 尝试从项目根目录加载
-            import os
-            project_root = os.path.dirname(os.path.abspath(__file__))
-            ui_path = os.path.join(project_root, 'adbtool.ui')
-            print(f"尝试从 {ui_path} 加载...")
-            uic.loadUi(ui_path, self)
+            raise
         # 假设这里是初始化UI控件的部分，使用findChild方法获取控件
         from PyQt6 import QtWidgets
         self.RefreshButton = self.findChild(QtWidgets.QPushButton, 'RefreshButton')

@@ -26,6 +26,9 @@ from typing import Optional, Dict, Any, Callable
 from functools import wraps
 from contextlib import contextmanager
 
+# 导入应用路径工具（获取真实安装目录，兼容 Nuitka onefile 临时解压目录问题）
+from app_paths import get_app_dir, is_frozen
+
 # 导入配置管理器
 try:
     from config_manager import config_manager
@@ -270,17 +273,13 @@ class LoggerManager:
     def _init_log_dir(self):
         """初始化日志目录"""
         try:
-            # 确定日志目录路径
-            # 检查是否为打包状态（兼容PyInstaller和Nuitka）
-            is_frozen = getattr(sys, 'frozen', False)
-            
-            if is_frozen:
-                # 打包后优先使用安装目录（exe所在目录），不依赖C盘用户目录权限
-                base_dir = os.path.dirname(sys.executable)
+            # 确定日志目录路径：统一使用程序真实所在目录（安装目录）
+            # 注意：Nuitka onefile 模式下 sys.executable 指向临时解压目录（退出即删除），
+            # get_app_dir() 基于 __nuitka_binary_dir 返回原始 exe 目录，不依赖C盘用户目录权限
+            base_dir = get_app_dir()
+            if is_frozen():
                 print(f"使用安装目录: {base_dir}")
             else:
-                # 开发环境路径
-                base_dir = os.path.dirname(os.path.abspath(__file__))
                 print(f"开发环境目录: {base_dir}")
             
             self.log_dir = os.path.join(base_dir, self.log_dir)

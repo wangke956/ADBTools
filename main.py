@@ -13,12 +13,17 @@ from datetime import datetime
 # ==================== 全局变量 ====================
 _CRASH_LOG_FILE = None
 
-# 确定程序所在目录（安装目录），并将工作目录切换到该目录
-# 确保所有相对路径（日志、配置等）都落在安装目录，避免写入C盘受限目录
-if getattr(sys, 'frozen', False):
-    _APP_DIR = os.path.dirname(sys.executable)
-else:
-    _APP_DIR = os.path.dirname(os.path.abspath(__file__))
+# 确定程序真实所在目录（安装目录），并将工作目录切换到该目录
+# 注意：Nuitka onefile 模式下 sys.executable 指向临时解压目录，
+# 必须用 app_paths.get_app_dir()（基于 __nuitka_binary_dir）获取真实安装目录
+try:
+    from app_paths import get_app_dir
+    _APP_DIR = get_app_dir()
+except Exception:
+    if getattr(sys, 'frozen', False):
+        _APP_DIR = os.path.dirname(sys.executable)
+    else:
+        _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 try:
     os.chdir(_APP_DIR)
 except Exception:

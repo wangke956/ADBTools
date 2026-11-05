@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+from app_paths import get_app_dir, is_frozen
+
 class ConfigManager:
     """配置文件管理器"""
     
@@ -84,10 +86,9 @@ class ConfigManager:
     
     def get_config_path(self) -> str:
         """获取配置文件路径"""
-        # 如果是PyInstaller打包的exe，配置文件放在exe同目录
-        if getattr(sys, 'frozen', False):
-            exe_dir = os.path.dirname(sys.executable)
-            return os.path.join(exe_dir, self.config_file)
+        # 打包后配置文件放在安装目录（真实exe目录，兼容Nuitka onefile）
+        if is_frozen():
+            return os.path.join(get_app_dir(), self.config_file)
         
         # 否则放在项目根目录
         project_root = os.path.dirname(os.path.abspath(__file__))
@@ -208,14 +209,20 @@ class ConfigManager:
         if custom_path and os.path.isfile(custom_path):
             paths.insert(0, custom_path)
         
-        # 如果是PyInstaller打包的exe，添加exe同目录路径
-        if getattr(sys, 'frozen', False):
-            exe_dir = os.path.dirname(sys.executable)
-            exe_paths = [
-                os.path.join(exe_dir, "adb.exe"),
-                os.path.join(exe_dir, "tools", "adb.exe"),
-                os.path.join(exe_dir, "adb"),
-            ]
+        # 打包后添加安装目录（真实exe目录）下的adb路径
+        if is_frozen():
+            # onefile 模式下 adb.exe 也可能随包解压到临时目录，两处都加入搜索
+            exe_dirs = [get_app_dir()]
+            runtime_dir = os.path.dirname(sys.executable)
+            if runtime_dir not in exe_dirs:
+                exe_dirs.append(runtime_dir)
+            exe_paths = []
+            for exe_dir in exe_dirs:
+                exe_paths.extend([
+                    os.path.join(exe_dir, "adb.exe"),
+                    os.path.join(exe_dir, "tools", "adb.exe"),
+                    os.path.join(exe_dir, "adb"),
+                ])
             paths = exe_paths + paths
         
         return paths

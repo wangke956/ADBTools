@@ -48,15 +48,21 @@ except ImportError:
                     "/usr/local/bin/adb",
                 ])
             
-            # 如果是PyInstaller打包的exe，添加exe同目录路径
-            if getattr(sys, 'frozen', False):
-                exe_dir = os.path.dirname(sys.executable)
-                if sys.platform == "win32":
-                    paths.insert(0, os.path.join(exe_dir, "adb.exe"))
-                    paths.insert(0, os.path.join(exe_dir, "tools", "adb.exe"))
-                else:
-                    paths.insert(0, os.path.join(exe_dir, "adb"))
-                    paths.insert(0, os.path.join(exe_dir, "tools", "adb"))
+            # 打包后添加安装目录（真实exe目录，兼容Nuitka onefile）下的adb路径
+            from app_paths import get_app_dir, is_frozen
+            if is_frozen():
+                # onefile 模式下 adb.exe 也可能随包解压到临时目录，两处都加入搜索
+                exe_dirs = [get_app_dir()]
+                runtime_dir = os.path.dirname(sys.executable)
+                if runtime_dir not in exe_dirs:
+                    exe_dirs.append(runtime_dir)
+                for exe_dir in exe_dirs:
+                    if sys.platform == "win32":
+                        paths.insert(0, os.path.join(exe_dir, "adb.exe"))
+                        paths.insert(0, os.path.join(exe_dir, "tools", "adb.exe"))
+                    else:
+                        paths.insert(0, os.path.join(exe_dir, "adb"))
+                        paths.insert(0, os.path.join(exe_dir, "tools", "adb"))
             
             return paths
     

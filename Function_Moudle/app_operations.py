@@ -715,17 +715,10 @@ class AppOperationsManager:
     def show_network_proxy_dialog(self):
         """显示网络代理管理对话框（动态加载Dialog_proxy.ui）"""
         import os
-        # 取当前app_operations.py所在目录
-        # base_dir = os.path.dirname(os.path.abspath(__file__))
-        # 获取当前项目根目录
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-        # 拼接完整ui路径
-        base_dir: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        ui_full_path = os.path.join(base_dir, "Dialog_proxy.ui")
+        # 查找UI文件（兼容开发环境、standalone、Nuitka onefile 临时解压目录）
+        from app_paths import find_resource
+        ui_full_path = find_resource("Dialog_proxy.ui")
         print(ui_full_path)
-        # ui_full_path = os.path.join(base_dir, "Dialog_proxy.ui")
-        # uic.loadUi(ui_full_path, dialog)
         from PyQt6 import uic
         from PyQt6.QtWidgets import (
             QDialog, QLabel, QComboBox, QLineEdit, QPushButton, QGroupBox, QTextBrowser
