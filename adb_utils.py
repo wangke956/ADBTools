@@ -522,10 +522,18 @@ class ADBUtils:
         # 查找aapt工具
         aapt_path = shutil.which("aapt")
         if not aapt_path:
-            # 尝试在常用位置查找
+            # 尝试在常用位置查找（含随工程分发的根目录，兼容开发与打包环境）
+            try:
+                from app_paths import get_app_dir
+                app_dir = get_app_dir()
+            except Exception:
+                app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            adb_dir = os.path.dirname(cls.get_adb_path())
             possible_paths = [
-                os.path.join(os.path.dirname(cls.get_adb_path()), "aapt.exe"),
-                os.path.join(os.path.dirname(cls.get_adb_path()), "aapt"),
+                os.path.join(app_dir, "aapt.exe"),            # 工程根目录（开发环境 / 打包后安装目录）
+                os.path.join(app_dir, "aapt"),
+                os.path.join(adb_dir, "aapt.exe"),           # adb 同目录
+                os.path.join(adb_dir, "aapt"),
             ]
             for path in possible_paths:
                 if os.path.isfile(path):

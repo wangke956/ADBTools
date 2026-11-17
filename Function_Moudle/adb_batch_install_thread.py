@@ -115,35 +115,17 @@ class ADBBatchInstallThread(QThread):
             return self._execute_adb_command(command, realtime=realtime)
 
     def _get_apk_package_name(self, apk_path):
-        """获取APK文件的包名"""
+        """获取APK文件的包名（复用 adb_utils 的健壮实现：自动查找aapt、兼容中文路径）"""
         try:
-            # 使用aapt工具获取包名
-            quoted_apk_path = f'"{apk_path}"'
-            command = f"aapt dump badging {quoted_apk_path} | findstr name"
-            
-            result = subprocess.run(
-                command, 
-                shell=True, 
-                capture_output=True, 
-                text=True, 
-                encoding='utf-8', 
-                errors='ignore'
-            )
-            
-            if result.returncode != 0:
-                self.error_signal.emit(f"获取APK包名失败: {result.stderr}")
+            result = adb_utils.aapt_get_package_name(apk_path)
+
+            # adb_utils 失败时返回以"获取包名失败"开头的错误字符串，成功时返回纯包名
+            if not result or str(result).startswith("获取包名失败"):
+                self.error_signal.emit(f"获取APK包名失败({os.path.basename(apk_path)}): {result}")
                 return None
-            
-            # 解析包名
-            output = result.stdout.strip()
-            match = re.search(r"name='([^']+)'", output)
-            if match:
-                package_name = match.group(1)
-                return package_name
-            else:
-                self.error_signal.emit(f"无法解析APK包名: {output}")
-                return None
-                
+
+            return str(result).strip()
+
         except Exception as e:
             self.error_signal.emit(f"获取APK包名时发生错误: {str(e)}")
             return None
