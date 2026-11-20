@@ -71,6 +71,62 @@ def is_frozen() -> bool:
     return bool(globals().get("__nuitka_binary_dir")) or getattr(sys, 'frozen', False)
 
 
+def is_dir_writable(dir_path: str) -> tuple:
+    """显式测试目录是否可写（不能仅依赖 makedirs(exist_ok=True)：目录已存在时不会报错）
+
+    通过创建+删除探针文件的方式验证。安装到 Program Files 等 UAC 保护目录时，
+    Users 组通常只有 ReadAndExecute 权限，此时探针会失败。
+
+    Returns:
+        (ok: bool, reason: str) —— ok=True 时可写；ok=False 时 reason 描述失败原因
+    """
+    if not dir_path:
+        return False, "empty path"
+    try:
+        if not os.path.isdir(dir_path):
+            try:
+                os.makedirs(dir_path, exist_ok=True)
+            except Exception as e:
+                return False, f"makedirs failed: {type(e).__name__}: {e}"
+        probe = os.path.join(dir_path, f".adbtools_probe_{os.getpid()}")
+        try:
+            with open(probe, 'w', encoding='utf-8') as f:
+                f.write('probe')
+            return True, "ok"
+        except Exception as e:
+            return False, f"write probe failed: {type(e).__name__}: {e}"
+        finally:
+            try:
+                if os.path.exists(probe):
+                    os.remove(probe)
+            except Exception:
+                pass
+    except Exception as e:
+        return False, f"unexpected: {type(e).__name__}: {e}"
+
+
+def get_fallback_log_dirs() -> list:
+    """当安装目录 logs 不可写时，按优先级返回候选兜底目录
+
+    顺序：%LOCALAPPDATA%\\ADBTools\\logs → %APPDATA%\\ADBTools\\logs → %TEMP%\\ADBTools\\logs
+    （仅在安装目录不可写的异常场景使用；正常场景日志仍统一存安装目录）
+    """
+    candidates = []
+    for env_key in ('LOCALAPPDATA', 'APPDATA', 'TEMP', 'TMP'):
+        base = os.environ.get(env_key)
+        if base:
+            candidates.append(os.path.join(base, 'ADBTools', 'logs'))
+    # 去重（TEMP/TMP 常指向同一目录）
+    seen = set()
+    unique = []
+    for c in candidates:
+        norm = os.path.normcase(os.path.abspath(c))
+        if norm not in seen:
+            seen.add(norm)
+            unique.append(c)
+    return unique
+
+
 def find_resource(filename: str) -> str:
     """查找随包分发的资源文件（UI文件等），返回第一个存在的完整路径
 

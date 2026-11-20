@@ -160,6 +160,7 @@ class ADB_Mainwindow(QMainWindow):
         self.u2_reinit_dialog = None
         self.keyboard_thread = None  # 输入法操作线程
         self.voice_asr_test_thread = None  # 语音识别测试线程
+        self.voice3_query_thread = None  # 语音3.0 指令下发线程
 
         # 动态加载ui文件（兼容开发环境、standalone、Nuitka onefile 临时解压目录）
         from app_paths import find_resource
@@ -264,6 +265,24 @@ class ADB_Mainwindow(QMainWindow):
                 self.voice_asr_test_button.clicked.connect(self.log_operations.voice_asr_test)  # 测试语音识别
         except Exception as e:
             self.textBrowser.append(str(e))
+
+        # 语音3.0 Tab 控件信号连接（指令下发 + 实时命令预览）
+        try:
+            self.voice3_query_input = self.findChild(QtWidgets.QLineEdit, 'voice3_query_input')
+            self.voice3_command_preview = self.findChild(QtWidgets.QTextEdit, 'voice3_command_preview')
+            self.voice3_execute_button = self.findChild(QtWidgets.QPushButton, 'voice3_execute_button')
+            if self.voice3_execute_button:
+                self.voice3_execute_button.clicked.connect(self.log_operations.voice3_execute_query)
+            if self.voice3_query_input:
+                # 输入变化实时刷新预览
+                self.voice3_query_input.textChanged.connect(self.log_operations.voice3_update_preview)
+            # 设备切换时也刷新预览（把新 device_id 写入预览命令）
+            self.ComboxButton.textActivated.connect(
+                lambda _text: self.log_operations.voice3_update_preview())
+            # 首次初始化预览（UI 中已有默认文本 play online music）
+            self.log_operations.voice3_update_preview()
+        except Exception as e:
+            logger.warning(f"初始化语音3.0 Tab 控件失败: {e}")
         
         # 其他信号连接
         self.list_package_button.clicked.connect(self.list_package)
@@ -412,6 +431,7 @@ class ADB_Mainwindow(QMainWindow):
             'nav_pulllog_button',    # Pull Log
             'nav_internet_button',   # 网联版项目
             'nav_voice_button',      # 语音相关
+            'nav_voice3_button',     # 语音3.0（新增）
             'nav_checkversion_button' # 集成版本检查
         ]
         

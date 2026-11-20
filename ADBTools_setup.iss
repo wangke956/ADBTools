@@ -49,7 +49,9 @@ Name: "quicklaunchicon"; Description: "创建快速启动图标(&Q)"; GroupDescr
 
 [Dirs]
 ; 预创建日志目录，运行时日志统一写入安装目录下的 logs，不再依赖C盘用户目录
-Name: "{app}\logs"; Flags: uninsalwaysuninstall
+; Permissions: users-modify —— 确保安装到 Program Files 时 Users 组也有写入权限
+; uninsalwaysuninstall —— 卸载时一并删除（日志不保留）
+Name: "{app}\logs"; Permissions: users-modify; Flags: uninsalwaysuninstall
 
 [Files]
 ; 主程序文件（Nuitka OneFile 模式已将所有 DLL 打包到 exe 中）
@@ -96,6 +98,30 @@ begin
   // end;
 end;
 
+// 安装完成后修正 logs 目录权限：
+// Inno Setup 的 [Dirs] Permissions 参数仅在创建目录时生效，
+// 升级安装时如果 logs 目录已存在（旧版本遗留），ACL 不会被更新，
+// 导致普通用户运行 exe 时无法写入日志。此处显式调用 icacls 兜底修复。
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+  LogsDir: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    LogsDir := ExpandConstant('{app}\logs');
+    if DirExists(LogsDir) then
+    begin
+      // 使用 SID *S-1-5-32-545 (BUILTIN\Users) 避免中英文系统名称差异
+      // (OI)(CI)M = 对象继承 + 容器继承 + Modify 权限
+      Exec('icacls.exe', '"' + LogsDir + '" /grant "*S-1-5-32-545:(OI)(CI)M" /T',
+           '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      // icacls 失败不阻断安装，运行时 logger_manager 会自动回退到 %LOCALAPPDATA%\ADBTools\logs
+    end;
+  end;
+end;
+
 // 安装完成后无需额外初始化：
-// 日志目录已在 [Dirs] 中预创建，运行时日志统一写入安装目录下的 logs，
-// 不再往 %APPDATA% 创建用户数据目录，避免C盘权限受限导致的问题
+// 日志目录已在 [Dirs] 中预创建并授予 Users 修改权限，
+// 运行时日志统一写入安装目录下的 logs，不再往 %APPDATA% 创建用户数据目录，
+// 避免C盘权限受限导致的问题

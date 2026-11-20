@@ -299,3 +299,78 @@ class LogManager:
         else:
             log_method_result("voice_asr_test", False, "设备未连接")
             self.main_window.textBrowser.append("设备未连接！")
+
+    def voice3_execute_query(self):
+        """语音3.0 指令下发
+
+        将用户输入的普通文本指令转为 VOICELESS_QUERY 广播命令，对当前选中设备执行。
+        命令模板：
+            adb -s <device> shell am broadcast \
+                -n com.saicmotor.voiceservice/com.google.cloud.ml.api.cca.sample.debug.RemoteCommandReceiver \
+                -a com.google.cloud.ml.api.cca.sample.VOICELESS_QUERY \
+                --es query "<空格已转义的文本>"
+        """
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        log_button_click("voice3_execute_button", "语音3.0指令下发")
+
+        if device_id not in devices_id_lst:
+            log_method_result("voice3_execute_query", False, "设备未连接")
+            self.main_window.textBrowser.append("设备未连接！")
+            return
+
+        try:
+            # 从输入框获取指令文本
+            query_text = self.main_window.voice3_query_input.text().strip()
+            if not query_text:
+                log_method_result("voice3_execute_query", False, "指令文本不能为空")
+                self.main_window.textBrowser.append("请输入语音3.0指令文本！")
+                return
+
+            # 动态获取当前的连接模式和 u2 设备
+            current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+            current_u2_device = getattr(self.main_window, 'd', None)
+
+            from Function_Moudle.voice3_query_thread import Voice3QueryThread
+            self.main_window.voice3_query_thread = Voice3QueryThread(
+                device_id=device_id,
+                query_text=query_text,
+                connection_mode=current_connection_mode,
+                u2_device=current_u2_device
+            )
+            self.main_window.voice3_query_thread.progress_signal.connect(self.main_window.textBrowser.append)
+            self.main_window.voice3_query_thread.result_signal.connect(self.main_window.textBrowser.append)
+            self.main_window.voice3_query_thread.start()
+
+            log_method_result(
+                "voice3_execute_query", True,
+                f"语音3.0指令下发线程已启动 | 设备: {device_id} | 指令: {query_text}"
+            )
+        except Exception as e:
+            log_method_result("voice3_execute_query", False, str(e))
+            self.main_window.textBrowser.append(f"语音3.0指令下发失败: {e}")
+
+    def voice3_update_preview(self, text=None):
+        """实时刷新语音3.0命令预览框
+
+        可由输入框 textChanged 或设备下拉框 currentTextChanged 触发；
+        text 参数仅为兼容 Qt 信号，实际以控件当前内容为准。
+        """
+        try:
+            from Function_Moudle.voice3_query_thread import Voice3QueryThread
+            preview_widget = getattr(self.main_window, 'voice3_command_preview', None)
+            input_widget = getattr(self.main_window, 'voice3_query_input', None)
+            if preview_widget is None or input_widget is None:
+                return
+            query_text = input_widget.text().strip()
+            if not query_text:
+                preview_widget.setPlainText("")
+                return
+            # 使用与线程一致的构造逻辑，避免预览与实际执行命令不一致
+            dummy = Voice3QueryThread(device_id=None, query_text=query_text)
+            shell_cmd = dummy.build_shell_command()
+            device_id = self.get_selected_device() or "<device>"
+            preview_widget.setPlainText(f"adb -s {device_id} shell {shell_cmd}")
+        except Exception as e:
+            logger.warning(f"刷新语音3.0命令预览失败: {e}")

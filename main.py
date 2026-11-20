@@ -12,14 +12,36 @@ from datetime import datetime
 
 # ==================== 全局变量 ====================
 _CRASH_LOG_FILE = None
+_CRASH_LOG_PATH = None
+_CRASH_LOG_DIAG = []  # 记录崩溃日志目录选择过程，写入首个成功创建的日志供诊断
 
 # 确定程序真实所在目录（安装目录），并将工作目录切换到该目录
 # 注意：Nuitka onefile 模式下 sys.executable 指向临时解压目录，
-# 必须用 app_paths.get_app_dir()（基于 __nuitka_binary_dir）获取真实安装目录
+# 必须用 app_paths.get_app_dir()（基于 __compiled__.containing_dir）获取真实安装目录
 try:
-    from app_paths import get_app_dir
+    from app_paths import get_app_dir, is_dir_writable, get_fallback_log_dirs
     _APP_DIR = get_app_dir()
 except Exception:
+    # app_paths 导入失败时的降级实现（理论上不应发生）
+    def is_dir_writable(dir_path):
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+            probe = os.path.join(dir_path, f".probe_{os.getpid()}")
+            with open(probe, 'w') as f:
+                f.write('x')
+            os.remove(probe)
+            return True, 'ok'
+        except Exception as e:
+            return False, f"{type(e).__name__}: {e}"
+
+    def get_fallback_log_dirs():
+        result = []
+        for k in ('LOCALAPPDATA', 'APPDATA', 'TEMP', 'TMP'):
+            v = os.environ.get(k)
+            if v:
+                result.append(os.path.join(v, 'ADBTools', 'logs'))
+        return result
+
     if getattr(sys, 'frozen', False):
         _APP_DIR = os.path.dirname(sys.executable)
     else:
@@ -31,43 +53,71 @@ except Exception:
 
 
 def _write_crash_log(message):
-    """最原始的日志写入方式 - 不依赖任何模块"""
-    global _CRASH_LOG_FILE
+    """最原始的日志写入方式 - 不依赖任何模块
+
+    按优先级尝试多个目录，对每个目录先做写入探针（不仅依赖 makedirs）：
+      1. {安装目录}\\logs
+      2. {安装目录}（目录本身，logs 子目录不可写时至少能落到安装根）
+      3. %LOCALAPPDATA%\\ADBTools\\logs / %APPDATA%\\... / %TEMP%\\...
+      4. 当前工作目录
+    一旦成功创建日志文件，将之前所有尝试与失败原因写入首行，方便定位。
+    """
+    global _CRASH_LOG_FILE, _CRASH_LOG_PATH
     try:
         if _CRASH_LOG_FILE is None:
-            # 确定日志目录 - 优先安装目录，不依赖C盘用户目录权限
-            log_dirs = []
-            
-            # 1. 安装目录（exe所在目录，最可靠）
-            log_dirs.append(os.path.join(_APP_DIR, 'logs'))
-            
-            # 2. 当前工作目录（已切换到安装目录）
-            log_dirs.append('logs')
-            log_dirs.append('.')
-            
-            # 3. 临时目录（仅作为最后兜底）
-            temp = os.environ.get('TEMP', '') or os.environ.get('TMP', '')
-            if temp:
-                log_dirs.append(os.path.join(temp, 'ADBTools', 'logs'))
-            
-            # 尝试创建日志文件
-            for log_dir in log_dirs:
-                try:
-                    if log_dir:
-                        os.makedirs(log_dir, exist_ok=True)
-                        log_file = os.path.join(log_dir, f'crash_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
-                        _CRASH_LOG_FILE = open(log_file, 'w', encoding='utf-8', buffering=1)  # 行缓冲
-                        _CRASH_LOG_FILE.write(f"日志文件: {log_file}\n")
-                        _CRASH_LOG_FILE.flush()
-                        break
-                except:
+            # 构造候选目录列表（不重复）
+            candidate_dirs = []
+
+            def _add(d):
+                if not d:
+                    return
+                abs_d = os.path.abspath(d)
+                if abs_d not in candidate_dirs:
+                    candidate_dirs.append(abs_d)
+
+            _add(os.path.join(_APP_DIR, 'logs'))
+            _add(_APP_DIR)
+            for d in get_fallback_log_dirs():
+                _add(d)
+            _add('.')
+
+            log_file_name = f'crash_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+
+            for log_dir in candidate_dirs:
+                ok, reason = is_dir_writable(log_dir)
+                _CRASH_LOG_DIAG.append(f"候选 {log_dir} → {'可写' if ok else '不可写'} ({reason})")
+                if not ok:
                     continue
-        
+                log_file = os.path.join(log_dir, log_file_name)
+                try:
+                    _CRASH_LOG_FILE = open(log_file, 'w', encoding='utf-8', buffering=1)  # 行缓冲
+                    _CRASH_LOG_PATH = log_file
+                    # 写入诊断信息（目录选择过程）
+                    _CRASH_LOG_FILE.write("=== 日志目录选择诊断 ===\n")
+                    for line in _CRASH_LOG_DIAG:
+                        _CRASH_LOG_FILE.write(f"  {line}\n")
+                    _CRASH_LOG_FILE.write(f"=== 最终日志文件: {log_file} ===\n")
+                    _CRASH_LOG_FILE.write(f"安装目录: {_APP_DIR}\n")
+                    _CRASH_LOG_FILE.write(f"当前工作目录: {os.getcwd()}\n")
+                    _CRASH_LOG_FILE.write(f"sys.executable: {sys.executable}\n")
+                    _CRASH_LOG_FILE.write("=" * 40 + "\n")
+                    _CRASH_LOG_FILE.flush()
+                    break
+                except Exception as e:
+                    _CRASH_LOG_DIAG.append(f"open 失败 {log_file}: {type(e).__name__}: {e}")
+                    try:
+                        if _CRASH_LOG_FILE:
+                            _CRASH_LOG_FILE.close()
+                    except Exception:
+                        pass
+                    _CRASH_LOG_FILE = None
+                    continue
+
         if _CRASH_LOG_FILE:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
             _CRASH_LOG_FILE.write(f"[{timestamp}] {message}\n")
             _CRASH_LOG_FILE.flush()
-    except:
+    except Exception:
         pass
 
 
@@ -218,12 +268,44 @@ except Exception as e:
 _log("[STEP] 初始化日志管理器")
 logger = None
 try:
-    from logger_manager import get_logger, log_operation
+    from logger_manager import get_logger, log_operation, logger_manager as _lm_proxy
     logger = get_logger("ADBTools.Main")
     logger.info("日志管理器初始化成功")
     _log("日志管理器初始化成功")
+
+    # 将日志目录选择诊断写入崩溃日志（因为 GUI 模式下控制台不可见）
+    try:
+        _lm = _lm_proxy  # LoggerManagerProxy 会将属性访问转发到实例
+        diag = list(getattr(_lm, '_log_dir_diagnostics', []) or [])
+        warn = getattr(_lm, '_log_dir_warning', None)
+        actual_log_dir = getattr(_lm, 'log_dir', None)
+        _log(f"实际日志目录: {actual_log_dir}")
+        for line in diag:
+            _log(f"  [log_dir_diag] {line}")
+        if logger is not None:
+            for line in diag:
+                try:
+                    logger.info(f"[log_dir_diag] {line}")
+                except Exception:
+                    pass
+        # 安装目录日志不可写时弹窗提醒，避免静默回退后用户无感知
+        if warn:
+            _log(f"[WARN] {warn}")
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    f"{warn}\n\n崩溃日志位于: {_CRASH_LOG_PATH or '(未创建)'}",
+                    "ADBTools 日志目录提醒",
+                    0x30  # MB_ICONWARNING
+                )
+            except Exception:
+                pass
+    except Exception as _diag_e:
+        _log(f"输出日志目录诊断失败（不影响运行）: {_diag_e}")
 except Exception as e:
     _log(f"日志管理器初始化失败: {e}")
+    _log(traceback.format_exc())
     logger = None
 
 

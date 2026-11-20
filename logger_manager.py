@@ -27,7 +27,7 @@ from functools import wraps
 from contextlib import contextmanager
 
 # 导入应用路径工具（获取真实安装目录，兼容 Nuitka onefile 临时解压目录问题）
-from app_paths import get_app_dir, is_frozen
+from app_paths import get_app_dir, is_frozen, is_dir_writable, get_fallback_log_dirs
 
 # 导入配置管理器
 try:
@@ -238,6 +238,8 @@ class LoggerManager:
         self.performance_monitor = None
         self.log_dir = "."  # 默认值，防止初始化失败时属性不存在
         self._init_error = None  # 记录初始化错误
+        self._log_dir_diagnostics = []  # 日志目录选择过程诊断（供崩溃日志输出）
+        self._log_dir_warning = None  # 安装目录不可写回退时的可见提醒文本
         
         try:
             # 加载配置
@@ -271,38 +273,60 @@ class LoggerManager:
         self.log_format = config_manager.get("logging.format", "detailed")
     
     def _init_log_dir(self):
-        """初始化日志目录"""
+        """初始化日志目录
+
+        优先安装目录/logs；若不可写（如 Program Files 下 Users 组无写权限），
+        回退到 %LOCALAPPDATA%\\ADBTools\\logs 等候选目录。
+        所有尝试与失败原因写入 self._log_dir_diagnostics，供上层输出到崩溃日志。
+        """
+        self._log_dir_diagnostics = []
         try:
-            # 确定日志目录路径：统一使用程序真实所在目录（安装目录）
+            # 确定日志目录路径：优先使用程序真实所在目录（安装目录）
             # 注意：Nuitka onefile 模式下 sys.executable 指向临时解压目录（退出即删除），
-            # get_app_dir() 基于 __nuitka_binary_dir 返回原始 exe 目录，不依赖C盘用户目录权限
+            # get_app_dir() 基于 __compiled__.containing_dir 返回原始 exe 目录，不依赖C盘用户目录权限
             base_dir = get_app_dir()
             if is_frozen():
-                print(f"使用安装目录: {base_dir}")
+                self._log_dir_diagnostics.append(f"运行模式: frozen, 安装目录: {base_dir}")
             else:
-                print(f"开发环境目录: {base_dir}")
-            
-            self.log_dir = os.path.join(base_dir, self.log_dir)
-            
-            # 尝试创建日志目录
-            try:
-                os.makedirs(self.log_dir, exist_ok=True)
-                print(f"日志目录: {self.log_dir}")
-            except PermissionError:
-                # 安装目录不可写时的最后兜底：使用临时目录（正常情况下不会走到这里）
-                import tempfile
-                temp_dir = tempfile.gettempdir()
-                self.log_dir = os.path.join(temp_dir, 'ADBTools', 'logs')
-                os.makedirs(self.log_dir, exist_ok=True)
-                print(f"日志目录（使用临时目录兜底）: {self.log_dir}")
-            except Exception as e:
-                # 如果其他错误，使用当前目录
-                self.log_dir = "."
-                print(f"初始化日志目录失败，使用当前目录: {e}")
-                
+                self._log_dir_diagnostics.append(f"运行模式: dev, 项目目录: {base_dir}")
+
+            # 候选目录：安装目录/logs 优先，后接 %LOCALAPPDATA%\\ADBTools\\logs 等兜底
+            rel_log_dir = self.log_dir if isinstance(self.log_dir, str) and self.log_dir else "logs"
+            primary = rel_log_dir if os.path.isabs(rel_log_dir) else os.path.join(base_dir, rel_log_dir)
+            candidates = [primary] + get_fallback_log_dirs()
+
+            chosen = None
+            for cand in candidates:
+                ok, reason = is_dir_writable(cand)
+                self._log_dir_diagnostics.append(f"候选 {cand} → {'可写' if ok else '不可写'} ({reason})")
+                if ok:
+                    chosen = cand
+                    break
+
+            if chosen is None:
+                # 全部候选不可写，最后的兜底：当前工作目录
+                chosen = os.path.abspath(".")
+                self._log_dir_diagnostics.append(f"全部候选不可写，回退到当前工作目录: {chosen}")
+                try:
+                    os.makedirs(chosen, exist_ok=True)
+                except Exception:
+                    pass
+
+            self.log_dir = chosen
+            if chosen != primary:
+                # 安装目录不可写，需要可见提醒（不依赖 print，因为 GUI 模式禁用了控制台）
+                msg = (f"安装目录日志不可写，已回退到: {chosen}\n"
+                       f"原因: {primary} 无写入权限\n"
+                       f"建议: 卸载后重装到 %LOCALAPPDATA%\\Programs\\ADBTools，"
+                       f"或给 {primary} 授予 Users 组修改权限")
+                self._log_dir_diagnostics.append(msg)
+                self._log_dir_warning = msg
+            else:
+                self._log_dir_warning = None
         except Exception as e:
-            print(f"初始化日志目录失败: {e}")
+            self._log_dir_diagnostics.append(f"_init_log_dir 异常: {type(e).__name__}: {e}")
             self.log_dir = "."
+            self._log_dir_warning = None
     
     def _cleanup_old_logs(self):
         """清理旧日志文件，控制日志目录大小"""
@@ -391,21 +415,46 @@ class LoggerManager:
         )
         
         # 添加文件处理器（按时间命名）
-        try:
-            # 使用按时间命名的日志文件
-            log_file_name = f"{self.log_file.replace('.log', '')}_{datetime.now().strftime('%Y%m%d')}.log"
-            log_file_path = os.path.join(self.log_dir, log_file_name)
-            file_handler = logging.handlers.RotatingFileHandler(
-                log_file_path,
-                maxBytes=self.max_size,
-                backupCount=self.backup_count,
-                encoding='utf-8'
-            )
+        # 防御：即使 _init_log_dir 选定了可写目录，也可能在后续时刻因权限变化/磁盘满等原因失败，
+        # 失败时逐个尝试兜底目录，避免因单个路径报错导致日志静默丢失
+        log_file_name = f"{self.log_file.replace('.log', '')}_{datetime.now().strftime('%Y%m%d')}.log"
+        handler_paths = [os.path.join(self.log_dir, log_file_name)]
+        for cand in get_fallback_log_dirs():
+            p = os.path.join(cand, log_file_name)
+            if p not in handler_paths:
+                handler_paths.append(p)
+
+        file_handler = None
+        last_err = None
+        for log_file_path in handler_paths:
+            try:
+                os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+                file_handler = logging.handlers.RotatingFileHandler(
+                    log_file_path,
+                    maxBytes=self.max_size,
+                    backupCount=self.backup_count,
+                    encoding='utf-8'
+                )
+                # 如果实际使用的目录与 self.log_dir 不一致，同步更新，供其他日志（operation/performance）使用
+                actual_dir = os.path.dirname(log_file_path)
+                if actual_dir != self.log_dir:
+                    self.log_dir = actual_dir
+                    self._log_dir_diagnostics.append(
+                        f"get_logger 中主目录不可用，回退到: {actual_dir}")
+                break
+            except Exception as e:
+                last_err = e
+                self._log_dir_diagnostics.append(
+                    f"RotatingFileHandler 失败 {log_file_path}: {type(e).__name__}: {e}")
+                continue
+
+        if file_handler is not None:
             file_handler.setLevel(logging.DEBUG)
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
-        except Exception as e:
-            print(f"添加文件日志处理器失败: {e}")
+        else:
+            # 所有候选均失败，日志仅能走控制台（GUI 打包下不可见），至少记录错误供诊断
+            self._log_dir_diagnostics.append(f"所有文件日志处理器候选均失败，最后错误: {last_err}")
         
         # 添加控制台处理器（如果启用）
         if self.console_output:
