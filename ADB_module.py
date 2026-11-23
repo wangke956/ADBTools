@@ -161,6 +161,7 @@ class ADB_Mainwindow(QMainWindow):
         self.keyboard_thread = None  # 输入法操作线程
         self.voice_asr_test_thread = None  # 语音识别测试线程
         self.voice3_query_thread = None  # 语音3.0 指令下发线程
+        self.vhal_warning_inject_thread = None  # VHAL 告警注入线程（ZXD项目 Inbox 告警测试）
 
         # 动态加载ui文件（兼容开发环境、standalone、Nuitka onefile 临时解压目录）
         from app_paths import find_resource
@@ -283,6 +284,31 @@ class ADB_Mainwindow(QMainWindow):
             self.log_operations.voice3_update_preview()
         except Exception as e:
             logger.warning(f"初始化语音3.0 Tab 控件失败: {e}")
+
+        # VHAL 告警注入 Tab 控件信号连接（ZXD项目 Inbox 告警测试）
+        try:
+            self.vhal_warning_id_input = self.findChild(QtWidgets.QLineEdit, 'vhal_warning_id_input')
+            self.vhal_sub_status_input = self.findChild(QtWidgets.QLineEdit, 'vhal_sub_status_input')
+            self.vhal_result_preview = self.findChild(QtWidgets.QTextEdit, 'vhal_result_preview')
+            self.vhal_generate_command_button = self.findChild(QtWidgets.QPushButton, 'vhal_generate_command_button')
+            self.vhal_execute_command_button = self.findChild(QtWidgets.QPushButton, 'vhal_execute_command_button')
+            self.vhal_clear_warning_button = self.findChild(QtWidgets.QPushButton, 'vhal_clear_warning_button')
+            if self.vhal_generate_command_button:
+                self.vhal_generate_command_button.clicked.connect(self.log_operations.vhal_warning_generate_command)
+            if self.vhal_execute_command_button:
+                self.vhal_execute_command_button.clicked.connect(self.log_operations.vhal_warning_execute_command)
+            if self.vhal_clear_warning_button:
+                self.vhal_clear_warning_button.clicked.connect(self.log_operations.vhal_warning_clear_warning)
+            # 输入变化实时刷新预览
+            if self.vhal_warning_id_input:
+                self.vhal_warning_id_input.textChanged.connect(self.log_operations.vhal_warning_update_preview)
+            if self.vhal_sub_status_input:
+                self.vhal_sub_status_input.textChanged.connect(self.log_operations.vhal_warning_update_preview)
+            # 设备切换时也刷新预览（把新 device_id 写入预览命令）
+            self.ComboxButton.textActivated.connect(
+                lambda _text: self.log_operations.vhal_warning_update_preview())
+        except Exception as e:
+            logger.warning(f"初始化 VHAL 告警注入 Tab 控件失败: {e}")
         
         # 其他信号连接
         self.list_package_button.clicked.connect(self.list_package)
@@ -432,6 +458,7 @@ class ADB_Mainwindow(QMainWindow):
             'nav_internet_button',   # 网联版项目
             'nav_voice_button',      # 语音相关
             'nav_voice3_button',     # 语音3.0（新增）
+            'nav_vhal_warning_button',  # ZXD项目Inbox告警测试（新增）
             'nav_checkversion_button' # 集成版本检查
         ]
         

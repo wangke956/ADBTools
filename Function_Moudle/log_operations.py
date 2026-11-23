@@ -374,3 +374,213 @@ class LogManager:
             preview_widget.setPlainText(f"adb -s {device_id} shell {shell_cmd}")
         except Exception as e:
             logger.warning(f"刷新语音3.0命令预览失败: {e}")
+
+    # ==================== VHAL 告警注入（ZXD项目 Inbox 告警测试）====================
+    def _vhal_read_inputs(self):
+        """读取并解析 VHAL 告警注入输入框
+
+        Returns:
+            (warning_id, sub_status, err_msg)
+            成功时 err_msg 为 None；失败时 warning_id/sub_status 为 None，err_msg 为错误提示。
+        """
+        from Function_Moudle.vhal_warning_inject_thread import VhalWarningInjectThread
+
+        warning_id_widget = getattr(self.main_window, 'vhal_warning_id_input', None)
+        sub_status_widget = getattr(self.main_window, 'vhal_sub_status_input', None)
+        if warning_id_widget is None or sub_status_widget is None:
+            return None, None, "VHAL 告警注入控件未初始化"
+
+        warning_id_text = warning_id_widget.text().strip()
+        sub_status_text = sub_status_widget.text().strip()
+
+        # subStatus 为空时默认 0
+        if not sub_status_text:
+            sub_status_text = "0"
+
+        warning_id, err = VhalWarningInjectThread.parse_number(warning_id_text, "WarningID")
+        if err:
+            return None, None, err
+        sub_status, err = VhalWarningInjectThread.parse_number(sub_status_text, "subStatus")
+        if err:
+            return None, None, err
+
+        err = VhalWarningInjectThread.validate_range(warning_id, "WarningID")
+        if err:
+            return None, None, err
+        err = VhalWarningInjectThread.validate_range(sub_status, "subStatus")
+        if err:
+            return None, None, err
+
+        return warning_id, sub_status, None
+
+    def _vhal_render_preview(self, warning_id, sub_status, vhal_value):
+        """渲染 VHAL 告警注入结果预览框"""
+        from Function_Moudle.vhal_warning_inject_thread import VhalWarningInjectThread
+        preview_widget = getattr(self.main_window, 'vhal_result_preview', None)
+        if preview_widget is None:
+            return
+        device_id = self.get_selected_device() or "<device>"
+        dummy = VhalWarningInjectThread(device_id=None)
+        shell_cmd = dummy.build_shell_command(vhal_value)
+        text = (
+            f"WarningID  十进制 : {warning_id}\n"
+            f"WarningID  十六进制: 0x{warning_id:04X}\n"
+            f"subStatus  十进制 : {sub_status}\n"
+            f"subStatus  十六进制: 0x{sub_status:04X}\n"
+            f"vhalValue  十进制 : {vhal_value}\n"
+            f"vhalValue  十六进制: 0x{vhal_value:08X}\n"
+            f"\n"
+            f"完整 adb 命令：\n"
+            f"adb -s {device_id} shell {shell_cmd}"
+        )
+        preview_widget.setPlainText(text)
+
+    def vhal_warning_generate_command(self):
+        """【生成命令】按钮：解析输入、计算 vhalValue、展示预览（不执行）"""
+        log_button_click("vhal_generate_command_button", "VHAL 告警注入-生成命令")
+        try:
+            warning_id, sub_status, err = self._vhal_read_inputs()
+            if err:
+                log_method_result("vhal_warning_generate_command", False, err)
+                self.main_window.textBrowser.append(f"[VHAL] 输入错误: {err}")
+                preview_widget = getattr(self.main_window, 'vhal_result_preview', None)
+                if preview_widget is not None:
+                    preview_widget.setPlainText(f"输入错误：{err}")
+                return
+
+            from Function_Moudle.vhal_warning_inject_thread import VhalWarningInjectThread
+            vhal_value = VhalWarningInjectThread.compute_vhal_value(warning_id, sub_status)
+            self._vhal_render_preview(warning_id, sub_status, vhal_value)
+
+            # 在主日志区简要回显
+            self.main_window.textBrowser.append(
+                f"[VHAL] 生成命令 | WarningID=0x{warning_id:04X}({warning_id}) "
+                f"subStatus=0x{sub_status:04X}({sub_status}) "
+                f"=> vhalValue=0x{vhal_value:08X}({vhal_value})"
+            )
+            log_method_result(
+                "vhal_warning_generate_command", True,
+                f"WarningID={warning_id} subStatus={sub_status} vhalValue={vhal_value}"
+            )
+        except Exception as e:
+            log_method_result("vhal_warning_generate_command", False, str(e))
+            self.main_window.textBrowser.append(f"[VHAL] 生成命令失败: {e}")
+
+    def vhal_warning_execute_command(self):
+        """【执行命令】按钮：解析输入、计算 vhalValue 并下发到设备"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        log_button_click("vhal_execute_command_button", "VHAL 告警注入-执行命令")
+
+        if device_id not in devices_id_lst:
+            log_method_result("vhal_warning_execute_command", False, "设备未连接")
+            self.main_window.textBrowser.append("设备未连接！")
+            return
+
+        try:
+            warning_id, sub_status, err = self._vhal_read_inputs()
+            if err:
+                log_method_result("vhal_warning_execute_command", False, err)
+                self.main_window.textBrowser.append(f"[VHAL] 输入错误: {err}")
+                return
+
+            from Function_Moudle.vhal_warning_inject_thread import VhalWarningInjectThread
+            vhal_value = VhalWarningInjectThread.compute_vhal_value(warning_id, sub_status)
+            # 同步刷新预览，避免用户看到的与实际执行不一致
+            self._vhal_render_preview(warning_id, sub_status, vhal_value)
+
+            current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+            current_u2_device = getattr(self.main_window, 'd', None)
+
+            self.main_window.vhal_warning_inject_thread = VhalWarningInjectThread(
+                device_id=device_id,
+                warning_id=warning_id,
+                sub_status=sub_status,
+                connection_mode=current_connection_mode,
+                u2_device=current_u2_device,
+                action='inject'
+            )
+            self.main_window.vhal_warning_inject_thread.progress_signal.connect(self.main_window.textBrowser.append)
+            self.main_window.vhal_warning_inject_thread.result_signal.connect(self.main_window.textBrowser.append)
+            self.main_window.vhal_warning_inject_thread.start()
+
+            log_method_result(
+                "vhal_warning_execute_command", True,
+                f"VHAL 告警注入线程已启动 | 设备: {device_id} | vhalValue={vhal_value}"
+            )
+        except Exception as e:
+            log_method_result("vhal_warning_execute_command", False, str(e))
+            self.main_window.textBrowser.append(f"[VHAL] 执行命令失败: {e}")
+
+    def vhal_warning_clear_warning(self):
+        """【清除告警】按钮：直接下发 vhalValue=0 的注入命令"""
+        device_id = self.get_selected_device()
+        devices_id_lst = self.get_new_device_lst()
+
+        log_button_click("vhal_clear_warning_button", "VHAL 告警注入-清除告警")
+
+        if device_id not in devices_id_lst:
+            log_method_result("vhal_warning_clear_warning", False, "设备未连接")
+            self.main_window.textBrowser.append("设备未连接！")
+            return
+
+        try:
+            from Function_Moudle.vhal_warning_inject_thread import VhalWarningInjectThread
+
+            current_connection_mode = getattr(self.main_window, 'connection_mode', 'adb') or 'adb'
+            current_u2_device = getattr(self.main_window, 'd', None)
+
+            # 清除告警时 warning_id/sub_status 不参与计算，vhalValue 固定为 0
+            self.main_window.vhal_warning_inject_thread = VhalWarningInjectThread(
+                device_id=device_id,
+                warning_id=0,
+                sub_status=0,
+                connection_mode=current_connection_mode,
+                u2_device=current_u2_device,
+                action='clear'
+            )
+            self.main_window.vhal_warning_inject_thread.progress_signal.connect(self.main_window.textBrowser.append)
+            self.main_window.vhal_warning_inject_thread.result_signal.connect(self.main_window.textBrowser.append)
+            self.main_window.vhal_warning_inject_thread.start()
+
+            # 同步刷新预览为清除告警命令
+            preview_widget = getattr(self.main_window, 'vhal_result_preview', None)
+            if preview_widget is not None:
+                dummy = VhalWarningInjectThread(device_id=None)
+                shell_cmd = dummy.build_shell_command(0)
+                preview_widget.setPlainText(
+                    f"[清除告警] vhalValue = 0\n"
+                    f"\n"
+                    f"完整 adb 命令：\n"
+                    f"adb -s {device_id} shell {shell_cmd}"
+                )
+
+            log_method_result(
+                "vhal_warning_clear_warning", True,
+                f"VHAL 清除告警线程已启动 | 设备: {device_id}"
+            )
+        except Exception as e:
+            log_method_result("vhal_warning_clear_warning", False, str(e))
+            self.main_window.textBrowser.append(f"[VHAL] 清除告警失败: {e}")
+
+    def vhal_warning_update_preview(self, *args):
+        """输入框/设备变化时实时刷新预览（不执行）
+
+        可由 vhal_warning_id_input.textChanged / vhal_sub_status_input.textChanged /
+        ComboxButton.textActivated 触发。输入非法时静默忽略（不弹错），
+        避免用户输入过程中频繁报错干扰。
+        """
+        try:
+            warning_id, sub_status, err = self._vhal_read_inputs()
+            if err:
+                # 输入未完成或非法，清空预览即可
+                preview_widget = getattr(self.main_window, 'vhal_result_preview', None)
+                if preview_widget is not None:
+                    preview_widget.setPlainText("")
+                return
+            from Function_Moudle.vhal_warning_inject_thread import VhalWarningInjectThread
+            vhal_value = VhalWarningInjectThread.compute_vhal_value(warning_id, sub_status)
+            self._vhal_render_preview(warning_id, sub_status, vhal_value)
+        except Exception as e:
+            logger.warning(f"刷新 VHAL 告警注入预览失败: {e}")

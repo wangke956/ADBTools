@@ -459,4 +459,36 @@ ADBTools/
 
 ---
 
-**最后更新**: 2026-01-19
+## 更新日志
+
+### v1.8.43 (2026-11-23)
+
+**新增功能**
+- ✅ 新增「ZXD项目Inbox告警测试」Tab 页面
+- ✅ 实现 VHAL 告警注入功能，支持 U2/ADB 双模式
+- ✅ 支持 WarningID 和 subStatus 输入（十六进制/十进制格式）
+- ✅ 自动计算 vhalValue = (WarningID << 16) | subStatus
+- ✅ 提供【生成命令】【执行命令】【清除告警】三个操作按钮
+- ✅ 实时命令预览，显示十进制和十六进制结果
+
+**问题修复**
+- 🔧 修复 vhalValue 超出 Java int 范围时的 NumberFormatException 问题
+  - 当 vhalValue > 2147483647 时，自动转换为有符号整数表示
+  - 例如：2420113408 (0x90400000) → -1874853888
+
+**技术改进**
+- 📦 新增 `Function_Moudle/vhal_warning_inject_thread.py` 线程类
+- 🎨 UI 文件新增 `tab_vhal_warning` 页面及相关控件
+- 📝 `log_operations.py` 新增 VHAL 告警注入相关方法
+
+---
+
+### v1.8.32 (2026-01-19)
+
+- 语音3.0 指令下发功能
+- 配置管理器增强
+- 日志系统优化
+
+---
+
+**最后更新**: 2026-11-23
