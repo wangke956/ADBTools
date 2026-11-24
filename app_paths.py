@@ -137,14 +137,42 @@ def find_resource(filename: str) -> str:
     找不到时返回安装目录下的拼接路径（由调用方报错）
     """
     candidates = []
+
+    # PyInstaller 打包环境
     if getattr(sys, 'frozen', False):
         candidates.append(os.path.dirname(os.path.abspath(sys.executable)))
-    candidates.append(get_app_dir())
-    candidates.append(os.getcwd())
+
+    # Nuitka 运行时目录（onefile 模式下资源解压到 sys.executable 所在的临时目录）
+    try:
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        if exe_dir and exe_dir not in candidates:
+            candidates.append(exe_dir)
+    except Exception:
+        pass
+
+    # Nuitka __nuitka_binary_dir（编译模块中可用，指向二进制/资源所在目录）
+    try:
+        nuitka_dir = globals().get("__nuitka_binary_dir")
+        if nuitka_dir:
+            abs_nuitka = os.path.abspath(str(nuitka_dir))
+            if abs_nuitka not in candidates:
+                candidates.append(abs_nuitka)
+    except Exception:
+        pass
+
+    # 真实安装目录（standalone / 开发环境为项目根目录）
+    app_dir = get_app_dir()
+    if app_dir not in candidates:
+        candidates.append(app_dir)
+
+    # 当前工作目录
+    cwd = os.getcwd()
+    if cwd not in candidates:
+        candidates.append(cwd)
 
     for base in candidates:
         path = os.path.join(base, filename)
         if os.path.isfile(path):
             return path
 
-    return os.path.join(get_app_dir(), filename)
+    return os.path.join(app_dir, filename)

@@ -43,6 +43,7 @@ CONFIG = {
         "adbtool.ui",
         "adbtools_config.json",
         "file_manager_ui.ui",
+        "Dialog_proxy.ui",
     ],
     
     # 配置文件

@@ -715,232 +715,267 @@ class AppOperationsManager:
     def show_network_proxy_dialog(self):
         """显示网络代理管理对话框（动态加载Dialog_proxy.ui）"""
         import os
-        # 查找UI文件（兼容开发环境、standalone、Nuitka onefile 临时解压目录）
-        from app_paths import find_resource
-        ui_full_path = find_resource("Dialog_proxy.ui")
-        print(ui_full_path)
-        from PyQt6 import uic
-        from PyQt6.QtWidgets import (
-            QDialog, QLabel, QComboBox, QLineEdit, QPushButton, QGroupBox, QTextBrowser
-        )
         log_button_click("network_proxy_button", "网络代理管理")
 
-        # 1. 创建对话框容器 + 加载UI文件
-        dialog = QDialog(self.main_window)
-        # 核心加载语句，按你要求使用uic.loadUi
-        uic.loadUi(ui_full_path, dialog)
+        try:
+            # 查找UI文件（兼容开发环境、standalone、Nuitka onefile 临时解压目录）
+            from app_paths import find_resource
+            ui_full_path = find_resource("Dialog_proxy.ui")
 
-        # 2. 获取UI内所有控件（objectName与UI内一一对应）
-        title_label = dialog.findChild(QLabel, "title_label")
-        device_label = dialog.findChild(QLabel, "device_label")
-        address_label = dialog.findChild(QLabel, "address_label")
-        port_label = dialog.findChild(QLabel, "port_label")
+            if not ui_full_path or not os.path.isfile(ui_full_path):
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self.main_window, "文件缺失",
+                    f"找不到 Dialog_proxy.ui 文件\n\n尝试路径: {ui_full_path}\n\n"
+                    "请确保该文件存在于程序目录中。"
+                )
+                log_method_result("代理管理器", False, f"UI文件不存在: {ui_full_path}")
+                return
 
-        device_combo = dialog.findChild(QComboBox, "device_combo")
-        proxy_address_input = dialog.findChild(QLineEdit, "proxy_address_input")
-        proxy_port_input = dialog.findChild(QLineEdit, "proxy_port_input")
-
-        refresh_device_btn = dialog.findChild(QPushButton, "refresh_device_btn")
-        get_proxy_btn = dialog.findChild(QPushButton, "get_proxy_btn")
-        set_proxy_btn = dialog.findChild(QPushButton, "set_proxy_btn")
-        clear_proxy_btn = dialog.findChild(QPushButton, "clear_proxy_btn")
-        close_btn = dialog.findChild(QPushButton, "close_btn")
-
-        output_text = dialog.findChild(QTextBrowser, "output_text")
-
-        # ========== 全局缓存线程，防止GC回收崩溃 ==========
-        dialog.work_thread = None
-
-        # ========== 内部工具函数（完全保留原有逻辑无修改） ==========
-        def refresh_devices():
-            """刷新设备列表"""
-            device_combo.clear()
-            devices = self.main_window.get_new_device_lst()
-            if devices:
-                device_combo.addItems(devices)
-                append_output(f"✓ 找到 {len(devices)} 个设备")
-                # 自动选择第一个设备
-                if device_combo.count() > 0:
-                    device_combo.setCurrentIndex(0)
-            else:
-                append_output("⚠ 未找到任何设备")
-
-        def append_output(text):
-            """追加输出到对话框的文本框"""
-            from datetime import datetime
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            output_text.append(f"[{timestamp}] {text}")
-            # 自动滚动到底部
-            output_text.verticalScrollBar().setValue(
-                output_text.verticalScrollBar().maximum()
+            from PyQt6 import uic
+            from PyQt6.QtWidgets import (
+                QDialog, QLabel, QComboBox, QLineEdit, QPushButton, QGroupBox, QTextBrowser
             )
 
-        def get_selected_device():
-            """获取当前选择的设备ID"""
-            return device_combo.currentText()
+            # 1. 创建对话框容器 + 加载UI文件
+            dialog = QDialog(self.main_window)
+            uic.loadUi(ui_full_path, dialog)
 
-        def check_device_connection(device_id):
-            """检查设备是否连接"""
-            devices = self.main_window.get_new_device_lst()
-            return device_id in devices
+            # 2. 获取UI内所有控件（objectName与UI内一一对应）
+            device_combo = dialog.findChild(QComboBox, "device_combo")
+            proxy_address_input = dialog.findChild(QLineEdit, "proxy_address_input")
+            proxy_port_input = dialog.findChild(QLineEdit, "proxy_port_input")
 
-        def get_current_connection_mode(device_id):
-            """获取当前设备的连接模式"""
-            # 如果主窗口当前连接的是这个设备，使用主窗口的模式
-            if self.main_window.device_id == device_id:
-                return self.main_window.connection_mode, self.main_window.d
-            # 否则默认使用ADB模式
-            return 'adb', None
+            refresh_device_btn = dialog.findChild(QPushButton, "refresh_device_btn")
+            get_proxy_btn = dialog.findChild(QPushButton, "get_proxy_btn")
+            set_proxy_btn = dialog.findChild(QPushButton, "set_proxy_btn")
+            clear_proxy_btn = dialog.findChild(QPushButton, "clear_proxy_btn")
+            close_btn = dialog.findChild(QPushButton, "close_btn")
 
-        def _get_network_proxy():
-            """获取网络代理信息"""
-            device_id = get_selected_device()
-            if not device_id:
-                append_output("请先选择设备")
+            output_text = dialog.findChild(QTextBrowser, "output_text")
+
+            # 校验关键控件是否存在
+            missing_widgets = []
+            for name, widget in [("device_combo", device_combo), ("output_text", output_text),
+                                 ("refresh_device_btn", refresh_device_btn), ("get_proxy_btn", get_proxy_btn),
+                                 ("set_proxy_btn", set_proxy_btn), ("clear_proxy_btn", clear_proxy_btn),
+                                 ("close_btn", close_btn)]:
+                if widget is None:
+                    missing_widgets.append(name)
+            if missing_widgets:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self.main_window, "UI加载异常",
+                    f"Dialog_proxy.ui 中缺少以下控件:\n{', '.join(missing_widgets)}"
+                )
+                log_method_result("代理管理器", False, f"缺少控件: {missing_widgets}")
                 return
 
-            if not check_device_connection(device_id):
-                append_output("设备未连接！")
-                return
+            # ========== 全局缓存线程，防止GC回收崩溃 ==========
+            dialog.work_thread = None
 
-            try:
-                connection_mode, u2_device = get_current_connection_mode(device_id)
-
-                if connection_mode == 'u2' and u2_device:
-                    from Function_Moudle.adb_network_proxy_thread import GetProxyThread
-                    dialog.work_thread = GetProxyThread(
-                        device_id=device_id,
-                        connection_mode='u2',
-                        u2_device=u2_device
-                    )
-                elif connection_mode == 'adb':
-                    from Function_Moudle.adb_network_proxy_thread import GetProxyThread
-                    dialog.work_thread = GetProxyThread(
-                        device_id=device_id,
-                        connection_mode='adb'
-                    )
+            # ========== 内部工具函数 ==========
+            def refresh_devices():
+                """刷新设备列表"""
+                device_combo.clear()
+                devices = self.main_window.get_new_device_lst()
+                if devices:
+                    device_combo.addItems(devices)
+                    append_output(f"✓ 找到 {len(devices)} 个设备")
+                    # 自动选择第一个设备
+                    if device_combo.count() > 0:
+                        device_combo.setCurrentIndex(0)
                 else:
+                    append_output("⚠ 未找到任何设备")
+
+            def append_output(text):
+                """追加输出到对话框的文本框"""
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                output_text.append(f"[{timestamp}] {text}")
+                # 自动滚动到底部
+                output_text.verticalScrollBar().setValue(
+                    output_text.verticalScrollBar().maximum()
+                )
+
+            def get_selected_device():
+                """获取当前选择的设备ID"""
+                return device_combo.currentText()
+
+            def check_device_connection(device_id):
+                """检查设备是否连接"""
+                devices = self.main_window.get_new_device_lst()
+                return device_id in devices
+
+            def get_current_connection_mode(device_id):
+                """获取当前设备的连接模式"""
+                # 如果主窗口当前连接的是这个设备，使用主窗口的模式
+                if self.main_window.device_id == device_id:
+                    return self.main_window.connection_mode or 'adb', self.main_window.d
+                # 否则默认使用ADB模式
+                return 'adb', None
+
+            def _get_network_proxy():
+                """获取网络代理信息"""
+                device_id = get_selected_device()
+                if not device_id:
+                    append_output("请先选择设备")
+                    return
+
+                if not check_device_connection(device_id):
+                    append_output("设备未连接！")
+                    return
+
+                try:
+                    connection_mode, u2_device = get_current_connection_mode(device_id)
+
+                    if connection_mode == 'u2' and u2_device:
+                        from Function_Moudle.adb_network_proxy_thread import GetProxyThread
+                        dialog.work_thread = GetProxyThread(
+                            device_id=device_id,
+                            connection_mode='u2',
+                            u2_device=u2_device
+                        )
+                    elif connection_mode == 'adb':
+                        from Function_Moudle.adb_network_proxy_thread import GetProxyThread
+                        dialog.work_thread = GetProxyThread(
+                            device_id=device_id,
+                            connection_mode='adb'
+                        )
+                    else:
+                        append_output("⚠ 设备未连接！")
+                        return
+
+                    dialog.work_thread.progress_signal.connect(append_output)
+                    dialog.work_thread.result_signal.connect(append_output)
+                    dialog.work_thread.error_signal.connect(append_output)
+                    dialog.work_thread.start()
+                    append_output("✓ 获取代理线程已启动")
+                except Exception as e:
+                    append_output(f"✗ 启动获取代理线程失败: {e}")
+
+            def _set_network_proxy():
+                """设置网络代理"""
+                device_id = get_selected_device()
+                if not device_id:
+                    append_output("⚠ 请先选择设备")
+                    return
+
+                if not check_device_connection(device_id):
                     append_output("⚠ 设备未连接！")
                     return
 
-                dialog.work_thread.progress_signal.connect(append_output)
-                dialog.work_thread.result_signal.connect(append_output)
-                dialog.work_thread.error_signal.connect(append_output)
-                dialog.work_thread.start()
-                append_output("✓ 获取代理线程已启动")
-            except Exception as e:
-                append_output(f"✗ 启动获取代理线程失败: {e}")
+                proxy_address = proxy_address_input.text().strip()
+                proxy_port = proxy_port_input.text().strip()
 
-        def _set_network_proxy():
-            """设置网络代理"""
-            device_id = get_selected_device()
-            if not device_id:
-                append_output("⚠ 请先选择设备")
-                return
+                if not proxy_address or not proxy_port:
+                    append_output("⚠ 代理地址和端口不能为空！")
+                    return
 
-            if not check_device_connection(device_id):
-                append_output("⚠ 设备未连接！")
-                return
+                try:
+                    int(proxy_port)
+                except ValueError:
+                    append_output("⚠ 端口号必须是数字！")
+                    return
 
-            proxy_address = proxy_address_input.text().strip()
-            proxy_port = proxy_port_input.text().strip()
+                try:
+                    connection_mode, u2_device = get_current_connection_mode(device_id)
 
-            if not proxy_address or not proxy_port:
-                append_output("⚠ 代理地址和端口不能为空！")
-                return
+                    if connection_mode == 'u2' and u2_device:
+                        from Function_Moudle.adb_network_proxy_thread import SetProxyThread
+                        dialog.work_thread = SetProxyThread(
+                            device_id=device_id,
+                            proxy_address=proxy_address,
+                            proxy_port=proxy_port,
+                            connection_mode='u2',
+                            u2_device=u2_device
+                        )
+                    elif connection_mode == 'adb':
+                        from Function_Moudle.adb_network_proxy_thread import SetProxyThread
+                        dialog.work_thread = SetProxyThread(
+                            device_id=device_id,
+                            proxy_address=proxy_address,
+                            proxy_port=proxy_port,
+                            connection_mode='adb'
+                        )
+                    else:
+                        append_output("⚠ 设备未连接！")
+                        return
 
-            try:
-                int(proxy_port)
-            except ValueError:
-                append_output("⚠ 端口号必须是数字！")
-                return
+                    dialog.work_thread.progress_signal.connect(append_output)
+                    dialog.work_thread.result_signal.connect(append_output)
+                    dialog.work_thread.error_signal.connect(append_output)
+                    dialog.work_thread.start()
 
-            try:
-                connection_mode, u2_device = get_current_connection_mode(device_id)
+                    append_output(f"✓ 设置代理线程已启动: {proxy_address}:{proxy_port}")
+                except Exception as e:
+                    append_output(f"✗ 启动设置代理线程失败: {e}")
 
-                if connection_mode == 'u2' and u2_device:
-                    from Function_Moudle.adb_network_proxy_thread import SetProxyThread
-                    dialog.work_thread = SetProxyThread(
-                        device_id=device_id,
-                        proxy_address=proxy_address,
-                        proxy_port=proxy_port,
-                        connection_mode='u2',
-                        u2_device=u2_device
-                    )
-                elif connection_mode == 'adb':
-                    from Function_Moudle.adb_network_proxy_thread import SetProxyThread
-                    dialog.work_thread = SetProxyThread(
-                        device_id=device_id,
-                        proxy_address=proxy_address,
-                        proxy_port=proxy_port,
-                        connection_mode='adb'
-                    )
-                else:
+            def _clear_network_proxy():
+                """清除网络代理"""
+                device_id = get_selected_device()
+                if not device_id:
+                    append_output("⚠ 请先选择设备")
+                    return
+
+                if not check_device_connection(device_id):
                     append_output("⚠ 设备未连接！")
                     return
 
-                dialog.work_thread.progress_signal.connect(append_output)
-                dialog.work_thread.result_signal.connect(append_output)
-                dialog.work_thread.error_signal.connect(append_output)
-                dialog.work_thread.start()
+                try:
+                    connection_mode, u2_device = get_current_connection_mode(device_id)
 
-                append_output(f"✓ 设置代理线程已启动: {proxy_address}:{proxy_port}")
-            except Exception as e:
-                append_output(f"✗ 启动设置代理线程失败: {e}")
+                    if connection_mode == 'u2' and u2_device:
+                        from Function_Moudle.adb_network_proxy_thread import ClearProxyThread
+                        dialog.work_thread = ClearProxyThread(
+                            device_id=device_id,
+                            connection_mode='u2',
+                            u2_device=u2_device
+                        )
+                    elif connection_mode == 'adb':
+                        from Function_Moudle.adb_network_proxy_thread import ClearProxyThread
+                        dialog.work_thread = ClearProxyThread(
+                            device_id=device_id,
+                            connection_mode='adb'
+                        )
+                    else:
+                        append_output("⚠ 设备未连接！")
+                        return
 
-        def _clear_network_proxy():
-            """清除网络代理"""
-            device_id = get_selected_device()
-            if not device_id:
-                append_output("⚠ 请先选择设备")
-                return
+                    dialog.work_thread.progress_signal.connect(append_output)
+                    dialog.work_thread.result_signal.connect(append_output)
+                    dialog.work_thread.error_signal.connect(append_output)
+                    dialog.work_thread.start()
 
-            if not check_device_connection(device_id):
-                append_output("⚠ 设备未连接！")
-                return
+                    append_output("✓ 清除代理线程已启动")
+                except Exception as e:
+                    append_output(f"✗ 启动清除代理线程失败: {e}")
 
+            # ========== 信号绑定 ==========
+            close_btn.clicked.connect(dialog.accept)
+            refresh_device_btn.clicked.connect(refresh_devices)
+            get_proxy_btn.clicked.connect(_get_network_proxy)
+            set_proxy_btn.clicked.connect(_set_network_proxy)
+            clear_proxy_btn.clicked.connect(_clear_network_proxy)
+
+            # 初始化加载设备
+            refresh_devices()
+            log_method_result("代理管理器", True, "代理管理器已启动")
+
+            # 模态弹窗
+            dialog.exec()
+
+        except Exception as e:
+            logger.error(f"打开网络代理管理对话框失败: {e}", exc_info=True)
+            log_method_result("代理管理器", False, str(e))
             try:
-                connection_mode, u2_device = get_current_connection_mode(device_id)
-
-                if connection_mode == 'u2' and u2_device:
-                    from Function_Moudle.adb_network_proxy_thread import ClearProxyThread
-                    dialog.work_thread = ClearProxyThread(
-                        device_id=device_id,
-                        connection_mode='u2',
-                        u2_device=u2_device
-                    )
-                elif connection_mode == 'adb':
-                    from Function_Moudle.adb_network_proxy_thread import ClearProxyThread
-                    dialog.work_thread = ClearProxyThread(
-                        device_id=device_id,
-                        connection_mode='adb'
-                    )
-                else:
-                    append_output("⚠ 设备未连接！")
-                    return
-
-                dialog.work_thread.progress_signal.connect(append_output)
-                dialog.work_thread.result_signal.connect(append_output)
-                dialog.work_thread.error_signal.connect(append_output)
-                dialog.work_thread.start()
-
-                append_output("✓ 清除代理线程已启动")
-            except Exception as e:
-                append_output(f"✗ 启动清除代理线程失败: {e}")
-
-        # ========== 信号绑定 ==========
-        close_btn.clicked.connect(dialog.accept)
-        refresh_device_btn.clicked.connect(refresh_devices)
-        get_proxy_btn.clicked.connect(_get_network_proxy)
-        set_proxy_btn.clicked.connect(_set_network_proxy)
-        clear_proxy_btn.clicked.connect(_clear_network_proxy)
-
-        # 初始化加载设备
-        refresh_devices()
-        log_method_result("代理管理器", True, "代理管理器已启动")
-
-        # 模态弹窗
-        dialog.exec()
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(
+                    self.main_window, "网络代理管理",
+                    f"打开网络代理管理对话框失败:\n\n{e}"
+                )
+            except Exception:
+                self.textBrowser.append(f"打开网络代理管理失败: {e}")
 
     # ========== 输入法操作 ==========
 
