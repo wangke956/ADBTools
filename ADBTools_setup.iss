@@ -60,6 +60,7 @@ Source: "{#SourceDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; UI 和配置文件
 Source: "{#SourceDir}\adbtool.ui"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\file_manager_ui.ui"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\Dialog_proxy.ui"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#SourceDir}\adbtools_config.json"; DestDir: "{app}"; Flags: ignoreversion
 ; 注意: command_history.log 是运行时生成的日志文件，不需要打包
 

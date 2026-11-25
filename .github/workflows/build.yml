@@ -393,6 +393,7 @@ jobs:
         Copy-Item "adbtools_config.json" "$releaseDir\" -Force
         Copy-Item "adbtool.ui" "$releaseDir\" -Force
         Copy-Item "file_manager_ui.ui" "$releaseDir\" -Force
+        Copy-Item "Dialog_proxy.ui" "$releaseDir\" -Force
         
         # 压缩为 ZIP
         Compress-Archive -Path "$releaseDir\*" -DestinationPath "ADBTools_${{ steps.get_version.outputs.version }}_Windows.zip" -Force

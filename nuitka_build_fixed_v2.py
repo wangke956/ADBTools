@@ -39,6 +39,7 @@ CONFIG = {
     "data_files": [
         ("adbtool.ui", "."),
         ("file_manager_ui.ui", "."),
+        ("Dialog_proxy.ui", "."),
         ("adbtools_config.json", "."),
         ("icon.ico", "."),
         ("admin.manifest", "."),
